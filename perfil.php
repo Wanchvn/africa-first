@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 $profile_id = isset($_GET['id']) ? (int)$_GET['id'] : (int)$_SESSION['user_id'];
 $is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
 
-$stmt = $pdo->prepare("SELECT username FROM users WHERE id = :id");
+$stmt = $pdo->prepare("SELECT username, avatar FROM users WHERE id = :id");
 $stmt->execute([':id' => $profile_id]);
 $profile_user = $stmt->fetch();
 
@@ -20,6 +20,8 @@ if (!$profile_user) {
 }
 
 $message = '';
+$avatar_message = $_SESSION['avatar_message'] ?? '';
+unset($_SESSION['avatar_message']);
 
 // Handle new post submission (only on own profile)
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
@@ -73,10 +75,12 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at,
+        users.avatar,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
         (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
     FROM posts
+    INNER JOIN users ON posts.user_id = users.id
     WHERE posts.user_id = :user_id
     ORDER BY posts.created_at DESC
 ");
@@ -89,7 +93,7 @@ if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.post_id, comments.content, comments.created_at, users.username
+        SELECT comments.post_id, comments.content, comments.created_at, users.username, users.avatar
         FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
@@ -105,13 +109,40 @@ $page_title = $profile_user['username'];
 require 'includes/header.php';
 ?>
 
-<h1>
-    <?= $is_own_profile ? 'Hello, ' : '' ?>
-    <?= htmlspecialchars($profile_user['username']) ?>
-</h1>
+<div class="profile-header">
+    <?php if ($profile_user['avatar']): ?>
+        <img class="avatar avatar-large"
+             src="<?= htmlspecialchars($profile_user['avatar']) ?>"
+             alt="Profile picture">
+    <?php else: ?>
+        <div class="avatar avatar-large avatar-placeholder">
+            <?= strtoupper(substr($profile_user['username'], 0, 1)) ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="profile-info">
+        <h1>
+            <?= $is_own_profile ? 'Hello, ' : '' ?>
+            <?= htmlspecialchars($profile_user['username']) ?>
+        </h1>
+
+        <?php if ($is_own_profile): ?>
+            <form method="POST" action="avatar.php" enctype="multipart/form-data" class="avatar-form">
+                <label for="avatar" class="btn-secondary">Change picture</label>
+                <input type="file" id="avatar" name="avatar"
+                       accept="image/jpeg,image/png,image/gif,image/webp"
+                       onchange="this.form.submit()" style="display:none;">
+            </form>
+        <?php endif; ?>
+    </div>
+</div>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>
+<?php endif; ?>
+
+<?php if ($avatar_message): ?>
+    <div class="message"><?= htmlspecialchars($avatar_message) ?></div>
 <?php endif; ?>
 
 <?php if ($is_own_profile): ?>
@@ -130,7 +161,22 @@ require 'includes/header.php';
 <?php else: ?>
     <?php foreach ($posts as $post): ?>
         <div class="card">
-            <div class="author"><?= htmlspecialchars($profile_user['username']) ?></div>
+            <div class="post-header">
+                <?php if ($post['avatar']): ?>
+                    <img class="avatar avatar-small"
+                         src="<?= htmlspecialchars($post['avatar']) ?>"
+                         alt="">
+                <?php else: ?>
+                    <div class="avatar avatar-small avatar-placeholder">
+                        <?= strtoupper(substr($profile_user['username'], 0, 1)) ?>
+                    </div>
+                <?php endif; ?>
+                <div class="author">
+                    <a href="perfil.php?id=<?= $profile_id ?>">
+                        <?= htmlspecialchars($profile_user['username']) ?>
+                    </a>
+                </div>
+            </div>
 
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
 
@@ -157,7 +203,18 @@ require 'includes/header.php';
                 <div class="comments">
                     <?php foreach ($comments_by_post[$post['id']] as $c): ?>
                         <div class="comment">
-                            <strong><?= htmlspecialchars($c['username']) ?></strong>
+                            <div class="comment-header">
+                                <?php if (!empty($c['avatar'])): ?>
+                                    <img class="avatar avatar-tiny"
+                                         src="<?= htmlspecialchars($c['avatar']) ?>"
+                                         alt="">
+                                <?php else: ?>
+                                    <div class="avatar avatar-tiny avatar-placeholder">
+                                        <?= strtoupper(substr($c['username'], 0, 1)) ?>
+                                    </div>
+                                <?php endif; ?>
+                                <strong><?= htmlspecialchars($c['username']) ?></strong>
+                            </div>
                             <?= htmlspecialchars($c['content']) ?>
                             <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>
                         </div>

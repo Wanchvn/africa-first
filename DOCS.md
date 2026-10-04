@@ -55,3 +55,16 @@ Check off in the roadmap:
 ☑ Comments
 Phase 2 is now underway. Remaining: notifications, search, image uploads (done).
 
+
+
+Add to the Development Log:
+
+Date	Change	Notes
+2026-10-04	Profile pictures working	Upload, display in profiles, feed, comments; placeholder for users without avatars
+Check off in the roadmap:
+
+☑ Profile pictures (add this line if it's not there)
+And add to "Key Decisions":
+
+Decision	Reason
+Initial-letter placeholder avatars	Users feel present even before uploading a picture
