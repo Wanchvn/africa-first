@@ -2,22 +2,18 @@
 session_start();
 require 'config/db.php';
 
-// Block unauthenticated users
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-// Determine whose profile we're viewing
-$profile_id = isset($_GET['id']) ? (int)$_GET['id'] : $_SESSION['user_id'];
+$profile_id = isset($_GET['id']) ? (int)$_GET['id'] : (int)$_SESSION['user_id'];
 $is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
 
-// Fetch the profile owner's info
 $stmt = $pdo->prepare("SELECT username FROM users WHERE id = :id");
 $stmt->execute([':id' => $profile_id]);
 $profile_user = $stmt->fetch();
 
-// If user doesn't exist, bail out
 if (!$profile_user) {
     header('Location: feed.php');
     exit;
@@ -25,15 +21,13 @@ if (!$profile_user) {
 
 $message = '';
 
-// Handle new post submission — only allowed on your own profile
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
     $content = trim($_POST['content']);
     $media_path = null;
 
-    // Handle image upload if present
     if (!empty($_FILES['image']['name'])) {
         $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $max_size = 5 * 1024 * 1024; // 5 MB
+        $max_size = 5 * 1024 * 1024;
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime = finfo_file($finfo, $_FILES['image']['tmp_name']);
@@ -74,57 +68,47 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
     }
 }
 
-// Fetch posts for the profile being viewed
 $stmt = $pdo->prepare("SELECT content, media_path, created_at FROM posts WHERE user_id = :user_id ORDER BY created_at DESC");
 $stmt->execute([':user_id' => $profile_id]);
 $posts = $stmt->fetchAll();
-?>
-<!DOCTYPE html>
-<html>
-<head><title><?= htmlspecialchars($profile_user['username']) ?> — Baobab</title></head>
-<body>
 
-<p>
-    <a href="feed.php">Feed</a> |
-    <a href="descubrir.php">Discover People</a> |
-    <a href="perfil.php">My Profile</a> |
-    <a href="logout.php">Log out</a>
-</p>
+$page_title = $profile_user['username'];
+require 'includes/header.php';
+?>
 
 <h1>
     <?= $is_own_profile ? 'Hello, ' : '' ?>
     <?= htmlspecialchars($profile_user['username']) ?>
 </h1>
 
-<?php if ($message): ?><p><?= htmlspecialchars($message) ?></p><?php endif; ?>
+<?php if ($message): ?>
+    <div class="message"><?= htmlspecialchars($message) ?></div>
+<?php endif; ?>
 
 <?php if ($is_own_profile): ?>
-    <h2>Share something</h2>
-    <form method="POST" enctype="multipart/form-data">
-        <textarea name="content" maxlength="500" placeholder="What's on your mind?" required></textarea><br>
-        <input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp"><br>
-        <button type="submit">Post</button>
-    </form>
-    <h2>Your posts</h2>
-<?php else: ?>
-    <h2>Posts by <?= htmlspecialchars($profile_user['username']) ?></h2>
+    <div class="card">
+        <h2 style="margin-top:0;">Share something</h2>
+        <form method="POST" enctype="multipart/form-data" class="stack">
+            <textarea name="content" maxlength="500" placeholder="What's on your mind?" required></textarea>
+            <input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
+            <button type="submit">Post</button>
+        </form>
+    </div>
 <?php endif; ?>
 
 <?php if (empty($posts)): ?>
-    <p>No posts yet.</p>
+    <div class="empty">No posts yet.</div>
 <?php else: ?>
     <?php foreach ($posts as $post): ?>
-        <div style="border:1px solid #ccc; padding:8px; margin:8px 0;">
-            <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
+        <div class="card">
+            <div class="author"><?= htmlspecialchars($profile_user['username']) ?></div>
+            <div class="content"><?= htmlspecialchars($post['content']) ?></div>
             <?php if ($post['media_path']): ?>
-                <img src="<?= htmlspecialchars($post['media_path']) ?>"
-                     style="max-width: 400px; display: block;"
-                     alt="Post image">
+                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
-            <small><?= htmlspecialchars($post['created_at']) ?></small>
+            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
         </div>
     <?php endforeach; ?>
 <?php endif; ?>
 
-</body>
-</html>
+<?php require 'includes/footer.php'; ?>

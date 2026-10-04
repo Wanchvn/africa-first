@@ -1,5 +1,7 @@
 <?php
+session_start();
 require 'config/db.php';
+
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,18 +29,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+$page_title = 'Join Baobab';
+require 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html>
-<head><title>Join Baobab</title></head>
-<body>
+
 <h1>Join Baobab</h1>
-<?php if ($message): ?><p><?= htmlspecialchars($message) ?></p><?php endif; ?>
-<form method="POST">
-    <input type="text" name="username" placeholder="Username" required><br>
-    <input type="email" name="email" placeholder="Email" required><br>
-    <input type="password" name="password" placeholder="Password (min 8 chars)" required><br>
-    <button type="submit">Create Account</button>
-</form>
-</body>
-</html>
+
+<?php if ($message): ?>
+    <div class="message"><?= htmlspecialchars($message) ?></div>
+<?php endif; ?>
+
+<div class="card">
+    <form method="POST" class="stack">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Password (min 8 characters)" required>
+        <button type="submit">Create Account</button>
+    </form>
+</div>
+
+<p>Already have an account? <a href="login.php">Log in</a></p>
+
+<?php require 'includes/footer.php'; ?>

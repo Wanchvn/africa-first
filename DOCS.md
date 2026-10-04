@@ -33,3 +33,13 @@ Check off in the roadmap:
 
 ☑ Image uploads
 Phase 1 MVP is now fully complete. You have auth, profiles, posts, follows, a feed, and photos.
+
+
+Date	Change	Notes
+2026-10-04	UI polished	style.css, shared header/footer, African-inspired palette
+Add a new section under "Key Decisions":
+
+Decision	Reason
+Warm African palette (terracotta, deep brown, sand, baobab green)	Local identity, not a Facebook clone
+Shared header/footer via includes/	Consistency across pages, easy to update nav
+Card-based layout

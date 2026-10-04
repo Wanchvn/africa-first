@@ -19,37 +19,32 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':me' => $_SESSION['user_id']]);
 $feed = $stmt->fetchAll();
+
+$page_title = 'Feed';
+require 'includes/header.php';
 ?>
-<!DOCTYPE html>
-<html>
-<head><title>Feed — Baobab</title></head>
-<body>
+
 <h1>Your Feed</h1>
-<p>
-    <a href="perfil.php">My Profile</a> |
-    <a href="descubrir.php">Discover People</a> |
-    <a href="logout.php">Log out</a>
-</p>
 
 <?php if (empty($feed)): ?>
-    <p>Your feed is empty. <a href="descubrir.php">Find people to follow</a>.</p>
+    <div class="empty">
+        Your feed is empty. <a href="descubrir.php">Find people to follow</a>.
+    </div>
 <?php else: ?>
     <?php foreach ($feed as $post): ?>
-        <div style="border:1px solid #ccc; padding:8px; margin:8px 0;">
-            <strong>
+        <div class="card">
+            <div class="author">
                 <a href="perfil.php?id=<?= $post['author_id'] ?>">
                     <?= htmlspecialchars($post['username']) ?>
                 </a>
-            </strong>
-            <p><?= nl2br(htmlspecialchars($post['content'])) ?></p>
+            </div>
+            <div class="content"><?= htmlspecialchars($post['content']) ?></div>
             <?php if ($post['media_path']): ?>
-                <img src="<?= htmlspecialchars($post['media_path']) ?>"
-                     style="max-width: 400px; display: block;"
-                     alt="Post image">
+                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
-            <small><?= htmlspecialchars($post['created_at']) ?></small>
+            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
         </div>
     <?php endforeach; ?>
 <?php endif; ?>
-</body>
-</html>
+
+<?php require 'includes/footer.php'; ?>
