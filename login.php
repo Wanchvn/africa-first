@@ -35,7 +35,7 @@ $page_title = 'Log In';
 require 'includes/header.php';
 ?>
 
-<h1>Log in to Baobab</h1>
+<h1>Log in to Qarota</h1>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>

@@ -30,11 +30,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$page_title = 'Join Baobab';
+$page_title = 'Join Qarota';
 require 'includes/header.php';
 ?>
 
-<h1>Join Baobab</h1>
+<h1>Join Qarota</h1>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>

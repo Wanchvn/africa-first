@@ -40,7 +40,7 @@ Date	Change	Notes
 Add a new section under "Key Decisions":
 
 Decision	Reason
-Warm African palette (terracotta, deep brown, sand, baobab green)	Local identity, not a Facebook clone
+Warm African palette (terracotta, deep brown, sand, Qarota green)	Local identity, not a Facebook clone
 Shared header/footer via includes/	Consistency across pages, easy to update nav
 Card-based layout
 
