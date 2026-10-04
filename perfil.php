@@ -222,12 +222,10 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="interactuar.php" class="comment-form">
-                <input type="hidden" name="action" value="comment">
-                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
-                <input type="text" name="content" placeholder="Write a comment..." maxlength="500" required>
-                <button type="submit">Send</button>
+            <form method="POST" action="seguir.php">
+    <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+    <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+    <button type="submit">Follow / Unfollow</button>
             </form>
         </div>
     <?php endforeach; ?>

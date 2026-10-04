@@ -68,3 +68,19 @@ And add to "Key Decisions":
 
 Decision	Reason
 Initial-letter placeholder avatars	Users feel present even before uploading a picture
+
+
+
+
+
+Update DOCS.md Development Log:
+
+Date	Change	Notes
+2026-10-04	Notifications working	Likes, comments, follows trigger notifications; unread badge in header; deduping on toggle
+Check off in the roadmap:
+
+☑ Notifications
+Add to Key Decisions:
+
+Decision	Reason
+Notifications dedupe on un-like	Prevents stale notifications when users toggle likes
