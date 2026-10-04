@@ -1,0 +1,35 @@
+Add these lines to the Development Log section:
+
+Date	Change	Notes
+2026-10-04	Database schema created	users, posts, follows tables
+2026-10-04	registro.php working	Password hashing verified
+2026-10-04	login.php + logout.php working	Sessions functional
+2026-10-04	perfil.php working	User can post and view own posts
+And check off Phase 1 items in the roadmap:
+
+☑ User registration
+☑ Login / logout
+☑ User profile
+☑ Create post
+
+
+ 
+Add to the Development Log:
+
+Date	Change	Notes
+2026-10-04	seguir.php, feed.php, descubrir.php	Follow system + feed live
+2026-10-04	perfil.php supports ?id=	Can view other users
+Check off in the roadmap:
+
+☑ Follow / unfollow
+☑ Feed (posts from followed users)
+Phase 1 MVP is complete. Everything below is growth.
+
+
+
+Date	Change	Notes
+2026-10-04	Photo uploads working	MIME validation, random filenames, display in feed + profile
+Check off in the roadmap:
+
+☑ Image uploads
+Phase 1 MVP is now fully complete. You have auth, profiles, posts, follows, a feed, and photos.
