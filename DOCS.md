@@ -43,3 +43,15 @@ Decision	Reason
 Warm African palette (terracotta, deep brown, sand, baobab green)	Local identity, not a Facebook clone
 Shared header/footer via includes/	Consistency across pages, easy to update nav
 Card-based layout
+
+
+
+
+Date	Change	Notes
+2026-10-04	Likes + comments working	likes/comments tables, interactuar.php handler, counts in feed and profile
+Check off in the roadmap:
+
+☑ Likes
+☑ Comments
+Phase 2 is now underway. Remaining: notifications, search, image uploads (done).
+

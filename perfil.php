@@ -21,6 +21,7 @@ if (!$profile_user) {
 
 $message = '';
 
+// Handle new post submission (only on own profile)
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
     $content = trim($_POST['content']);
     $media_path = null;
@@ -68,9 +69,37 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
     }
 }
 
-$stmt = $pdo->prepare("SELECT content, media_path, created_at FROM posts WHERE user_id = :user_id ORDER BY created_at DESC");
-$stmt->execute([':user_id' => $profile_id]);
+// Fetch posts for the profile being viewed, with like + comment counts
+$stmt = $pdo->prepare("
+    SELECT
+        posts.id, posts.content, posts.media_path, posts.created_at,
+        (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
+        (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
+        (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
+    FROM posts
+    WHERE posts.user_id = :user_id
+    ORDER BY posts.created_at DESC
+");
+$stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
 $posts = $stmt->fetchAll();
+
+// Fetch all comments for these posts in one query
+$comments_by_post = [];
+if (!empty($posts)) {
+    $post_ids = array_column($posts, 'id');
+    $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
+    $stmt = $pdo->prepare("
+        SELECT comments.post_id, comments.content, comments.created_at, users.username
+        FROM comments
+        INNER JOIN users ON comments.user_id = users.id
+        WHERE comments.post_id IN ($placeholders)
+        ORDER BY comments.created_at ASC
+    ");
+    $stmt->execute($post_ids);
+    foreach ($stmt->fetchAll() as $c) {
+        $comments_by_post[$c['post_id']][] = $c;
+    }
+}
 
 $page_title = $profile_user['username'];
 require 'includes/header.php';
@@ -102,11 +131,47 @@ require 'includes/header.php';
     <?php foreach ($posts as $post): ?>
         <div class="card">
             <div class="author"><?= htmlspecialchars($profile_user['username']) ?></div>
+
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
+
             <?php if ($post['media_path']): ?>
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
+
             <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+
+            <div class="actions">
+                <form method="POST" action="interactuar.php" style="display:inline;">
+                    <input type="hidden" name="action" value="like">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                    <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
+                        <?= $post['liked_by_me'] ? '♥' : '♡' ?>
+                        <?= (int)$post['like_count'] ?>
+                    </button>
+                </form>
+                <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+            </div>
+
+            <?php if (!empty($comments_by_post[$post['id']])): ?>
+                <div class="comments">
+                    <?php foreach ($comments_by_post[$post['id']] as $c): ?>
+                        <div class="comment">
+                            <strong><?= htmlspecialchars($c['username']) ?></strong>
+                            <?= htmlspecialchars($c['content']) ?>
+                            <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <form method="POST" action="interactuar.php" class="comment-form">
+                <input type="hidden" name="action" value="comment">
+                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                <input type="text" name="content" placeholder="Write a comment..." maxlength="500" required>
+                <button type="submit">Send</button>
+            </form>
         </div>
     <?php endforeach; ?>
 <?php endif; ?>

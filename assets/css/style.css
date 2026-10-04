@@ -207,3 +207,85 @@ h2 {
     header.site-header nav { gap: 10px; }
     header.site-header nav a { font-size: 0.85rem; }
 }
+
+
+/* ---- Post actions ---- */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.like-btn {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 6px 10px;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: inherit;
+}
+
+.like-btn:hover {
+    background: #FBEDE8;
+    color: var(--terracotta);
+}
+
+.like-btn.liked {
+    color: var(--terracotta);
+    font-weight: 700;
+}
+
+.comment-count {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* ---- Comments ---- */
+.comments {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--sand);
+    border-radius: 10px;
+}
+
+.comment {
+    font-size: 0.92rem;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.comment:last-child { border-bottom: none; }
+
+.comment strong {
+    color: var(--deep-brown);
+    margin-right: 6px;
+}
+
+.comment .meta {
+    font-size: 0.78rem;
+    margin-top: 2px;
+}
+
+/* ---- Comment form ---- */
+.comment-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.comment-form input[type="text"] {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.92rem;
+}
+
+.comment-form button {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
