@@ -1,3 +1,4 @@
 uploads/
 config/db.php
 *.log
+*.zip
