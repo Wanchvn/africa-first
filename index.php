@@ -1,3 +1,4 @@
 <?php
-require 'config/db.php';
-echo "Qarota is alive. Database connected.";
+echo extension_loaded('zip') ? 'ZIP: ON' : 'ZIP: OFF';
+echo '<br>';
+echo extension_loaded('gd') ? 'GD: ON' : 'GD: OFF';

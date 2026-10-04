@@ -19,6 +19,14 @@ if (!$profile_user) {
     exit;
 }
 
+// Check follow status (only when viewing someone else's profile)
+$is_following = false;
+if (!$is_own_profile) {
+    $stmt = $pdo->prepare("SELECT 1 FROM follows WHERE follower_id = :me AND following_id = :them");
+    $stmt->execute([':me' => $_SESSION['user_id'], ':them' => $profile_id]);
+    $is_following = (bool)$stmt->fetch();
+}
+
 $message = '';
 $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
@@ -127,11 +135,22 @@ require 'includes/header.php';
         </h1>
 
         <?php if ($is_own_profile): ?>
-            <form method="POST" action="avatar.php" enctype="multipart/form-data" class="avatar-form">
-                <label for="avatar" class="btn-secondary">Change picture</label>
-                <input type="file" id="avatar" name="avatar"
-                       accept="image/jpeg,image/png,image/gif,image/webp"
-                       onchange="this.form.submit()" style="display:none;">
+            <div class="profile-actions">
+                <form method="POST" action="avatar.php" enctype="multipart/form-data" style="display:inline;">
+                    <label for="avatar" class="btn-secondary">Change picture</label>
+                    <input type="file" id="avatar" name="avatar"
+                           accept="image/jpeg,image/png,image/gif,image/webp"
+                           onchange="this.form.submit()" style="display:none;">
+                </form>
+                <a href="exportar.php" class="btn-secondary">Export my data</a>
+            </div>
+        <?php else: ?>
+            <form method="POST" action="seguir.php">
+                <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+                <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                <button type="submit" class="<?= $is_following ? 'btn-secondary' : '' ?>">
+                    <?= $is_following ? 'Unfollow' : 'Follow' ?>
+                </button>
             </form>
         <?php endif; ?>
     </div>
@@ -222,10 +241,12 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="seguir.php">
-    <input type="hidden" name="target_id" value="<?= $profile_id ?>">
-    <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
-    <button type="submit">Follow / Unfollow</button>
+            <form method="POST" action="interactuar.php" class="comment-form">
+                <input type="hidden" name="action" value="comment">
+                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                <input type="text" name="content" placeholder="Write a comment..." maxlength="500" required>
+                <button type="submit">Send</button>
             </form>
         </div>
     <?php endforeach; ?>
