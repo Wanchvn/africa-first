@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -9,7 +10,6 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
-// Fetch notifications
 $stmt = $pdo->prepare("
     SELECT
         n.id, n.type, n.post_id, n.is_read, n.created_at,
@@ -25,18 +25,17 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id]);
 $notifications = $stmt->fetchAll();
 
-// Mark all as read
 $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = :me AND is_read = 0");
 $stmt->execute([':me' => $user_id]);
 
-$page_title = 'Notifications';
+$page_title = __('notifications_title');
 require 'includes/header.php';
 ?>
 
-<h1>Notifications</h1>
+<h1><?= __('notifications_title') ?></h1>
 
 <?php if (empty($notifications)): ?>
-    <div class="empty">No notifications yet.</div>
+    <div class="empty"><?= __('notifications_empty') ?></div>
 <?php else: ?>
     <?php foreach ($notifications as $n): ?>
         <div class="card notification <?= $n['is_read'] ? '' : 'unread' ?>">
@@ -57,11 +56,11 @@ require 'includes/header.php';
                     </a>
 
                     <?php if ($n['type'] === 'like'): ?>
-                        liked your post
+                        <?= __('notif_liked') ?>
                     <?php elseif ($n['type'] === 'comment'): ?>
-                        commented on your post
+                        <?= __('notif_commented') ?>
                     <?php elseif ($n['type'] === 'follow'): ?>
-                        started following you
+                        <?= __('notif_followed') ?>
                     <?php endif; ?>
 
                     <?php if ($n['post_content']): ?>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -11,23 +12,16 @@ $user_id = (int)$_SESSION['user_id'];
 $post_id = (int)($_GET['post_id'] ?? 0);
 $comment_id = (int)($_GET['comment_id'] ?? 0);
 
-// Must report either a post or a comment
 if ($post_id <= 0 && $comment_id <= 0) {
     header('Location: feed.php');
     exit;
 }
 
-// Verify the target exists and get its owner (so you don't report yourself)
 if ($post_id > 0) {
     $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = :id");
     $stmt->execute([':id' => $post_id]);
     $owner = $stmt->fetchColumn();
-    if ($owner === false) {
-        header('Location: feed.php');
-        exit;
-    }
-    if ((int)$owner === $user_id) {
-        // Can't report your own post
+    if ($owner === false || (int)$owner === $user_id) {
         header('Location: feed.php');
         exit;
     }
@@ -37,11 +31,7 @@ if ($comment_id > 0) {
     $stmt = $pdo->prepare("SELECT user_id FROM comments WHERE id = :id");
     $stmt->execute([':id' => $comment_id]);
     $owner = $stmt->fetchColumn();
-    if ($owner === false) {
-        header('Location: feed.php');
-        exit;
-    }
-    if ((int)$owner === $user_id) {
+    if ($owner === false || (int)$owner === $user_id) {
         header('Location: feed.php');
         exit;
     }
@@ -57,14 +47,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $allowed_reasons = ['spam', 'harassment', 'violence', 'nudity', 'misinformation', 'other'];
 
     if (!in_array($reason, $allowed_reasons, true)) {
-        $errors[] = 'Please choose a reason.';
+        $errors[] = __('report_error_reason');
     }
 
     if (strlen($details) > 1000) {
-        $errors[] = 'Details must be under 1000 characters.';
+        $errors[] = __('report_error_length');
     }
 
-    // Prevent duplicate pending reports from the same user on the same target
     if (empty($errors)) {
         $stmt = $pdo->prepare("
             SELECT id FROM reports
@@ -82,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         if ($stmt->fetch()) {
-            $errors[] = 'You already have a pending report for this content.';
+            $errors[] = __('report_error_duplicate');
         }
     }
 
@@ -99,20 +88,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':details' => $details !== '' ? $details : null,
         ]);
 
-        $message = 'Report submitted. Our team will review it.';
+        $message = __('report_success');
     }
 }
 
-$page_title = 'Report Content';
+$page_title = __('report_title');
 require 'includes/header.php';
 ?>
 
-<h1>Report content</h1>
-
-<div class="card">
-    <p>Help keep Qarota safe. Reports are reviewed by a human — never automated.</p>
-    <p>You're reporting <?= $post_id > 0 ? 'a post' : 'a comment' ?>.</p>
-</div>
+<h1><?= __('report_title') ?></h1>
 
 <?php if (!empty($errors)): ?>
     <div class="message" style="border-left-color: #c0392b; background: #FDECEA;">
@@ -129,9 +113,9 @@ require 'includes/header.php';
 <?php if (empty($message)): ?>
     <div class="card">
         <form method="POST" class="stack">
-            <label for="reason">Reason</label>
+            <label for="reason"><?= __('report_reason') ?></label>
             <select id="reason" name="reason" required>
-                <option value="">Choose a reason...</option>
+                <option value=""><?= __('report_reason') ?>...</option>
                 <option value="spam">Spam or scam</option>
                 <option value="harassment">Harassment or bullying</option>
                 <option value="violence">Violence or threats</option>
@@ -140,15 +124,15 @@ require 'includes/header.php';
                 <option value="other">Other</option>
             </select>
 
-            <label for="details">More details (optional)</label>
+            <label for="details"><?= __('report_details') ?></label>
             <textarea id="details" name="details" maxlength="1000"
                       placeholder="Tell us what's wrong. Be specific."></textarea>
 
-            <button type="submit" class="btn-danger">Submit report</button>
+            <button type="submit" class="btn-danger"><?= __('report_submit') ?></button>
         </form>
     </div>
 <?php endif; ?>
 
-<p><a href="feed.php">← Back to feed</a></p>
+<p><a href="feed.php">← <?= __('nav_feed') ?></a></p>
 
 <?php require 'includes/footer.php'; ?>

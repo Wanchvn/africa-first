@@ -117,3 +117,19 @@ Date	Change	Notes
 Check off in Phase 3 roadmap:
 
 ☑ Report / takedown form
+
+
+Add to Development Log:
+
+Date	Change	Notes
+2026-10-05	Privacy dashboard working	Shows all stored data, activity counts, rights under Act 843
+Check off in Phase 3 roadmap:
+
+☑ Privacy dashboard
+Phase 3 status:
+
+☑ Data export
+☑ Account deletion
+☑ Report / takedown form
+☑ Admin moderation panel
+☑ Privacy dashboard

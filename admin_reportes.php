@@ -1,13 +1,13 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-// Check admin status
 $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id");
 $stmt->execute([':id' => $_SESSION['user_id']]);
 $is_admin = (bool)$stmt->fetchColumn();
@@ -19,25 +19,21 @@ if (!$is_admin) {
 
 $message = '';
 
-// Handle admin actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $report_id = (int)($_POST['report_id'] ?? 0);
     $action = $_POST['admin_action'] ?? '';
 
     if ($report_id > 0 && in_array($action, ['dismiss', 'remove'], true)) {
-        // Get the report
         $stmt = $pdo->prepare("SELECT post_id, comment_id FROM reports WHERE id = :id");
         $stmt->execute([':id' => $report_id]);
         $report = $stmt->fetch();
 
         if ($report) {
             if ($action === 'remove' && !empty($report['post_id'])) {
-                // Delete the post (cascades likes, comments, notifications)
                 $stmt = $pdo->prepare("DELETE FROM posts WHERE id = :id");
                 $stmt->execute([':id' => $report['post_id']]);
             }
 
-            // Mark the report as actioned or dismissed
             $new_status = $action === 'remove' ? 'actioned' : 'dismissed';
             $stmt = $pdo->prepare("
                 UPDATE reports
@@ -55,7 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch pending reports with everything we need to display them
 $stmt = $pdo->prepare("
     SELECT
         r.id, r.reason, r.details, r.created_at,
@@ -73,28 +68,28 @@ $stmt = $pdo->prepare("
 $stmt->execute();
 $reports = $stmt->fetchAll();
 
-$page_title = 'Admin — Reports';
+$page_title = __('admin_title');
 require 'includes/header.php';
 ?>
 
-<h1>Pending reports (<?= count($reports) ?>)</h1>
+<h1><?= __('admin_title') ?> (<?= count($reports) ?>)</h1>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
 
 <?php if (empty($reports)): ?>
-    <div class="empty">No pending reports. Qarota is quiet.</div>
+    <div class="empty"><?= __('admin_no_reports') ?></div>
 <?php else: ?>
     <?php foreach ($reports as $r): ?>
         <div class="card" style="border-left: 4px solid var(--terracotta);">
             <div class="meta">
-                Reported by <strong><?= htmlspecialchars($r['reporter_username']) ?></strong>
-                on <?= htmlspecialchars($r['created_at']) ?>
+                <?= htmlspecialchars($r['reporter_username']) ?> —
+                <?= htmlspecialchars($r['created_at']) ?>
             </div>
 
             <h3 style="margin: 10px 0 6px; color: var(--terracotta);">
-                Reason: <?= htmlspecialchars(ucfirst($r['reason'])) ?>
+                <?= htmlspecialchars(ucfirst($r['reason'])) ?>
             </h3>
 
             <?php if ($r['details']): ?>
@@ -104,11 +99,6 @@ require 'includes/header.php';
             <?php endif; ?>
 
             <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
-
-            <div class="meta">
-                Post by <strong><?= htmlspecialchars($r['author_username']) ?></strong>
-                on <?= htmlspecialchars($r['post_created']) ?>
-            </div>
 
             <div class="content" style="margin: 8px 0;">
                 <?= htmlspecialchars($r['post_content']) ?>
@@ -120,18 +110,18 @@ require 'includes/header.php';
 
             <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
                 <a href="perfil.php?id=<?= $r['author_id'] ?>" class="btn-secondary">
-                    View author's profile
+                    <?= __('nav_profile') ?>
                 </a>
                 <form method="POST" style="display:inline;">
                     <input type="hidden" name="report_id" value="<?= $r['id'] ?>">
                     <input type="hidden" name="admin_action" value="dismiss">
-                    <button type="submit" class="btn-secondary">Dismiss report</button>
+                    <button type="submit" class="btn-secondary"><?= __('admin_dismiss') ?></button>
                 </form>
                 <form method="POST" style="display:inline;"
                       onsubmit="return confirm('Remove this post permanently?');">
                     <input type="hidden" name="report_id" value="<?= $r['id'] ?>">
                     <input type="hidden" name="admin_action" value="remove">
-                    <button type="submit" class="btn-danger">Remove post</button>
+                    <button type="submit" class="btn-danger"><?= __('admin_remove') ?></button>
                 </form>
             </div>
         </div>

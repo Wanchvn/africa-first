@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -11,14 +12,14 @@ $stmt = $pdo->prepare("SELECT id, username FROM users WHERE id != :me ORDER BY c
 $stmt->execute([':me' => $_SESSION['user_id']]);
 $users = $stmt->fetchAll();
 
-$page_title = 'Discover People';
+$page_title = __('discover_title');
 require 'includes/header.php';
 ?>
 
-<h1>Discover People</h1>
+<h1><?= __('discover_title') ?></h1>
 
 <?php if (empty($users)): ?>
-    <div class="empty">No other users yet.</div>
+    <div class="empty"><?= __('discover_empty') ?></div>
 <?php else: ?>
     <?php foreach ($users as $u): ?>
         <div class="user-row">
@@ -29,7 +30,7 @@ require 'includes/header.php';
             </div>
             <form method="POST" action="seguir.php">
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
-                <button type="submit" class="btn-secondary">Follow / Unfollow</button>
+                <button type="submit" class="btn-secondary"><?= __('discover_follow_toggle') ?></button>
             </form>
         </div>
     <?php endforeach; ?>

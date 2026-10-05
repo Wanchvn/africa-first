@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -26,7 +27,6 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 $feed = $stmt->fetchAll();
 
-// Fetch comments for each post in the feed
 $post_ids = array_column($feed, 'id');
 $comments_by_post = [];
 if (!empty($post_ids)) {
@@ -45,15 +45,15 @@ if (!empty($post_ids)) {
     }
 }
 
-$page_title = 'Feed';
+$page_title = __('feed_title');
 require 'includes/header.php';
 ?>
 
-<h1>Your Feed</h1>
+<h1><?= __('feed_title') ?></h1>
 
 <?php if (empty($feed)): ?>
     <div class="empty">
-        Your feed is empty. <a href="descubrir.php">Find people to follow</a>.
+        <?= __('feed_empty') ?> <a href="descubrir.php"><?= __('feed_find_people') ?></a>.
     </div>
 <?php else: ?>
     <?php foreach ($feed as $post): ?>
@@ -95,7 +95,7 @@ require 'includes/header.php';
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
                 <?php if ($post['author_id'] !== (int)$_SESSION['user_id']): ?>
-                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
+                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>
             </div>
 
@@ -126,8 +126,8 @@ require 'includes/header.php';
                 <input type="hidden" name="action" value="comment">
                 <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                 <input type="hidden" name="redirect" value="feed.php">
-                <input type="text" name="content" placeholder="Write a comment..." maxlength="500" required>
-                <button type="submit">Send</button>
+                <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
+                <button type="submit"><?= __('post_send') ?></button>
             </form>
         </div>
     <?php endforeach; ?>

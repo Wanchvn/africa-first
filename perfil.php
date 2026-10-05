@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -19,7 +20,6 @@ if (!$profile_user) {
     exit;
 }
 
-// Check follow status (only when viewing someone else's profile)
 $is_following = false;
 if (!$is_own_profile) {
     $stmt = $pdo->prepare("SELECT 1 FROM follows WHERE follower_id = :me AND following_id = :them");
@@ -31,7 +31,6 @@ $message = '';
 $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
 
-// Handle new post submission (only on own profile)
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
     $content = trim($_POST['content']);
     $media_path = null;
@@ -45,11 +44,11 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
         finfo_close($finfo);
 
         if (!in_array($mime, $allowed)) {
-            $message = 'Only JPG, PNG, GIF, or WebP images are allowed.';
+            $message = __('upload_only_images');
         } elseif ($_FILES['image']['size'] > $max_size) {
-            $message = 'Image must be smaller than 5 MB.';
+            $message = __('upload_too_big');
         } elseif ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-            $message = 'Upload failed. Try again.';
+            $message = __('upload_failed');
         } else {
             $ext = match($mime) {
                 'image/jpeg' => 'jpg',
@@ -63,7 +62,7 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
             if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
                 $media_path = 'uploads/' . $filename;
             } else {
-                $message = 'Could not save the file.';
+                $message = __('upload_save_error');
             }
         }
     }
@@ -75,11 +74,10 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
             ':content' => $content,
             ':media'   => $media_path,
         ]);
-        $message = 'Post published.';
+        $message = __('post_published');
     }
 }
 
-// Fetch posts for the profile being viewed, with like + comment counts
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at,
@@ -95,7 +93,6 @@ $stmt = $pdo->prepare("
 $stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
 $posts = $stmt->fetchAll();
 
-// Fetch all comments for these posts in one query
 $comments_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -130,28 +127,28 @@ require 'includes/header.php';
 
     <div class="profile-info">
         <h1>
-            <?= $is_own_profile ? 'Hello, ' : '' ?>
+            <?= $is_own_profile ? __('profile_hello') . ' ' : '' ?>
             <?= htmlspecialchars($profile_user['username']) ?>
         </h1>
 
         <?php if ($is_own_profile): ?>
             <div class="profile-actions">
                 <form method="POST" action="avatar.php" enctype="multipart/form-data" style="display:inline;">
-                    <label for="avatar" class="btn-secondary">Change picture</label>
+                    <label for="avatar" class="btn-secondary"><?= __('profile_change_picture') ?></label>
                     <input type="file" id="avatar" name="avatar"
                            accept="image/jpeg,image/png,image/gif,image/webp"
                            onchange="this.form.submit()" style="display:none;">
                 </form>
-                <a href="exportar.php" class="btn-secondary">Export my data</a>
-                <a href="privacidad.php" class="btn-secondary">Privacy</a>
-                <a href="eliminar_cuenta.php" class="btn-danger">Delete account</a>
+                <a href="exportar.php" class="btn-secondary"><?= __('profile_export') ?></a>
+                <a href="privacidad.php" class="btn-secondary"><?= __('profile_privacy') ?></a>
+                <a href="eliminar_cuenta.php" class="btn-danger"><?= __('profile_delete') ?></a>
             </div>
         <?php else: ?>
             <form method="POST" action="seguir.php">
                 <input type="hidden" name="target_id" value="<?= $profile_id ?>">
                 <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
                 <button type="submit" class="<?= $is_following ? 'btn-secondary' : '' ?>">
-                    <?= $is_following ? 'Unfollow' : 'Follow' ?>
+                    <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
             </form>
         <?php endif; ?>
@@ -168,17 +165,17 @@ require 'includes/header.php';
 
 <?php if ($is_own_profile): ?>
     <div class="card">
-        <h2 style="margin-top:0;">Share something</h2>
+        <h2 style="margin-top:0;"><?= __('post_share') ?></h2>
         <form method="POST" enctype="multipart/form-data" class="stack">
-            <textarea name="content" maxlength="500" placeholder="What's on your mind?" required></textarea>
+            <textarea name="content" maxlength="500" placeholder="<?= __('post_placeholder') ?>" required></textarea>
             <input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
-            <button type="submit">Post</button>
+            <button type="submit"><?= __('post_button') ?></button>
         </form>
     </div>
 <?php endif; ?>
 
 <?php if (empty($posts)): ?>
-    <div class="empty">No posts yet.</div>
+    <div class="empty"><?= __('profile_no_posts') ?></div>
 <?php else: ?>
     <?php foreach ($posts as $post): ?>
         <div class="card">
@@ -219,7 +216,7 @@ require 'includes/header.php';
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
                 <?php if (!$is_own_profile): ?>
-                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
+                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>
             </div>
 
@@ -250,8 +247,8 @@ require 'includes/header.php';
                 <input type="hidden" name="action" value="comment">
                 <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                 <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
-                <input type="text" name="content" placeholder="Write a comment..." maxlength="500" required>
-                <button type="submit">Send</button>
+                <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
+                <button type="submit"><?= __('post_send') ?></button>
             </form>
         </div>
     <?php endforeach; ?>
