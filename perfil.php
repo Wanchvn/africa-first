@@ -217,6 +217,9 @@ require 'includes/header.php';
                     </button>
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+                <?php if (!$is_own_profile): ?>
+                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
+                <?php endif; ?>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>

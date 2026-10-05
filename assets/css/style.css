@@ -358,3 +358,30 @@ h2 {
     color: #fff;
     text-decoration: none;
 }
+
+
+.report-link {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-left: auto;
+    text-decoration: none;
+}
+
+.report-link:hover {
+    color: #c0392b;
+}
+
+select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 1rem;
+    background: #fff;
+    font-family: inherit;
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--terracotta);
+}

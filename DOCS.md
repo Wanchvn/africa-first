@@ -98,3 +98,12 @@ Add to Key Decisions:
 Decision	Reason
 Full ZIP export including media	Directly answers Facebook's "you can't take it with you" model
 README.txt inside export	Educates users about their own data — not just a dump
+
+
+Add to Development Log:
+
+Date	Change	Notes
+2026-10-05	Account deletion working	Password re-verify + DELETE confirmation; files and DB rows wiped
+Check off in Phase 3:
+
+☑ Account deletion

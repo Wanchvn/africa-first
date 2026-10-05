@@ -5,13 +5,25 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $logged_in = isset($_SESSION['user_id']);
 
+// Load database if not already loaded
+if ($logged_in) {
+    require_once __DIR__ . '/../config/db.php';
+}
+
 // Count unread notifications (only if logged in)
 $unread_count = 0;
 if ($logged_in) {
-    require_once __DIR__ . '/../config/db.php';
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :me AND is_read = 0");
     $stmt->execute([':me' => $_SESSION['user_id']]);
     $unread_count = (int)$stmt->fetchColumn();
+}
+
+// Check admin status (only if logged in)
+$is_admin = false;
+if ($logged_in) {
+    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id");
+    $stmt->execute([':id' => $_SESSION['user_id']]);
+    $is_admin = (bool)$stmt->fetchColumn();
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
@@ -37,6 +49,9 @@ if (!isset($page_title)) $page_title = 'Qarota';
                 <?php endif; ?>
             </a>
             <a href="descubrir.php">Discover</a>
+            <?php if ($is_admin): ?>
+                <a href="admin_reportes.php">Admin</a>
+            <?php endif; ?>
             <a href="perfil.php">My Profile</a>
             <a href="logout.php" style="margin-left:auto;">Log out</a>
         <?php else: ?>

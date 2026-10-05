@@ -12,7 +12,7 @@ $user_id = (int)$_SESSION['user_id'];
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at,
-        users.username, users.id AS author_id,
+        users.username, users.avatar, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
         (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
@@ -32,7 +32,8 @@ $comments_by_post = [];
 if (!empty($post_ids)) {
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.id, comments.post_id, comments.content, comments.created_at, users.username
+        SELECT comments.id, comments.post_id, comments.content, comments.created_at,
+               users.username, users.avatar
         FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
@@ -57,10 +58,21 @@ require 'includes/header.php';
 <?php else: ?>
     <?php foreach ($feed as $post): ?>
         <div class="card">
-            <div class="author">
-                <a href="perfil.php?id=<?= $post['author_id'] ?>">
-                    <?= htmlspecialchars($post['username']) ?>
-                </a>
+            <div class="post-header">
+                <?php if ($post['avatar']): ?>
+                    <img class="avatar avatar-small"
+                         src="<?= htmlspecialchars($post['avatar']) ?>"
+                         alt="">
+                <?php else: ?>
+                    <div class="avatar avatar-small avatar-placeholder">
+                        <?= strtoupper(substr($post['username'], 0, 1)) ?>
+                    </div>
+                <?php endif; ?>
+                <div class="author">
+                    <a href="perfil.php?id=<?= $post['author_id'] ?>">
+                        <?= htmlspecialchars($post['username']) ?>
+                    </a>
+                </div>
             </div>
 
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
@@ -82,13 +94,27 @@ require 'includes/header.php';
                     </button>
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+                <?php if ($post['author_id'] !== (int)$_SESSION['user_id']): ?>
+                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
+                <?php endif; ?>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>
                 <div class="comments">
                     <?php foreach ($comments_by_post[$post['id']] as $c): ?>
                         <div class="comment">
-                            <strong><?= htmlspecialchars($c['username']) ?></strong>
+                            <div class="comment-header">
+                                <?php if (!empty($c['avatar'])): ?>
+                                    <img class="avatar avatar-tiny"
+                                         src="<?= htmlspecialchars($c['avatar']) ?>"
+                                         alt="">
+                                <?php else: ?>
+                                    <div class="avatar avatar-tiny avatar-placeholder">
+                                        <?= strtoupper(substr($c['username'], 0, 1)) ?>
+                                    </div>
+                                <?php endif; ?>
+                                <strong><?= htmlspecialchars($c['username']) ?></strong>
+                            </div>
                             <?= htmlspecialchars($c['content']) ?>
                             <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>
                         </div>
