@@ -133,3 +133,9 @@ Phase 3 status:
 ☑ Report / takedown form
 ☑ Admin moderation panel
 ☑ Privacy dashboard
+
+
+Add to Development Log:
+
+Date	Change	Notes
+2026-10-05	Mobile hamburger nav complete	☰ toggle, overlay dim, tap-outside close

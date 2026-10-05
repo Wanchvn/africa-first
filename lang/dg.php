@@ -12,6 +12,10 @@ return [
 
     'discover_title' => 'Bɔ Niriba',
 
+
+    'nav_moderation' => 'Sɔɣibu',
+    'mod_title' => 'Sɔɣibu Lahabali',
+
     'login_title' => 'Kpe Qarota',
     'login_username' => 'Yuli',            // "name"
     'login_password' => 'Asalichi yɛltɔɣa',

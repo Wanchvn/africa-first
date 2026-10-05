@@ -59,6 +59,7 @@ if (!isset($page_title)) $page_title = 'Qarota';
                     <a href="admin_reportes.php"><?= __('nav_admin') ?></a>
                 <?php endif; ?>
                 <a href="privacidad.php"><?= __('nav_privacy') ?></a>
+                <a href="moderacion.php"><?= __('nav_moderation') ?></a>
                 <a href="perfil.php"><?= __('nav_profile') ?></a>
                 <a href="logout.php" class="nav-logout"><?= __('nav_logout') ?></a>
             <?php else: ?>

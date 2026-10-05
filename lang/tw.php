@@ -11,6 +11,10 @@ return [
     'nav_login' => 'Bra mu',            // "enter"
     'nav_register' => 'Nkrataa',        // "register/paper"
 
+
+    'nav_moderation' => 'Nhyehyɛe',
+    'mod_title' => 'Nhyehyɛe Nhoma',
+
     'discover_title' => 'Hwehwɛ Nnipa',
 
     // Login / Register

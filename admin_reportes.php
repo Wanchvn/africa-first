@@ -24,16 +24,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['admin_action'] ?? '';
 
     if ($report_id > 0 && in_array($action, ['dismiss', 'remove'], true)) {
-        $stmt = $pdo->prepare("SELECT post_id, comment_id FROM reports WHERE id = :id");
+        // Fetch the report including reason (needed for the log)
+        $stmt = $pdo->prepare("SELECT post_id, comment_id, reason FROM reports WHERE id = :id");
         $stmt->execute([':id' => $report_id]);
         $report = $stmt->fetch();
 
         if ($report) {
+            $report_reason = $report['reason'] ?? null;
+
+            // ---- Remove action ----
             if ($action === 'remove' && !empty($report['post_id'])) {
+                // Fetch post content BEFORE deleting (for the log excerpt)
+                $stmt = $pdo->prepare("SELECT content FROM posts WHERE id = :id");
+                $stmt->execute([':id' => $report['post_id']]);
+                $post_content = $stmt->fetchColumn();
+
+                // Only include excerpt for safe categories
+                $safe_categories = ['spam', 'misinformation', 'harassment', 'other'];
+                $excerpt = ($post_content && in_array($report_reason, $safe_categories, true))
+                    ? mb_substr($post_content, 0, 200)
+                    : null;
+
+                // Delete the post (cascades to likes, comments, notifications)
                 $stmt = $pdo->prepare("DELETE FROM posts WHERE id = :id");
                 $stmt->execute([':id' => $report['post_id']]);
+
+                // Log the removal publicly
+                $stmt = $pdo->prepare("
+                    INSERT INTO moderation_log
+                        (action_type, post_excerpt, policy_category, admin_id)
+                    VALUES ('post_removed', :excerpt, :category, :admin)
+                ");
+                $stmt->execute([
+                    ':excerpt' => $excerpt,
+                    ':category' => $report_reason,
+                    ':admin' => $_SESSION['user_id'],
+                ]);
             }
 
+            // ---- Dismiss action ----
+            if ($action === 'dismiss') {
+                // Log the dismissal publicly
+                $stmt = $pdo->prepare("
+                    INSERT INTO moderation_log
+                        (action_type, policy_category, admin_id)
+                    VALUES ('report_dismissed', :category, :admin)
+                ");
+                $stmt->execute([
+                    ':category' => $report_reason,
+                    ':admin' => $_SESSION['user_id'],
+                ]);
+            }
+
+            // ---- Update report status ----
             $new_status = $action === 'remove' ? 'actioned' : 'dismissed';
             $stmt = $pdo->prepare("
                 UPDATE reports
@@ -51,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Fetch pending reports
 $stmt = $pdo->prepare("
     SELECT
         r.id, r.reason, r.details, r.created_at,

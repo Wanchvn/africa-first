@@ -12,6 +12,9 @@ return [
     'nav_register' => 'Register',
     'discover_title' => 'Discover People',
 
+    'nav_moderation' => 'Moderation',
+    'mod_title' => 'Moderation Log',
+
     // Login / Register
     'login_title' => 'Log in to Qarota',
     'login_username' => 'Username',

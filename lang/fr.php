@@ -13,6 +13,9 @@ return [
 
     'discover_title' => 'Découvrir des personnes',
 
+    'nav_moderation' => 'Modération',
+    'mod_title' => 'Journal de modération',
+
     // Login / Register
     'login_title' => 'Connectez-vous à Qarota',
     'login_username' => "Nom d'utilisateur",
