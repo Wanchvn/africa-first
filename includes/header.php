@@ -48,6 +48,7 @@ if (!isset($page_title)) $page_title = 'Qarota';
                 <?php endif; ?>
             </a>
             <a href="descubrir.php"><?= __('nav_discover') ?></a>
+            <a href="buscar.php"><?= __('nav_search') ?></a>
             <?php if ($is_admin): ?>
                 <a href="admin_reportes.php"><?= __('nav_admin') ?></a>
             <?php endif; ?>

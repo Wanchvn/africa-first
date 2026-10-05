@@ -8,8 +8,20 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$stmt = $pdo->prepare("SELECT id, username FROM users WHERE id != :me ORDER BY created_at DESC");
-$stmt->execute([':me' => $_SESSION['user_id']]);
+$user_id = (int)$_SESSION['user_id'];
+
+$stmt = $pdo->prepare("
+    SELECT
+        users.id, users.username, users.avatar,
+        (SELECT 1 FROM follows WHERE follower_id = :me_follow AND following_id = users.id) AS is_following
+    FROM users
+    WHERE users.id != :me
+    ORDER BY users.created_at DESC
+");
+$stmt->execute([
+    ':me' => $user_id,
+    ':me_follow' => $user_id,
+]);
 $users = $stmt->fetchAll();
 
 $page_title = __('discover_title');
@@ -23,14 +35,26 @@ require 'includes/header.php';
 <?php else: ?>
     <?php foreach ($users as $u): ?>
         <div class="user-row">
-            <div class="name">
-                <a href="perfil.php?id=<?= $u['id'] ?>">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <?php if ($u['avatar']): ?>
+                    <img class="avatar avatar-small"
+                         src="<?= htmlspecialchars($u['avatar']) ?>"
+                         alt="">
+                <?php else: ?>
+                    <div class="avatar avatar-small avatar-placeholder">
+                        <?= strtoupper(substr($u['username'], 0, 1)) ?>
+                    </div>
+                <?php endif; ?>
+                <a href="perfil.php?id=<?= $u['id'] ?>" class="name">
                     <?= htmlspecialchars($u['username']) ?>
                 </a>
             </div>
             <form method="POST" action="seguir.php">
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
-                <button type="submit" class="btn-secondary"><?= __('discover_follow_toggle') ?></button>
+                <input type="hidden" name="redirect" value="descubrir.php">
+                <button type="submit" class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>">
+                    <?= $u['is_following'] ? __('profile_unfollow') : __('profile_follow') ?>
+                </button>
             </form>
         </div>
     <?php endforeach; ?>

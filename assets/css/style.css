@@ -174,12 +174,23 @@ button:hover, .btn:hover {
     background: transparent;
     color: var(--terracotta);
     border: 1px solid var(--terracotta);
+    padding: 11px 20px;
+    font-size: 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-block;
+    text-decoration: none;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
 }
 
 .btn-secondary:hover {
     background: var(--terracotta);
     color: #fff;
+    text-decoration: none;
 }
+
 
 .btn-danger {
     background: transparent;
@@ -472,5 +483,26 @@ select:focus {
     .lang-switcher a {
         font-size: 0.6rem;
         padding: 2px 5px;
+    }
+}
+
+/* Search page specific */
+.user-row .name {
+    font-weight: 600;
+    color: var(--deep-brown);
+    font-size: 1rem;
+}
+
+@media (max-width: 480px) {
+    .user-row {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 10px;
+    }
+    .user-row form {
+        width: 100%;
+    }
+    .user-row form button {
+        width: 100%;
     }
 }

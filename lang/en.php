@@ -10,6 +10,7 @@ return [
     'nav_logout' => 'Log out',
     'nav_login' => 'Log in',
     'nav_register' => 'Register',
+    'discover_title' => 'Discover People',
 
     // Login / Register
     'login_title' => 'Log in to Qarota',
@@ -80,4 +81,15 @@ return [
 'upload_too_big' => 'Image must be smaller than 5 MB.',
 'upload_failed' => 'Upload failed. Try again.',
 'upload_save_error' => 'Could not save the file.',
+
+
+'nav_search' => 'Search',
+'search_title' => 'Search Qarota',
+'search_placeholder' => 'Search people and posts...',
+'search_button' => 'Search',
+'search_clear' => 'Clear',
+'search_too_short' => 'Type at least 2 characters to search.',
+'search_no_results' => 'No results found.',
+'search_people' => 'People',
+'search_posts' => 'Posts',
 ];

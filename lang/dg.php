@@ -10,6 +10,8 @@ return [
     'nav_login' => 'Kpe',                  // "enter"
     'nav_register' => 'Boli',              // "call/register"
 
+    'discover_title' => 'Bɔ Niriba',
+
     'login_title' => 'Kpe Qarota',
     'login_username' => 'Yuli',            // "name"
     'login_password' => 'Asalichi yɛltɔɣa',
@@ -101,4 +103,14 @@ return [
     'lang_twi' => 'Twi',
     'lang_french' => 'Français',
     'lang_dagbani' => 'Dagbanli',
+
+    'nav_search' => 'Bɔ',
+'search_title' => 'Bɔ Qarota',
+'search_placeholder' => 'Bɔ niriba ni lahabali...',
+'search_button' => 'Bɔ',
+'search_clear' => 'Nimsi',
+'search_too_short' => 'Sabmi bachi 2 bee din pahira.',
+'search_no_results' => 'Di bi bo.',
+'search_people' => 'Niriba',
+'search_posts' => 'Lahabali',
 ];

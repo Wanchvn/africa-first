@@ -60,7 +60,7 @@ if ($stmt->fetch()) {
 
 // Redirect back to where the action came from
 $redirect = $_POST['redirect'] ?? 'descubrir.php';
-$allowed = ['descubrir.php', 'perfil.php'];
+$allowed = ['descubrir.php', 'perfil.php', 'buscar.php'];
 $redirect_base = strtok($redirect, '?');
 if (!in_array($redirect_base, $allowed, true)) {
     $redirect = 'descubrir.php';

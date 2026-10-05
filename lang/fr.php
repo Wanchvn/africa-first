@@ -11,6 +11,8 @@ return [
     'nav_login' => 'Connexion',
     'nav_register' => "S'inscrire",
 
+    'discover_title' => 'Découvrir des personnes',
+
     // Login / Register
     'login_title' => 'Connectez-vous à Qarota',
     'login_username' => "Nom d'utilisateur",
@@ -80,4 +82,15 @@ return [
 'upload_too_big' => "L'image doit faire moins de 5 Mo.",
 'upload_failed' => 'Échec du téléchargement. Réessayez.',
 'upload_save_error' => "Impossible d'enregistrer le fichier.",
+
+
+'nav_search' => 'Rechercher',
+'search_title' => 'Rechercher sur Qarota',
+'search_placeholder' => 'Rechercher des personnes et des publications...',
+'search_button' => 'Rechercher',
+'search_clear' => 'Effacer',
+'search_too_short' => 'Tapez au moins 2 caractères.',
+'search_no_results' => 'Aucun résultat.',
+'search_people' => 'Personnes',
+'search_posts' => 'Publications',
 ];

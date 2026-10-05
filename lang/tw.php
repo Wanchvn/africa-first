@@ -11,6 +11,8 @@ return [
     'nav_login' => 'Bra mu',            // "enter"
     'nav_register' => 'Nkrataa',        // "register/paper"
 
+    'discover_title' => 'Hwehwɛ Nnipa',
+
     // Login / Register
     'login_title' => 'Bra Qarota mu',
     'login_username' => 'Din',
@@ -80,4 +82,14 @@ return [
 'upload_too_big' => 'Mfonini no kɛse dodo.',
 'upload_failed' => 'Upload no nyɛ yie.',
 'upload_save_error' => 'Yɛantumi ansie faele no.',
+
+'nav_search' => 'Hwehwɛ',
+'search_title' => 'Hwehwɛ Qarota',
+'search_placeholder' => 'Hwehwɛ nnipa ne nhoma...',
+'search_button' => 'Hwehwɛ',
+'search_clear' => 'Popa',
+'search_too_short' => 'Kyerɛw nkyerɛw 2 anaa nea ɛboro so.',
+'search_no_results' => 'Yɛanhu biribiara.',
+'search_people' => 'Nnipa',
+'search_posts' => 'Nhoma',
 ];
