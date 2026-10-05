@@ -52,6 +52,8 @@ if (!isset($page_title)) $page_title = 'Qarota';
             <?php if ($is_admin): ?>
                 <a href="admin_reportes.php">Admin</a>
             <?php endif; ?>
+
+            <a href="privacidad.php">Privacy</a>
             <a href="perfil.php">My Profile</a>
             <a href="logout.php" style="margin-left:auto;">Log out</a>
         <?php else: ?>

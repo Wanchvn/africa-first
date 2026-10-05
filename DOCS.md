@@ -107,3 +107,13 @@ Date	Change	Notes
 Check off in Phase 3:
 
 ☑ Account deletion
+
+
+Add to Development Log:
+
+Date	Change	Notes
+2026-10-05	Report form working	Users can report posts with reason + details
+2026-10-05	Admin panel working	Admin reviews reports, dismisses or removes posts
+Check off in Phase 3 roadmap:
+
+☑ Report / takedown form
