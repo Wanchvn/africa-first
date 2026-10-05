@@ -39,26 +39,34 @@ if (!isset($page_title)) $page_title = 'Qarota';
 <header class="site-header">
     <nav>
         <a href="feed.php" class="brand">Qarota</a>
-        <?php if ($logged_in): ?>
-            <a href="feed.php"><?= __('nav_feed') ?></a>
-            <a href="notificaciones.php" class="nav-notifications">
-                <?= __('nav_notifications') ?>
-                <?php if ($unread_count > 0): ?>
-                    <span class="badge"><?= $unread_count ?></span>
+
+        <button class="nav-toggle" onclick="toggleNav()" aria-label="Menu">
+            <span class="nav-toggle-icon">☰</span>
+        </button>
+
+        <div class="nav-links" id="navLinks">
+            <?php if ($logged_in): ?>
+                <a href="feed.php"><?= __('nav_feed') ?></a>
+                <a href="notificaciones.php" class="nav-notifications">
+                    <?= __('nav_notifications') ?>
+                    <?php if ($unread_count > 0): ?>
+                        <span class="badge"><?= $unread_count ?></span>
+                    <?php endif; ?>
+                </a>
+                <a href="descubrir.php"><?= __('nav_discover') ?></a>
+                <a href="buscar.php"><?= __('nav_search') ?></a>
+                <?php if ($is_admin): ?>
+                    <a href="admin_reportes.php"><?= __('nav_admin') ?></a>
                 <?php endif; ?>
-            </a>
-            <a href="descubrir.php"><?= __('nav_discover') ?></a>
-            <a href="buscar.php"><?= __('nav_search') ?></a>
-            <?php if ($is_admin): ?>
-                <a href="admin_reportes.php"><?= __('nav_admin') ?></a>
+                <a href="privacidad.php"><?= __('nav_privacy') ?></a>
+                <a href="perfil.php"><?= __('nav_profile') ?></a>
+                <a href="logout.php" class="nav-logout"><?= __('nav_logout') ?></a>
+            <?php else: ?>
+                <a href="login.php" class="nav-logout"><?= __('nav_login') ?></a>
+                <a href="registro.php"><?= __('nav_register') ?></a>
             <?php endif; ?>
-            <a href="privacidad.php"><?= __('nav_privacy') ?></a>
-            <a href="perfil.php"><?= __('nav_profile') ?></a>
-            <a href="logout.php" style="margin-left:auto;"><?= __('nav_logout') ?></a>
-        <?php else: ?>
-            <a href="login.php" style="margin-left:auto;"><?= __('nav_login') ?></a>
-            <a href="registro.php"><?= __('nav_register') ?></a>
-        <?php endif; ?>
+        </div>
+
         <div class="lang-switcher">
             <a href="?setlang=en" class="<?= $_SESSION['lang'] === 'en' ? 'active' : '' ?>">EN</a>
             <a href="?setlang=tw" class="<?= $_SESSION['lang'] === 'tw' ? 'active' : '' ?>">TW</a>
@@ -67,4 +75,25 @@ if (!isset($page_title)) $page_title = 'Qarota';
         </div>
     </nav>
 </header>
+
+<div id="navOverlay" onclick="toggleNav()"></div>
+
+<script>
+function toggleNav() {
+    var nav = document.getElementById('navLinks');
+    var overlay = document.getElementById('navOverlay');
+    var isOpen = nav.classList.toggle('open');
+    overlay.classList.toggle('open', isOpen);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#navLinks a').forEach(function(link) {
+        link.addEventListener('click', function() {
+            document.getElementById('navLinks').classList.remove('open');
+            document.getElementById('navOverlay').classList.remove('open');
+        });
+    });
+});
+</script>
+
 <main class="container">
