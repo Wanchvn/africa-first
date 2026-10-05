@@ -84,3 +84,17 @@ Add to Key Decisions:
 
 Decision	Reason
 Notifications dedupe on un-like	Prevents stale notifications when users toggle likes
+
+
+Add to Development Log:
+
+Date	Change	Notes
+2026-10-04	Data export working	ZIP with all user data: profile, posts, comments, likes, follows, notifications, media
+Check off in Phase 3 roadmap:
+
+☑ Data export (JSON + ZIP)
+Add to Key Decisions:
+
+Decision	Reason
+Full ZIP export including media	Directly answers Facebook's "you can't take it with you" model
+README.txt inside export	Educates users about their own data — not just a dump

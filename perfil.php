@@ -143,6 +143,7 @@ require 'includes/header.php';
                            onchange="this.form.submit()" style="display:none;">
                 </form>
                 <a href="exportar.php" class="btn-secondary">Export my data</a>
+                <a href="eliminar_cuenta.php" class="btn-danger">Delete account</a>
             </div>
         <?php else: ?>
             <form method="POST" action="seguir.php">

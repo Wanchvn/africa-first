@@ -32,10 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $page_title = 'Log In';
+
+// Show farewell message if redirected from deletion
+$login_message = $_SESSION['login_message'] ?? '';
+unset($_SESSION['login_message']);
+
 require 'includes/header.php';
 ?>
 
 <h1>Log in to Qarota</h1>
+
+<?php if ($login_message): ?>
+    <div class="message"><?= htmlspecialchars($login_message) ?></div>
+<?php endif; ?>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>
