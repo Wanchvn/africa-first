@@ -61,6 +61,11 @@ require 'includes/header.php';
             </form>
         </div>
     <?php endforeach; ?>
+
+    <div class="end-of-feed">
+        <strong>That's everyone</strong>
+        You've seen all the people on Qarota.
+    </div>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

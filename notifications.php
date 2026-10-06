@@ -76,6 +76,11 @@ require 'includes/header.php';
             </div>
         </div>
     <?php endforeach; ?>
+
+    <div class="end-of-feed">
+        <strong>That's everything</strong>
+        You're up to date.
+    </div>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

@@ -135,6 +135,11 @@ require 'includes/header.php';
             </form>
         </div>
     <?php endforeach; ?>
+
+    <div class="end-of-feed">
+        <strong>You're all caught up</strong>
+        There are no more posts from people you follow.
+    </div>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

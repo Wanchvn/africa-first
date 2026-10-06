@@ -166,4 +166,11 @@ require 'includes/header.php';
     <?php endforeach; ?>
 <?php endif; ?>
 
+<?php if ($has_results): ?>
+    <div class="end-of-feed">
+        <strong>End of results</strong>
+        Try a different search term to find more.
+    </div>
+<?php endif; ?>
+
 <?php require 'includes/footer.php'; ?>
