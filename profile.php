@@ -11,25 +11,43 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$profile_id = isset($_GET['id']) ? (int)$_GET['id'] : (int)$_SESSION['user_id'];
-$is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
+// Backward compatibility: redirect old ?id= URLs to new ?u= URLs
+if (isset($_GET['id']) && !isset($_GET['u'])) {
+    $old_id = (int)$_GET['id'];
+    if ($old_id > 0) {
+        $stmt = $pdo->prepare("SELECT username FROM users WHERE id = :id");
+        $stmt->execute([':id' => $old_id]);
+        $old_username = $stmt->fetchColumn();
+        if ($old_username) {
+            header('Location: profile.php?u=' . urlencode($old_username), true, 301);
+            exit;
+        }
+    }
+    header('Location: feed.php');
+    exit;
+}
+
+$profile_username = $_GET['u'] ?? $_SESSION['username'];
 
 $stmt = $pdo->prepare("
     SELECT
-        username, avatar, bio,
+        id, username, avatar, bio,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
         (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
         (SELECT COUNT(*) FROM posts WHERE user_id = users.id) AS post_count
     FROM users
-    WHERE id = :id
+    WHERE username = :username
 ");
-$stmt->execute([':id' => $profile_id]);
+$stmt->execute([':username' => $profile_username]);
 $profile_user = $stmt->fetch();
 
 if (!$profile_user) {
     header('Location: feed.php');
     exit;
 }
+
+$profile_id = (int)$profile_user['id'];
+$is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
 
 $is_following = false;
 if (!$is_own_profile) {
@@ -174,7 +192,7 @@ require 'includes/header.php';
             <form method="POST" action="follow.php" style="margin-top:8px;">
                 <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $profile_id ?>">
-                <input type="hidden" name="redirect" value="profile.php?id=<?= $profile_id ?>">
+                <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
                 <button type="submit" class="<?= $is_following ? 'btn-secondary' : '' ?>">
                     <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
@@ -219,7 +237,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?id=<?= $profile_id ?>">
+                    <a href="profile.php?u=<?= urlencode($profile_user['username']) ?>">
                         <?= htmlspecialchars($profile_user['username']) ?>
                     </a>
                 </div>
@@ -238,7 +256,7 @@ require 'includes/header.php';
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="profile.php?id=<?= $profile_id ?>">
+                    <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
                         <?= $post['liked_by_me'] ? '♥' : '♡' ?>
                         <?= (int)$post['like_count'] ?>
@@ -277,7 +295,7 @@ require 'includes/header.php';
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="comment">
                 <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="profile.php?id=<?= $profile_id ?>">
+                <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
                 <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
                 <button type="submit"><?= __('post_send') ?></button>
             </form>

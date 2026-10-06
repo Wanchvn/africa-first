@@ -157,7 +157,7 @@ require 'includes/header.php';
             <?php endif; ?>
 
             <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                <a href="profile.php?id=<?= $r['author_id'] ?>" class="btn-secondary">
+                <a href="profile.php?u=<?= urlencode($r['author_username']) ?>" class="btn-secondary">
                     <?= __('nav_profile') ?>
                 </a>
                 <form method="POST" style="display:inline;">

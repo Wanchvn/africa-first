@@ -71,7 +71,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?id=<?= $post['author_id'] ?>">
+                    <a href="profile.php?u=<?= urlencode($post['username']) ?>">
                         <?= htmlspecialchars($post['username']) ?>
                     </a>
                 </div>

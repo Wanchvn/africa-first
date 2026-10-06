@@ -53,7 +53,7 @@ require 'includes/header.php';
                 <?php endif; ?>
 
                 <div class="notification-body">
-                    <a href="profile.php?id=<?= $n['actor_id'] ?>">
+                    <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>">
                         <strong><?= htmlspecialchars($n['actor_username']) ?></strong>
                     </a>
 

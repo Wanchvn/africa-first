@@ -19,7 +19,6 @@ $posts = [];
 if ($query !== '' && mb_strlen($query) >= 2) {
     $like = '%' . $query . '%';
 
-    // ---- User search (with follow status) ----
     $stmt = $pdo->prepare("
         SELECT
             users.id, users.username, users.avatar,
@@ -37,7 +36,6 @@ if ($query !== '' && mb_strlen($query) >= 2) {
     ]);
     $users = $stmt->fetchAll();
 
-    // ---- Post search ----
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at,
@@ -80,15 +78,11 @@ require 'includes/header.php';
 </div>
 
 <?php if ($query_too_short): ?>
-    <div class="message">
-        <?= __('search_too_short') ?>
-    </div>
+    <div class="message"><?= __('search_too_short') ?></div>
 <?php endif; ?>
 
 <?php if ($show_empty): ?>
-    <div class="empty">
-        <?= __('search_no_results') ?>
-    </div>
+    <div class="empty"><?= __('search_no_results') ?></div>
 <?php endif; ?>
 
 <?php if (!empty($users)): ?>
@@ -105,7 +99,7 @@ require 'includes/header.php';
                         <?= strtoupper(substr($u['username'], 0, 1)) ?>
                     </div>
                 <?php endif; ?>
-                <a href="profile.php?id=<?= $u['id'] ?>" class="name">
+                <a href="profile.php?u=<?= urlencode($u['username']) ?>" class="name">
                     <?= htmlspecialchars($u['username']) ?>
                 </a>
             </div>
@@ -136,7 +130,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?id=<?= $post['author_id'] ?>">
+                    <a href="profile.php?u=<?= urlencode($post['username']) ?>">
                         <?= htmlspecialchars($post['username']) ?>
                     </a>
                 </div>
