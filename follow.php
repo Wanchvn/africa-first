@@ -1,17 +1,20 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
+csrf_verify();
+
 $my_id = (int)$_SESSION['user_id'];
 $target_id = (int)($_POST['target_id'] ?? 0);
 
 if ($target_id <= 0 || $target_id === $my_id) {
-    header('Location: descubrir.php');
+    header('Location: discover.php');
     exit;
 }
 
@@ -19,7 +22,7 @@ if ($target_id <= 0 || $target_id === $my_id) {
 $stmt = $pdo->prepare("SELECT id FROM users WHERE id = :id");
 $stmt->execute([':id' => $target_id]);
 if (!$stmt->fetch()) {
-    header('Location: descubrir.php');
+    header('Location: discover.php');
     exit;
 }
 
@@ -59,11 +62,11 @@ if ($stmt->fetch()) {
 }
 
 // Redirect back to where the action came from
-$redirect = $_POST['redirect'] ?? 'descubrir.php';
-$allowed = ['descubrir.php', 'perfil.php', 'buscar.php'];
+$redirect = $_POST['redirect'] ?? 'discover.php';
+$allowed = ['discover.php', 'profile.php', 'search.php'];
 $redirect_base = strtok($redirect, '?');
 if (!in_array($redirect_base, $allowed, true)) {
-    $redirect = 'descubrir.php';
+    $redirect = 'discover.php';
 }
 
 header("Location: $redirect");

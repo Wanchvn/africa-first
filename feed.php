@@ -53,7 +53,7 @@ require 'includes/header.php';
 
 <?php if (empty($feed)): ?>
     <div class="empty">
-        <?= __('feed_empty') ?> <a href="descubrir.php"><?= __('feed_find_people') ?></a>.
+        <?= __('feed_empty') ?> <a href="discover.php"><?= __('feed_find_people') ?></a>.
     </div>
 <?php else: ?>
     <?php foreach ($feed as $post): ?>
@@ -69,7 +69,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="perfil.php?id=<?= $post['author_id'] ?>">
+                    <a href="profile.php?id=<?= $post['author_id'] ?>">
                         <?= htmlspecialchars($post['username']) ?>
                     </a>
                 </div>
@@ -84,7 +84,8 @@ require 'includes/header.php';
             <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
 
             <div class="actions">
-                <form method="POST" action="interactuar.php" style="display:inline;">
+                <form method="POST" action="interact.php" style="display:inline;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                     <input type="hidden" name="redirect" value="feed.php">
@@ -95,7 +96,7 @@ require 'includes/header.php';
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
                 <?php if ($post['author_id'] !== (int)$_SESSION['user_id']): ?>
-                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
+                    <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>
             </div>
 
@@ -122,7 +123,8 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="interactuar.php" class="comment-form">
+            <form method="POST" action="interact.php" class="comment-form">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="comment">
                 <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                 <input type="hidden" name="redirect" value="feed.php">

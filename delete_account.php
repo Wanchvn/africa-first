@@ -2,6 +2,7 @@
 session_start();
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -87,6 +88,7 @@ require 'includes/header.php';
 
 <div class="card">
     <form method="POST" class="stack">
+        <?= csrf_field() ?>
         <label for="password"><?= __('delete_confirm_password') ?></label>
         <input type="password" id="password" name="password" required>
 
@@ -97,6 +99,6 @@ require 'includes/header.php';
     </form>
 </div>
 
-<p><a href="perfil.php">← <?= __('nav_profile') ?></a></p>
+<p><a href="profile.php">← <?= __('nav_profile') ?></a></p>
 
 <?php require 'includes/footer.php'; ?>

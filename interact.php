@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -11,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: feed.php');
     exit;
 }
+csrf_verify();
 
 $user_id = (int)$_SESSION['user_id'];
 $action  = $_POST['action'] ?? '';
@@ -18,7 +20,7 @@ $post_id = (int)($_POST['post_id'] ?? 0);
 $redirect = $_POST['redirect'] ?? 'feed.php';
 
 // Safety: only allow redirect to a known safe page
-$allowed_redirects = ['feed.php', 'perfil.php'];
+$allowed_redirects = ['feed.php', 'profile.php', 'search.php'];
 $redirect_base = strtok($redirect, '?');
 if (!in_array($redirect_base, $allowed_redirects, true)) {
     $redirect = 'feed.php';

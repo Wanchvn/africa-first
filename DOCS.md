@@ -2,9 +2,9 @@ Add these lines to the Development Log section:
 
 Date	Change	Notes
 2026-10-04	Database schema created	users, posts, follows tables
-2026-10-04	registro.php working	Password hashing verified
+2026-10-04	register.php working	Password hashing verified
 2026-10-04	login.php + logout.php working	Sessions functional
-2026-10-04	perfil.php working	User can post and view own posts
+2026-10-04	profile.php working	User can post and view own posts
 And check off Phase 1 items in the roadmap:
 
 ☑ User registration
@@ -17,8 +17,8 @@ And check off Phase 1 items in the roadmap:
 Add to the Development Log:
 
 Date	Change	Notes
-2026-10-04	seguir.php, feed.php, descubrir.php	Follow system + feed live
-2026-10-04	perfil.php supports ?id=	Can view other users
+2026-10-04	follow.php, feed.php, discover.php	Follow system + feed live
+2026-10-04	profile.php supports ?id=	Can view other users
 Check off in the roadmap:
 
 ☑ Follow / unfollow
@@ -48,7 +48,7 @@ Card-based layout
 
 
 Date	Change	Notes
-2026-10-04	Likes + comments working	likes/comments tables, interactuar.php handler, counts in feed and profile
+2026-10-04	Likes + comments working	likes/comments tables, interact.php handler, counts in feed and profile
 Check off in the roadmap:
 
 ☑ Likes

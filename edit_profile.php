@@ -53,6 +53,7 @@ require 'includes/header.php';
 
 <div class="card">
     <form method="POST" class="stack">
+        <?= csrf_field() ?>
         <label for="bio"><?= __('bio_label') ?? 'Bio' ?></label>
         <textarea id="bio" name="bio" maxlength="160"
                   placeholder="<?= __('bio_placeholder') ?? 'Tell people about yourself...' ?>"
@@ -64,6 +65,6 @@ require 'includes/header.php';
     </form>
 </div>
 
-<p><a href="perfil.php">← <?= __('nav_profile') ?></a></p>
+<p><a href="profile.php">← <?= __('nav_profile') ?></a></p>
 
 <?php require 'includes/footer.php'; ?>

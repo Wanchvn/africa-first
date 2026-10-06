@@ -71,7 +71,7 @@ require 'includes/header.php';
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button type="submit"><?= __('search_button') ?></button>
             <?php if ($query !== ''): ?>
-                <a href="buscar.php" class="btn-secondary"><?= __('search_clear') ?></a>
+                <a href="search.php" class="btn-secondary"><?= __('search_clear') ?></a>
             <?php endif; ?>
         </div>
     </form>
@@ -103,13 +103,14 @@ require 'includes/header.php';
                         <?= strtoupper(substr($u['username'], 0, 1)) ?>
                     </div>
                 <?php endif; ?>
-                <a href="perfil.php?id=<?= $u['id'] ?>" class="name">
+                <a href="profile.php?id=<?= $u['id'] ?>" class="name">
                     <?= htmlspecialchars($u['username']) ?>
                 </a>
             </div>
-            <form method="POST" action="seguir.php">
+            <form method="POST" action="follow.php">
+                <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
-                <input type="hidden" name="redirect" value="buscar.php?q=<?= urlencode($query) ?>">
+                <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
                 <button type="submit" class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>">
                     <?= $u['is_following'] ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
@@ -133,7 +134,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="perfil.php?id=<?= $post['author_id'] ?>">
+                    <a href="profile.php?id=<?= $post['author_id'] ?>">
                         <?= htmlspecialchars($post['username']) ?>
                     </a>
                 </div>
@@ -148,10 +149,10 @@ require 'includes/header.php';
             <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
 
             <div class="actions">
-                <form method="POST" action="interactuar.php" style="display:inline;">
+                <form method="POST" action="interact.php" style="display:inline;">
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="buscar.php?q=<?= urlencode($query) ?>">
+                    <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
                         <?= $post['liked_by_me'] ? '♥' : '♡' ?>
                         <?= (int)$post['like_count'] ?>
@@ -159,7 +160,7 @@ require 'includes/header.php';
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
                 <?php if ($post['author_id'] !== $user_id): ?>
-                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link">
+                    <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link">
                         <?= __('post_report') ?>
                     </a>
                 <?php endif; ?>

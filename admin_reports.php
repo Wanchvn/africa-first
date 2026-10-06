@@ -20,6 +20,7 @@ if (!$is_admin) {
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
     $report_id = (int)($_POST['report_id'] ?? 0);
     $action = $_POST['admin_action'] ?? '';
 
@@ -153,16 +154,18 @@ require 'includes/header.php';
             <?php endif; ?>
 
             <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                <a href="perfil.php?id=<?= $r['author_id'] ?>" class="btn-secondary">
+                <a href="profile.php?id=<?= $r['author_id'] ?>" class="btn-secondary">
                     <?= __('nav_profile') ?>
                 </a>
                 <form method="POST" style="display:inline;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="report_id" value="<?= $r['id'] ?>">
                     <input type="hidden" name="admin_action" value="dismiss">
                     <button type="submit" class="btn-secondary"><?= __('admin_dismiss') ?></button>
                 </form>
                 <form method="POST" style="display:inline;"
                       onsubmit="return confirm('Remove this post permanently?');">
+                      <?= csrf_field() ?>
                     <input type="hidden" name="report_id" value="<?= $r['id'] ?>">
                     <input type="hidden" name="admin_action" value="remove">
                     <button type="submit" class="btn-danger"><?= __('admin_remove') ?></button>

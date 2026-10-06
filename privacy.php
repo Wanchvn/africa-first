@@ -87,9 +87,9 @@ require 'includes/header.php';
     <h2 style="margin-top:0;"><?= __('privacy_rights') ?></h2>
     <ul style="margin: 10px 0 0 20px;">
         <li style="padding: 6px 0;"><strong>Right to access</strong> — You can see everything we have on this page.</li>
-        <li style="padding: 6px 0;"><strong>Right to export</strong> — <a href="exportar.php">Download all your data as a ZIP file</a>.</li>
+        <li style="padding: 6px 0;"><strong>Right to export</strong> — <a href="export.php">Download all your data as a ZIP file</a>.</li>
         <li style="padding: 6px 0;"><strong>Right to correction</strong> — Email us to correct inaccurate data.</li>
-        <li style="padding: 6px 0;"><strong>Right to erasure</strong> — <a href="eliminar_cuenta.php">Delete your account permanently</a>.</li>
+        <li style="padding: 6px 0;"><strong>Right to erasure</strong> — <a href="delete_account.php">Delete your account permanently</a>.</li>
         <li style="padding: 6px 0;"><strong>Right to withdraw consent</strong> — Deleting your account withdraws all consent.</li>
         <li style="padding: 6px 0;"><strong>Right to complain</strong> — You may contact Ghana's Data Protection Commission.</li>
     </ul>

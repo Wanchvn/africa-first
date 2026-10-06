@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'config/db.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -9,6 +10,10 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 $message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['avatar']['name'])) {
     $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -59,5 +64,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['avatar']['name'])) 
 
 // Store the message in session, then redirect back to profile
 $_SESSION['avatar_message'] = $message;
-header('Location: perfil.php');
+header('Location: profile.php');
 exit;

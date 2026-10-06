@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../lang/init.php';
+require_once __DIR__ . '/csrf.php';
 
 $logged_in = isset($_SESSION['user_id']);
 
@@ -47,24 +48,24 @@ if (!isset($page_title)) $page_title = 'Qarota';
         <div class="nav-links" id="navLinks">
             <?php if ($logged_in): ?>
                 <a href="feed.php"><?= __('nav_feed') ?></a>
-                <a href="notificaciones.php" class="nav-notifications">
+                <a href="notifications.php" class="nav-notifications">
                     <?= __('nav_notifications') ?>
                     <?php if ($unread_count > 0): ?>
                         <span class="badge"><?= $unread_count ?></span>
                     <?php endif; ?>
                 </a>
-                <a href="descubrir.php"><?= __('nav_discover') ?></a>
-                <a href="buscar.php"><?= __('nav_search') ?></a>
+                <a href="discover.php"><?= __('nav_discover') ?></a>
+                <a href="search.php"><?= __('nav_search') ?></a>
                 <?php if ($is_admin): ?>
-                    <a href="admin_reportes.php"><?= __('nav_admin') ?></a>
+                    <a href="admin_reports.php"><?= __('nav_admin') ?></a>
                 <?php endif; ?>
-                <a href="privacidad.php"><?= __('nav_privacy') ?></a>
-                <a href="moderacion.php"><?= __('nav_moderation') ?></a>
-                <a href="perfil.php"><?= __('nav_profile') ?></a>
+                <a href="privacy.php"><?= __('nav_privacy') ?></a>
+                <a href="moderation.php"><?= __('nav_moderation') ?></a>
+                <a href="profile.php"><?= __('nav_profile') ?></a>
                 <a href="logout.php" class="nav-logout"><?= __('nav_logout') ?></a>
             <?php else: ?>
                 <a href="login.php" class="nav-logout"><?= __('nav_login') ?></a>
-                <a href="registro.php"><?= __('nav_register') ?></a>
+                <a href="register.php"><?= __('nav_register') ?></a>
             <?php endif; ?>
         </div>
 

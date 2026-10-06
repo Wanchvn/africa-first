@@ -113,6 +113,7 @@ require 'includes/header.php';
 <?php if (empty($message)): ?>
     <div class="card">
         <form method="POST" class="stack">
+            <?= csrf_field() ?>
             <label for="reason"><?= __('report_reason') ?></label>
             <select id="reason" name="reason" required>
                 <option value=""><?= __('report_reason') ?>...</option>

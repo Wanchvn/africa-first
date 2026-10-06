@@ -2,9 +2,10 @@
 session_start();
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: perfil.php');
+    header('Location: profile.php');
     exit;
 }
 
@@ -13,6 +14,7 @@ $login_message = $_SESSION['login_message'] ?? '';
 unset($_SESSION['login_message']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
     $username = trim($_POST['username']);
     $password = $_POST['password'];
 
@@ -26,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
-            header('Location: perfil.php');
+            header('Location: profile.php');
             exit;
         } else {
             $message = __('login_error_invalid');
@@ -50,12 +52,13 @@ require 'includes/header.php';
 
 <div class="card">
     <form method="POST" class="stack">
+        <?= csrf_field() ?>
         <input type="text" name="username" placeholder="<?= __('login_username') ?>" required>
         <input type="password" name="password" placeholder="<?= __('login_password') ?>" required>
         <button type="submit"><?= __('login_button') ?></button>
     </form>
 </div>
 
-<p><?= __('login_no_account') ?> <a href="registro.php"><?= __('login_register_link') ?></a></p>
+<p><?= __('login_no_account') ?> <a href="register.php"><?= __('login_register_link') ?></a></p>
 
 <?php require 'includes/footer.php'; ?>

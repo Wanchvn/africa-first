@@ -45,13 +45,14 @@ require 'includes/header.php';
                         <?= strtoupper(substr($u['username'], 0, 1)) ?>
                     </div>
                 <?php endif; ?>
-                <a href="perfil.php?id=<?= $u['id'] ?>" class="name">
+                <a href="profile.php?id=<?= $u['id'] ?>" class="name">
                     <?= htmlspecialchars($u['username']) ?>
                 </a>
             </div>
-            <form method="POST" action="seguir.php">
+            <form method="POST" action="follow.php">
+                <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
-                <input type="hidden" name="redirect" value="descubrir.php">
+                <input type="hidden" name="redirect" value="discover.php">
                 <button type="submit" class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>">
                     <?= $u['is_following'] ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>

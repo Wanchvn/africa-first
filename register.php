@@ -43,6 +43,7 @@ require 'includes/header.php';
 
 <div class="card">
     <form method="POST" class="stack">
+        <?= csrf_field() ?>
         <input type="text" name="username" placeholder="<?= __('login_username') ?>" required>
         <input type="email" name="email" placeholder="<?= __('register_email') ?>" required>
         <input type="password" name="password" placeholder="<?= __('register_password_hint') ?>" required>

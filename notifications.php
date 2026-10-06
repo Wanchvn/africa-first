@@ -51,7 +51,7 @@ require 'includes/header.php';
                 <?php endif; ?>
 
                 <div class="notification-body">
-                    <a href="perfil.php?id=<?= $n['actor_id'] ?>">
+                    <a href="profile.php?id=<?= $n['actor_id'] ?>">
                         <strong><?= htmlspecialchars($n['actor_username']) ?></strong>
                     </a>
 

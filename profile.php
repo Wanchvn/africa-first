@@ -15,7 +15,7 @@ $stmt = $pdo->prepare("
     SELECT
         username, avatar, bio,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
-        (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
+        (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS following_count,
         (SELECT COUNT(*) FROM posts WHERE user_id = users.id) AS post_count
     FROM users
     WHERE id = :id
@@ -40,6 +40,7 @@ $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
 
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
+    csrf_verify();
     $content = trim($_POST['content']);
     $media_path = null;
 
@@ -142,9 +143,8 @@ require 'includes/header.php';
         <div class="profile-stats">
             <strong><?= (int)$profile_user['post_count'] ?></strong> <?= __('profile_posts_label') ?>
             <span class="stat-dot">·</span>
-            <strong><?= (int)$profile_user['follower_count'] ?></strong> 
+            <strong><?= (int)$profile_user['follower_count'] ?></strong>
             <?= $profile_user['follower_count'] == 1 ? 'follower' : __('profile_followers_label') ?>
-
             <span class="stat-dot">·</span>
             <strong><?= (int)$profile_user['following_count'] ?></strong> <?= __('profile_following_label') ?>
         </div>
@@ -155,21 +155,23 @@ require 'includes/header.php';
 
         <?php if ($is_own_profile): ?>
             <div class="profile-actions">
-                <a href="editar_perfil.php" class="btn-secondary"><?= __('bio_edit_link') ?></a>
+                <a href="edit_profile.php" class="btn-secondary"><?= __('bio_edit_link') ?></a>
                 <form method="POST" action="avatar.php" enctype="multipart/form-data" style="display:inline;">
+                    <?= csrf_field() ?>
                     <label for="avatar" class="btn-secondary"><?= __('profile_change_picture') ?></label>
                     <input type="file" id="avatar" name="avatar"
                            accept="image/jpeg,image/png,image/gif,image/webp"
                            onchange="this.form.submit()" style="display:none;">
                 </form>
-                <a href="exportar.php" class="btn-secondary"><?= __('profile_export') ?></a>
-                <a href="privacidad.php" class="btn-secondary"><?= __('profile_privacy') ?></a>
-                <a href="eliminar_cuenta.php" class="btn-danger"><?= __('profile_delete') ?></a>
+                <a href="export.php" class="btn-secondary"><?= __('profile_export') ?></a>
+                <a href="privacy.php" class="btn-secondary"><?= __('profile_privacy') ?></a>
+                <a href="delete_account.php" class="btn-danger"><?= __('profile_delete') ?></a>
             </div>
         <?php else: ?>
-            <form method="POST" action="seguir.php" style="margin-top:8px;">
+            <form method="POST" action="follow.php" style="margin-top:8px;">
+                <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $profile_id ?>">
-                <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                <input type="hidden" name="redirect" value="profile.php?id=<?= $profile_id ?>">
                 <button type="submit" class="<?= $is_following ? 'btn-secondary' : '' ?>">
                     <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
@@ -190,6 +192,7 @@ require 'includes/header.php';
     <div class="card">
         <h2 style="margin-top:0;"><?= __('post_share') ?></h2>
         <form method="POST" enctype="multipart/form-data" class="stack">
+            <?= csrf_field() ?>
             <textarea name="content" maxlength="500" placeholder="<?= __('post_placeholder') ?>" required></textarea>
             <input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
             <button type="submit"><?= __('post_button') ?></button>
@@ -213,7 +216,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="perfil.php?id=<?= $profile_id ?>">
+                    <a href="profile.php?id=<?= $profile_id ?>">
                         <?= htmlspecialchars($profile_user['username']) ?>
                     </a>
                 </div>
@@ -228,10 +231,11 @@ require 'includes/header.php';
             <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
 
             <div class="actions">
-                <form method="POST" action="interactuar.php" style="display:inline;">
+                <form method="POST" action="interact.php" style="display:inline;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                    <input type="hidden" name="redirect" value="profile.php?id=<?= $profile_id ?>">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
                         <?= $post['liked_by_me'] ? '♥' : '♡' ?>
                         <?= (int)$post['like_count'] ?>
@@ -239,7 +243,7 @@ require 'includes/header.php';
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
                 <?php if (!$is_own_profile): ?>
-                    <a href="reportar.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
+                    <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>
             </div>
 
@@ -266,10 +270,11 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="interactuar.php" class="comment-form">
+            <form method="POST" action="interact.php" class="comment-form">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="comment">
                 <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
+                <input type="hidden" name="redirect" value="profile.php?id=<?= $profile_id ?>">
                 <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
                 <button type="submit"><?= __('post_send') ?></button>
             </form>
