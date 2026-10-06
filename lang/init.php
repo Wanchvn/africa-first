@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../includes/session.php';
+start_secure_session();
+
 // Available languages
 $LANGUAGES = ['en', 'tw', 'fr', 'dg'];
 

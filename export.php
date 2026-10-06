@@ -1,7 +1,8 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
-require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -111,15 +112,11 @@ $zip->addFromString('followers.json', json_encode($data['followers'], JSON_PRETT
 $zip->addFromString('notifications.json', json_encode($data['notifications'], JSON_PRETTY_PRINT));
 
 // Add media files (post images + avatar)
-$mediaFolder = __DIR__ . '/uploads';
-$addedCount = 0;
-
 foreach ($data['posts'] as $post) {
     if (!empty($post['media_path'])) {
         $fullPath = __DIR__ . '/' . $post['media_path'];
         if (file_exists($fullPath)) {
             $zip->addFile($fullPath, $post['media_path']);
-            $addedCount++;
         }
     }
 }
@@ -128,7 +125,6 @@ if (!empty($data['profile']['avatar'])) {
     $avatarPath = __DIR__ . '/' . $data['profile']['avatar'];
     if (file_exists($avatarPath)) {
         $zip->addFile($avatarPath, $data['profile']['avatar']);
-        $addedCount++;
     }
 }
 

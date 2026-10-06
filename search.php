@@ -1,5 +1,7 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
 
@@ -150,6 +152,7 @@ require 'includes/header.php';
 
             <div class="actions">
                 <form method="POST" action="interact.php" style="display:inline;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                     <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">

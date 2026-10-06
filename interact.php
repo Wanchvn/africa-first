@@ -1,7 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -12,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: feed.php');
     exit;
 }
+
 csrf_verify();
 
 $user_id = (int)$_SESSION['user_id'];
@@ -44,6 +48,8 @@ if ($post_owner === false) {
 $post_owner = (int)$post_owner;
 
 if ($action === 'like') {
+    rate_limit_enforce($pdo, client_ip(), 'like', 60, 60);
+
     // Toggle like
     $stmt = $pdo->prepare("SELECT id FROM likes WHERE user_id = :u AND post_id = :p");
     $stmt->execute([':u' => $user_id, ':p' => $post_id]);
@@ -79,6 +85,8 @@ if ($action === 'like') {
         }
     }
 } elseif ($action === 'comment') {
+    rate_limit_enforce($pdo, client_ip(), 'comment', 10, 60);
+
     $content = trim($_POST['content'] ?? '');
     if ($content !== '' && mb_strlen($content) <= 500) {
         $stmt = $pdo->prepare("INSERT INTO comments (user_id, post_id, content) VALUES (:u, :p, :c)");

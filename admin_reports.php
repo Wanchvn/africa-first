@@ -1,7 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -165,7 +168,7 @@ require 'includes/header.php';
                 </form>
                 <form method="POST" style="display:inline;"
                       onsubmit="return confirm('Remove this post permanently?');">
-                      <?= csrf_field() ?>
+                    <?= csrf_field() ?>
                     <input type="hidden" name="report_id" value="<?= $r['id'] ?>">
                     <input type="hidden" name="admin_action" value="remove">
                     <button type="submit" class="btn-danger"><?= __('admin_remove') ?></button>

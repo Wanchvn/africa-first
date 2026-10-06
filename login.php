@@ -1,8 +1,11 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (isset($_SESSION['user_id'])) {
     header('Location: profile.php');
@@ -15,6 +18,7 @@ unset($_SESSION['login_message']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'login', 5, 900);
     $username = trim($_POST['username']);
     $password = $_POST['password'];
 
@@ -28,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
+            regenerate_session_on_login();
             header('Location: profile.php');
             exit;
         } else {

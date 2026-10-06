@@ -1,7 +1,11 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -41,6 +45,9 @@ $message = '';
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'report', 10, 3600);
+
     $reason = $_POST['reason'] ?? '';
     $details = trim($_POST['details'] ?? '');
 
@@ -50,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = __('report_error_reason');
     }
 
-    if (strlen($details) > 1000) {
+    if (mb_strlen($details) > 1000) {
         $errors[] = __('report_error_length');
     }
 

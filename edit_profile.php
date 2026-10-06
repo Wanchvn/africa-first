@@ -1,7 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -19,6 +22,8 @@ $user = $stmt->fetch();
 $bio = $user['bio'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
+
     $bio = trim($_POST['bio'] ?? '');
 
     if (mb_strlen($bio) > 160) {

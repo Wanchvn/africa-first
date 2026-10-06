@@ -1,5 +1,7 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
 
@@ -66,16 +68,16 @@ require 'includes/header.php';
             </div>
 
             <?php if ($e['action_type'] === 'post_removed'): ?>
-        <div style="color:#c0392b; font-weight:600; margin-bottom:6px;">
-                 Post removed
-            <?php if ($e['policy_category']): ?>
-                — <?= htmlspecialchars(ucfirst($e['policy_category'])) ?>
-            <?php endif; ?>
-</div>
-<p style="font-size:0.9rem; color:var(--muted);">
-    An admin reviewed a report and confirmed a violation of Qarota's policies.
-    The content has been permanently removed.
-</p>
+                <div style="color:#c0392b; font-weight:600; margin-bottom:6px;">
+                    Post removed
+                    <?php if ($e['policy_category']): ?>
+                        — <?= htmlspecialchars(ucfirst($e['policy_category'])) ?>
+                    <?php endif; ?>
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin reviewed a report and confirmed a violation of Qarota's policies.
+                    The content has been permanently removed.
+                </p>
                 <?php if ($e['post_excerpt']): ?>
                     <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--muted); font-size:0.9rem;">
                         "<?= htmlspecialchars($e['post_excerpt']) ?><?= mb_strlen($e['post_excerpt']) >= 200 ? '…' : '' ?>"

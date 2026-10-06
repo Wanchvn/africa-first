@@ -1,7 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -9,6 +12,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 csrf_verify();
+rate_limit_enforce($pdo, client_ip(), 'follow', 30, 300);
 
 $my_id = (int)$_SESSION['user_id'];
 $target_id = (int)($_POST['target_id'] ?? 0);

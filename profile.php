@@ -1,7 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -15,7 +18,7 @@ $stmt = $pdo->prepare("
     SELECT
         username, avatar, bio,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
-        (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS following_count,
+        (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
         (SELECT COUNT(*) FROM posts WHERE user_id = users.id) AS post_count
     FROM users
     WHERE id = :id

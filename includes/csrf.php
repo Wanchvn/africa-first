@@ -5,7 +5,8 @@
  */
 function csrf_token() {
     if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+        require_once __DIR__ . '/session.php';
+        start_secure_session();
     }
 
     if (empty($_SESSION['csrf_token'])) {
@@ -30,7 +31,8 @@ function csrf_field() {
  */
 function csrf_verify() {
     if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+        require_once __DIR__ . '/session.php';
+        start_secure_session();
     }
 
     $submitted = $_POST['csrf_token'] ?? '';

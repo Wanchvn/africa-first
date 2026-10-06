@@ -1,5 +1,7 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
@@ -14,6 +16,8 @@ $message = '';
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
+
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm'] ?? '';
 
@@ -58,10 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @unlink($file);
         }
 
-        session_unset();
-        session_destroy();
+        destroy_session();
 
-        session_start();
+        require_once __DIR__ . '/includes/session.php';
+        start_secure_session();
         $_SESSION['login_message'] = 'Your Qarota account and all data have been permanently deleted.';
         header('Location: login.php');
         exit;

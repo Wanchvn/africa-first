@@ -1,11 +1,18 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+start_secure_session();
+
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'register', 3, 3600);
+
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
     $password = $_POST['password'];
@@ -14,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = __('register_error_required');
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $message = __('register_error_email');
-    } elseif (strlen($password) < 8) {
+    } elseif (mb_strlen($password) < 8) {
         $message = __('register_error_password');
     } else {
         $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username OR email = :email");
