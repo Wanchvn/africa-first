@@ -585,3 +585,43 @@ select:focus {
         width: 100%;
     }
 }
+
+/* ---- Profile stats & bio ---- */
+.profile-stats {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.profile-stats strong {
+    color: var(--deep-brown);
+    font-weight: 700;
+}
+
+.profile-stats .stat-dot {
+    margin: 0 4px;
+    color: var(--border);
+}
+
+.profile-bio {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 8px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+/* ---- Larger avatar ---- */
+.avatar-large {
+    width: 96px;
+    height: 96px;
+    font-size: 2.4rem;
+}
+
+@media (max-width: 480px) {
+    .avatar-large {
+        width: 72px;
+        height: 72px;
+        font-size: 1.8rem;
+    }
+}

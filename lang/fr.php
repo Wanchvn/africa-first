@@ -96,4 +96,16 @@ return [
 'search_no_results' => 'Aucun résultat.',
 'search_people' => 'Personnes',
 'search_posts' => 'Publications',
+
+'bio_title' => 'Modifier le profil',
+'bio_label' => 'Bio',
+'bio_placeholder' => 'Parlez-nous de vous...',
+'bio_chars_left' => 'caractères restants',
+'bio_save' => 'Enregistrer',
+'bio_saved' => 'Bio enregistrée.',
+'bio_edit_link' => 'Modifier le profil',
+'bio_error_length' => 'La bio doit faire 160 caractères ou moins.',
+'profile_posts_label' => 'publications',
+'profile_followers_label' => 'abonnés',
+'profile_following_label' => 'abonnements',
 ];

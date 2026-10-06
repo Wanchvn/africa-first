@@ -96,4 +96,16 @@ return [
 'search_no_results' => 'Yɛanhu biribiara.',
 'search_people' => 'Nnipa',
 'search_posts' => 'Nhoma',
+
+'bio_title' => 'Sesa wo nsɛm',
+'bio_label' => 'Wo ho nsɛm',
+'bio_placeholder' => 'Kyerɛw wo ho nsɛm...',
+'bio_chars_left' => 'nkyerɛw aka',
+'bio_save' => 'Sie',
+'bio_saved' => 'Yɛasie wo nsɛm.',
+'bio_edit_link' => 'Sesa wo nsɛm',
+'bio_error_length' => 'Nsɛm no nnyɛ tenten.',
+'profile_posts_label' => 'nnwoma',
+'profile_followers_label' => 'akyidifo',
+'profile_following_label' => 'adi akyi',
 ];

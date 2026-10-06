@@ -95,4 +95,17 @@ return [
 'search_no_results' => 'No results found.',
 'search_people' => 'People',
 'search_posts' => 'Posts',
+
+
+'bio_title' => 'Edit profile',
+'bio_label' => 'Bio',
+'bio_placeholder' => 'Tell people about yourself...',
+'bio_chars_left' => 'characters left',
+'bio_save' => 'Save bio',
+'bio_saved' => 'Bio saved.',
+'bio_edit_link' => 'Edit profile',
+'bio_error_length' => 'Bio must be 160 characters or less.',
+'profile_posts_label' => 'posts',
+'profile_followers_label' => 'followers',
+'profile_following_label' => 'following',
 ];

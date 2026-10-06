@@ -139,3 +139,15 @@ Add to Development Log:
 
 Date	Change	Notes
 2026-10-05	Mobile hamburger nav complete	☰ toggle, overlay dim, tap-outside close
+
+
+dd to Development Log:
+
+Date	Change	Notes
+2026-10-05	Public moderation log live	Every removal and dismissal published; excerpts suppressed for sensitive categories
+Add to Key Decisions:
+
+Decision	Reason
+Public moderation log	No shadow justice. Every action is visible and traceable.
+Excerpt suppression for sensitive categories	Prevents amplifying CSAM, terrorism, nudity in the log itself
+Admin ID kept in log even after deletion (ON DELETE SET NULL)	The log must outlive the admin who made the decision

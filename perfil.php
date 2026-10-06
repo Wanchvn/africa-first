@@ -11,7 +11,15 @@ if (!isset($_SESSION['user_id'])) {
 $profile_id = isset($_GET['id']) ? (int)$_GET['id'] : (int)$_SESSION['user_id'];
 $is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
 
-$stmt = $pdo->prepare("SELECT username, avatar FROM users WHERE id = :id");
+$stmt = $pdo->prepare("
+    SELECT
+        username, avatar, bio,
+        (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
+        (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
+        (SELECT COUNT(*) FROM posts WHERE user_id = users.id) AS post_count
+    FROM users
+    WHERE id = :id
+");
 $stmt->execute([':id' => $profile_id]);
 $profile_user = $stmt->fetch();
 
@@ -126,13 +134,28 @@ require 'includes/header.php';
     <?php endif; ?>
 
     <div class="profile-info">
-        <h1>
+        <h1 style="margin-bottom:2px;">
             <?= $is_own_profile ? __('profile_hello') . ' ' : '' ?>
             <?= htmlspecialchars($profile_user['username']) ?>
         </h1>
 
+        <div class="profile-stats">
+            <strong><?= (int)$profile_user['post_count'] ?></strong> <?= __('profile_posts_label') ?>
+            <span class="stat-dot">·</span>
+            <strong><?= (int)$profile_user['follower_count'] ?></strong> 
+            <?= $profile_user['follower_count'] == 1 ? 'follower' : __('profile_followers_label') ?>
+
+            <span class="stat-dot">·</span>
+            <strong><?= (int)$profile_user['following_count'] ?></strong> <?= __('profile_following_label') ?>
+        </div>
+
+        <?php if (!empty($profile_user['bio'])): ?>
+            <p class="profile-bio"><?= nl2br(htmlspecialchars($profile_user['bio'])) ?></p>
+        <?php endif; ?>
+
         <?php if ($is_own_profile): ?>
             <div class="profile-actions">
+                <a href="editar_perfil.php" class="btn-secondary"><?= __('bio_edit_link') ?></a>
                 <form method="POST" action="avatar.php" enctype="multipart/form-data" style="display:inline;">
                     <label for="avatar" class="btn-secondary"><?= __('profile_change_picture') ?></label>
                     <input type="file" id="avatar" name="avatar"
@@ -144,7 +167,7 @@ require 'includes/header.php';
                 <a href="eliminar_cuenta.php" class="btn-danger"><?= __('profile_delete') ?></a>
             </div>
         <?php else: ?>
-            <form method="POST" action="seguir.php">
+            <form method="POST" action="seguir.php" style="margin-top:8px;">
                 <input type="hidden" name="target_id" value="<?= $profile_id ?>">
                 <input type="hidden" name="redirect" value="perfil.php?id=<?= $profile_id ?>">
                 <button type="submit" class="<?= $is_following ? 'btn-secondary' : '' ?>">

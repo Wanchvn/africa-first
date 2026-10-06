@@ -117,4 +117,16 @@ return [
 'search_no_results' => 'Di bi bo.',
 'search_people' => 'Niriba',
 'search_posts' => 'Lahabali',
+
+'bio_title' => 'Taɣi a yɛlikpani',
+'bio_label' => 'A yɛlikpani',
+'bio_placeholder' => 'Sabmi a yɛlikpani...',
+'bio_chars_left' => 'bachi din kpalim',
+'bio_save' => 'Taɣi',
+'bio_saved' => 'Taɣi ya.',
+'bio_edit_link' => 'Taɣi a yɛlikpani',
+'bio_error_length' => 'A yɛlikpani bi zani.',
+'profile_posts_label' => 'lahabali',
+'profile_followers_label' => 'dɔli niriba',
+'profile_following_label' => 'dɔli',
 ];
