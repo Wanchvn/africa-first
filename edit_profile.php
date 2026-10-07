@@ -5,6 +5,7 @@ start_secure_session();
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/username.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -14,10 +15,11 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = (int)$_SESSION['user_id'];
 $message = '';
 $errors = [];
+$username_changed = false;
 
-// Fetch current profile data
+// Fetch current profile data — includes username and username_changed_at
 $stmt = $pdo->prepare("
-    SELECT bio, display_name, location, occupation, education, languages, interests
+    SELECT username, username_changed_at, bio, display_name, location, occupation, education, languages, interests
     FROM users
     WHERE id = :id
 ");
@@ -35,6 +37,46 @@ $interests    = $user['interests'] ?? '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
 
+    // ---- Handle username change ----
+    $new_username = trim($_POST['new_username'] ?? '');
+
+    if ($new_username !== '' && $new_username !== $user['username']) {
+        // Cooldown check: 30 days between changes
+        $can_change = true;
+        if ($user['username_changed_at']) {
+            $last_change = strtotime($user['username_changed_at']);
+            $next_allowed = $last_change + (30 * 24 * 60 * 60);
+            if (time() < $next_allowed) {
+                $can_change = false;
+                $errors[] = 'You can only change your username once every 30 days.';
+            }
+        }
+
+        if ($can_change) {
+            $err = validate_username($new_username);
+            if ($err !== null) {
+                $errors[] = $err;
+            } elseif (!is_username_available($pdo, $new_username)) {
+                $errors[] = 'That username is already taken.';
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE users
+                    SET username = :username, username_changed_at = NOW()
+                    WHERE id = :id
+                ");
+                $stmt->execute([
+                    ':username' => $new_username,
+                    ':id'       => $user_id,
+                ]);
+                $_SESSION['username'] = $new_username;
+                $user['username'] = $new_username;
+                $user['username_changed_at'] = date('Y-m-d H:i:s');
+                $username_changed = true;
+            }
+        }
+    }
+
+    // ---- Handle other profile fields ----
     $bio          = trim($_POST['bio'] ?? '');
     $display_name = trim($_POST['display_name'] ?? '');
     $location     = trim($_POST['location'] ?? '');
@@ -74,7 +116,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':interests'    => $interests !== '' ? $interests : null,
             ':id'           => $user_id,
         ]);
-        $message = 'Profile updated.';
+        $message = $username_changed ? 'Username and profile updated.' : 'Profile updated.';
+    }
+}
+
+// Recompute cooldown for display (in case username was just changed)
+$can_change = true;
+$days_left = 0;
+if ($user['username_changed_at']) {
+    $last_change = strtotime($user['username_changed_at']);
+    $next_allowed = $last_change + (30 * 24 * 60 * 60);
+    if (time() < $next_allowed) {
+        $can_change = false;
+        $days_left = (int)ceil(($next_allowed - time()) / (24 * 60 * 60));
     }
 }
 
@@ -83,6 +137,13 @@ require 'includes/header.php';
 ?>
 
 <h1>Edit profile</h1>
+
+<?php if ($username_changed): ?>
+    <div class="message" style="background: #E8F5E9; border-left-color: #4CAF50;">
+        Your username is now <strong>@<?= htmlspecialchars($_SESSION['username']) ?></strong>.
+        All your posts and followers moved with you.
+    </div>
+<?php endif; ?>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>
@@ -98,6 +159,38 @@ require 'includes/header.php';
 
 <form method="POST" class="stack">
     <?= csrf_field() ?>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Username</h2>
+
+        <?php if ($can_change): ?>
+            <div class="form-field">
+                <label for="new_username">Your username</label>
+                <div class="username-row">
+                    <input type="text"
+                           id="new_username"
+                           name="new_username"
+                           value="<?= htmlspecialchars($user['username']) ?>"
+                           maxlength="30"
+                           autocomplete="off">
+                    <button type="button" id="checkUsernameBtn" class="btn-secondary btn-small">
+                        Check
+                    </button>
+                </div>
+                <div class="field-hint" id="usernameHint">
+                    You can change this once every 30 days. Current: <strong>@<?= htmlspecialchars($user['username']) ?></strong>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="form-field">
+                <label>Your username</label>
+                <input type="text" value="@<?= htmlspecialchars($user['username']) ?>" disabled>
+                <div class="field-hint">
+                    You can change your username again in <strong><?= $days_left ?> day<?= $days_left == 1 ? '' : 's' ?></strong>.
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
 
     <div class="card">
         <h2 style="margin-top:0;">Basic information</h2>
@@ -180,5 +273,75 @@ require 'includes/header.php';
     </div>
 
 </form>
+
+<script>
+(function() {
+    const usernameInput = document.getElementById('new_username');
+    const checkBtn = document.getElementById('checkUsernameBtn');
+    const hint = document.getElementById('usernameHint');
+
+    if (!usernameInput || !checkBtn) return;
+
+    const currentUsername = <?= json_encode($user['username']) ?>;
+
+    let checkTimer = null;
+    let lastChecked = '';
+
+    usernameInput.addEventListener('input', function() {
+        clearTimeout(checkTimer);
+        const value = usernameInput.value.trim();
+
+        if (value === '' || value === currentUsername) {
+            hint.innerHTML = 'You can change this once every 30 days. Current: <strong>@' + currentUsername + '</strong>';
+            hint.className = 'field-hint';
+            return;
+        }
+
+        if (value === lastChecked) return;
+
+        hint.textContent = 'Checking availability…';
+        hint.className = 'field-hint hint-checking';
+
+        checkTimer = setTimeout(function() {
+            checkUsername(value);
+        }, 400);
+    });
+
+    checkBtn.addEventListener('click', function() {
+        const value = usernameInput.value.trim();
+        if (value === '' || value === currentUsername) return;
+        checkUsername(value);
+    });
+
+    function checkUsername(username) {
+        lastChecked = username;
+
+        fetch('check_username.php?u=' + encodeURIComponent(username))
+            .then(r => r.json())
+            .then(data => {
+                if (usernameInput.value.trim() !== username) return;
+
+                if (data.available) {
+                    hint.textContent = '✓ ' + username + ' is available';
+                    hint.className = 'field-hint hint-ok';
+                } else if (data.reason === 'invalid') {
+                    hint.textContent = '✗ ' + (data.message || 'Invalid username');
+                    hint.className = 'field-hint hint-error';
+                } else if (data.reason === 'taken') {
+                    const sug = data.suggestion ? ' — try "' + data.suggestion + '"' : '';
+                    hint.textContent = '✗ ' + username + ' is taken' + sug;
+                    hint.className = 'field-hint hint-error';
+                } else {
+                    hint.innerHTML = 'You can change this once every 30 days. Current: <strong>@' + currentUsername + '</strong>';
+                    hint.className = 'field-hint';
+                }
+            })
+            .catch(function() {
+                hint.textContent = 'Could not check availability. Try again.';
+                hint.className = 'field-hint hint-warn';
+            });
+    }
+})();
+</script>
 
 <?php require 'includes/footer.php'; ?>
