@@ -28,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['admin_action'] ?? '';
 
     if ($report_id > 0 && in_array($action, ['dismiss', 'remove'], true)) {
-        // Fetch the report including reason (needed for the log)
         $stmt = $pdo->prepare("SELECT post_id, comment_id, reason FROM reports WHERE id = :id");
         $stmt->execute([':id' => $report_id]);
         $report = $stmt->fetch();
@@ -38,22 +37,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ---- Remove action ----
             if ($action === 'remove' && !empty($report['post_id'])) {
-                // Fetch post content BEFORE deleting (for the log excerpt)
                 $stmt = $pdo->prepare("SELECT content FROM posts WHERE id = :id");
                 $stmt->execute([':id' => $report['post_id']]);
                 $post_content = $stmt->fetchColumn();
 
-                // Only include excerpt for safe categories
                 $safe_categories = ['spam', 'misinformation', 'harassment', 'other'];
                 $excerpt = ($post_content && in_array($report_reason, $safe_categories, true))
                     ? mb_substr($post_content, 0, 200)
                     : null;
 
-                // Delete the post (cascades to likes, comments, notifications)
                 $stmt = $pdo->prepare("DELETE FROM posts WHERE id = :id");
                 $stmt->execute([':id' => $report['post_id']]);
 
-                // Log the removal publicly
                 $stmt = $pdo->prepare("
                     INSERT INTO moderation_log
                         (action_type, post_excerpt, policy_category, admin_id)
@@ -68,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ---- Dismiss action ----
             if ($action === 'dismiss') {
-                // Log the dismissal publicly
                 $stmt = $pdo->prepare("
                     INSERT INTO moderation_log
                         (action_type, policy_category, admin_id)
@@ -98,14 +92,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch pending reports
+// Fetch pending reports — now includes display_name for reporter and author
 $stmt = $pdo->prepare("
     SELECT
         r.id, r.reason, r.details, r.created_at,
         reporter.username AS reporter_username,
+        reporter.display_name AS reporter_display_name,
         p.id AS post_id, p.content AS post_content, p.media_path AS post_media,
         p.created_at AS post_created,
-        author.username AS author_username, author.id AS author_id
+        author.username AS author_username,
+        author.display_name AS author_display_name,
+        author.id AS author_id
     FROM reports r
     INNER JOIN users reporter ON r.reporter_id = reporter.id
     LEFT JOIN posts p ON r.post_id = p.id
@@ -130,9 +127,13 @@ require 'includes/header.php';
     <div class="empty"><?= __('admin_no_reports') ?></div>
 <?php else: ?>
     <?php foreach ($reports as $r): ?>
+        <?php
+        $reporter_name = $r['reporter_display_name'] ?: $r['reporter_username'];
+        $author_name   = $r['author_display_name'] ?: $r['author_username'];
+        ?>
         <div class="card" style="border-left: 4px solid var(--terracotta);">
             <div class="meta">
-                <?= htmlspecialchars($r['reporter_username']) ?> —
+                <?= htmlspecialchars($reporter_name) ?> —
                 <?= htmlspecialchars($r['created_at']) ?>
             </div>
 
@@ -147,6 +148,10 @@ require 'includes/header.php';
             <?php endif; ?>
 
             <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
+
+            <div class="meta" style="margin-bottom: 6px;">
+                Post by <strong><?= htmlspecialchars($author_name) ?></strong>
+            </div>
 
             <div class="content" style="margin: 8px 0;">
                 <?= htmlspecialchars($r['post_content']) ?>

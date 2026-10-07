@@ -12,11 +12,13 @@ if (!isset($_SESSION['user_id'])) {
 
 $stmt = $pdo->prepare("
     SELECT 
-        ml.id, ml.action_type, ml.post_excerpt, ml.policy_category,
-        ml.admin_note, ml.created_at,
-        u.username AS admin_username
-    FROM moderation_log ml
-    LEFT JOIN users u ON ml.admin_id = u.id
+        SELECT 
+    ml.id, ml.action_type, ml.post_excerpt, ml.policy_category,
+    ml.admin_note, ml.created_at,
+    u.username AS admin_username,
+    u.display_name AS admin_display_name
+FROM moderation_log ml
+LEFT JOIN users u ON ml.admin_id = u.id
     ORDER BY ml.created_at DESC
     LIMIT 200
 ");
@@ -64,7 +66,8 @@ require 'includes/header.php';
             <div class="meta" style="margin-bottom:8px;">
                 <?= htmlspecialchars($e['created_at']) ?>
                 · decided by
-                <strong><?= htmlspecialchars($e['admin_username'] ?? 'former admin') ?></strong>
+                <?php $admin_name = $e['admin_display_name'] ?: $e['admin_username'] ?? 'former admin'; ?>
+<strong><?= htmlspecialchars($admin_name) ?></strong>
             </div>
 
             <?php if ($e['action_type'] === 'post_removed'): ?>

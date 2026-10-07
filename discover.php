@@ -51,11 +51,14 @@ require 'includes/header.php';
                     <?= htmlspecialchars($u['username']) ?>
                 </a>
             </div>
-            <form method="POST" action="follow.php">
+            <form method="POST" action="follow.php" class="follow-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
                 <input type="hidden" name="redirect" value="discover.php">
-                <button type="submit" class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>">
+                <button type="submit"
+                        class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>"
+                        data-follow-text="<?= __('profile_follow') ?>"
+                        data-unfollow-text="<?= __('profile_unfollow') ?>">
                     <?= $u['is_following'] ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
             </form>

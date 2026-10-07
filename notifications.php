@@ -15,7 +15,10 @@ $user_id = (int)$_SESSION['user_id'];
 $stmt = $pdo->prepare("
     SELECT
         n.id, n.type, n.post_id, n.is_read, n.created_at,
-        u.username AS actor_username, u.avatar AS actor_avatar, u.id AS actor_id,
+        u.username AS actor_username,
+        u.display_name AS actor_display_name,
+        u.avatar AS actor_avatar,
+        u.id AS actor_id,
         p.content AS post_content
     FROM notifications n
     INNER JOIN users u ON n.actor_id = u.id
@@ -40,6 +43,7 @@ require 'includes/header.php';
     <div class="empty"><?= __('notifications_empty') ?></div>
 <?php else: ?>
     <?php foreach ($notifications as $n): ?>
+        <?php $actor_name = $n['actor_display_name'] ?: $n['actor_username']; ?>
         <div class="card notification <?= $n['is_read'] ? '' : 'unread' ?>">
             <div class="post-header">
                 <?php if ($n['actor_avatar']): ?>
@@ -48,13 +52,13 @@ require 'includes/header.php';
                          alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
-                        <?= strtoupper(substr($n['actor_username'], 0, 1)) ?>
+                        <?= strtoupper(substr($actor_name, 0, 1)) ?>
                     </div>
                 <?php endif; ?>
 
                 <div class="notification-body">
                     <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>">
-                        <strong><?= htmlspecialchars($n['actor_username']) ?></strong>
+                        <strong><?= htmlspecialchars($actor_name) ?></strong>
                     </a>
 
                     <?php if ($n['type'] === 'like'): ?>

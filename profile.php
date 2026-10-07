@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Backward compatibility: redirect old ?id= URLs to new ?u= URLs
+// Backward compatibility: redirect old ?id= URLs
 if (isset($_GET['id']) && !isset($_GET['u'])) {
     $old_id = (int)$_GET['id'];
     if ($old_id > 0) {
@@ -32,6 +32,7 @@ $profile_username = $_GET['u'] ?? $_SESSION['username'];
 $stmt = $pdo->prepare("
     SELECT
         id, username, avatar, bio,
+        display_name, location, occupation, education, languages, interests,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
         (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
         (SELECT COUNT(*) FROM posts WHERE user_id = users.id) AS post_count
@@ -48,6 +49,8 @@ if (!$profile_user) {
 
 $profile_id = (int)$profile_user['id'];
 $is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
+
+$display_name = $profile_user['display_name'] ?: $profile_user['username'];
 
 $is_following = false;
 if (!$is_own_profile) {
@@ -128,7 +131,7 @@ if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.post_id, comments.content, comments.created_at, users.username, users.avatar
+        SELECT comments.post_id, comments.content, comments.created_at, users.username, users.display_name, users.avatar
         FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
@@ -140,7 +143,7 @@ if (!empty($posts)) {
     }
 }
 
-$page_title = $profile_user['username'];
+$page_title = $display_name;
 require 'includes/header.php';
 ?>
 
@@ -151,15 +154,19 @@ require 'includes/header.php';
              alt="Profile picture">
     <?php else: ?>
         <div class="avatar avatar-large avatar-placeholder">
-            <?= strtoupper(substr($profile_user['username'], 0, 1)) ?>
+            <?= strtoupper(substr($display_name, 0, 1)) ?>
         </div>
     <?php endif; ?>
 
     <div class="profile-info">
         <h1 style="margin-bottom:2px;">
             <?= $is_own_profile ? __('profile_hello') . ' ' : '' ?>
-            <?= htmlspecialchars($profile_user['username']) ?>
+            <?= htmlspecialchars($display_name) ?>
         </h1>
+
+        <?php if ($profile_user['display_name']): ?>
+            <div class="profile-username">@<?= htmlspecialchars($profile_user['username']) ?></div>
+        <?php endif; ?>
 
         <div class="profile-stats">
             <strong><?= (int)$profile_user['post_count'] ?></strong> <?= __('profile_posts_label') ?>
@@ -172,6 +179,46 @@ require 'includes/header.php';
 
         <?php if (!empty($profile_user['bio'])): ?>
             <p class="profile-bio"><?= nl2br(htmlspecialchars($profile_user['bio'])) ?></p>
+        <?php endif; ?>
+
+        <?php
+        $has_details = $profile_user['location'] || $profile_user['occupation']
+            || $profile_user['education'] || $profile_user['languages']
+            || $profile_user['interests'];
+        ?>
+        <?php if ($has_details): ?>
+            <div class="profile-details">
+                <?php if ($profile_user['location']): ?>
+                    <div class="profile-detail">
+                        <span class="profile-detail-icon">📍</span>
+                        <span><?= htmlspecialchars($profile_user['location']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['occupation']): ?>
+                    <div class="profile-detail">
+                        <span class="profile-detail-icon">💼</span>
+                        <span><?= htmlspecialchars($profile_user['occupation']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['education']): ?>
+                    <div class="profile-detail">
+                        <span class="profile-detail-icon">🎓</span>
+                        <span><?= htmlspecialchars($profile_user['education']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['languages']): ?>
+                    <div class="profile-detail">
+                        <span class="profile-detail-icon">🗣</span>
+                        <span><?= htmlspecialchars($profile_user['languages']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['interests']): ?>
+                    <div class="profile-detail">
+                        <span class="profile-detail-icon">✦</span>
+                        <span><?= htmlspecialchars($profile_user['interests']) ?></span>
+                    </div>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
 
         <?php if ($is_own_profile): ?>
@@ -189,11 +236,14 @@ require 'includes/header.php';
                 <a href="delete_account.php" class="btn-danger"><?= __('profile_delete') ?></a>
             </div>
         <?php else: ?>
-            <form method="POST" action="follow.php" style="margin-top:8px;">
+            <form method="POST" action="follow.php" class="follow-form" style="margin-top:8px;">
                 <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $profile_id ?>">
                 <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-                <button type="submit" class="<?= $is_following ? 'btn-secondary' : '' ?>">
+                <button type="submit"
+                        class="<?= $is_following ? 'btn-secondary' : '' ?>"
+                        data-follow-text="<?= __('profile_follow') ?>"
+                        data-unfollow-text="<?= __('profile_unfollow') ?>">
                     <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
             </form>
@@ -233,12 +283,12 @@ require 'includes/header.php';
                          alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
-                        <?= strtoupper(substr($profile_user['username'], 0, 1)) ?>
+                        <?= strtoupper(substr($display_name, 0, 1)) ?>
                     </div>
                 <?php endif; ?>
                 <div class="author">
                     <a href="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-                        <?= htmlspecialchars($profile_user['username']) ?>
+                        <?= htmlspecialchars($display_name) ?>
                     </a>
                 </div>
             </div>
@@ -252,14 +302,14 @@ require 'includes/header.php';
             <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
 
             <div class="actions">
-                <form method="POST" action="interact.php" style="display:inline;">
+                <form method="POST" action="interact.php" class="like-form" style="display:inline;">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                     <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
-                        <?= $post['liked_by_me'] ? '♥' : '♡' ?>
-                        <?= (int)$post['like_count'] ?>
+                        <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
+                        <span class="like-count"><?= (int)$post['like_count'] ?></span>
                     </button>
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
@@ -271,6 +321,7 @@ require 'includes/header.php';
             <?php if (!empty($comments_by_post[$post['id']])): ?>
                 <div class="comments">
                     <?php foreach ($comments_by_post[$post['id']] as $c): ?>
+                        <?php $comment_name = $c['display_name'] ?: $c['username']; ?>
                         <div class="comment">
                             <div class="comment-header">
                                 <?php if (!empty($c['avatar'])): ?>
@@ -279,10 +330,10 @@ require 'includes/header.php';
                                          alt="">
                                 <?php else: ?>
                                     <div class="avatar avatar-tiny avatar-placeholder">
-                                        <?= strtoupper(substr($c['username'], 0, 1)) ?>
+                                        <?= strtoupper(substr($comment_name, 0, 1)) ?>
                                     </div>
                                 <?php endif; ?>
-                                <strong><?= htmlspecialchars($c['username']) ?></strong>
+                                <strong><?= htmlspecialchars($comment_name) ?></strong>
                             </div>
                             <?= htmlspecialchars($c['content']) ?>
                             <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>

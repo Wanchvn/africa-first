@@ -19,27 +19,30 @@ $posts = [];
 if ($query !== '' && mb_strlen($query) >= 2) {
     $like = '%' . $query . '%';
 
+    // Search users — now includes display_name for matching too
     $stmt = $pdo->prepare("
         SELECT
-            users.id, users.username, users.avatar,
+            users.id, users.username, users.display_name, users.avatar,
             (SELECT 1 FROM follows WHERE follower_id = :me_follow AND following_id = users.id) AS is_following
         FROM users
-        WHERE users.username LIKE :like
+        WHERE (users.username LIKE :like OR users.display_name LIKE :like2)
           AND users.id != :me
         ORDER BY users.username ASC
         LIMIT 20
     ");
     $stmt->execute([
         ':like' => $like,
+        ':like2' => $like,
         ':me' => $user_id,
         ':me_follow' => $user_id,
     ]);
     $users = $stmt->fetchAll();
 
+    // Search posts
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at,
-            users.username, users.avatar, users.id AS author_id,
+            users.username, users.display_name, users.avatar, users.id AS author_id,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
             (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
@@ -63,19 +66,13 @@ require 'includes/header.php';
 
 <h1><?= __('search_title') ?></h1>
 
-<div class="card">
-    <form method="GET" class="stack">
-        <input type="text" name="q" value="<?= htmlspecialchars($query) ?>"
-               placeholder="<?= __('search_placeholder') ?>"
-               autofocus>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button type="submit"><?= __('search_button') ?></button>
-            <?php if ($query !== ''): ?>
-                <a href="search.php" class="btn-secondary"><?= __('search_clear') ?></a>
-            <?php endif; ?>
-        </div>
-    </form>
-</div>
+<?php if ($query !== ''): ?>
+    <div class="search-context">
+        <span class="search-context-label">Results for</span>
+        <strong class="search-context-query">"<?= htmlspecialchars($query) ?>"</strong>
+        <a href="search.php" class="search-clear-link">Clear</a>
+    </div>
+<?php endif; ?>
 
 <?php if ($query_too_short): ?>
     <div class="message"><?= __('search_too_short') ?></div>
@@ -88,6 +85,7 @@ require 'includes/header.php';
 <?php if (!empty($users)): ?>
     <h2><?= __('search_people') ?> (<?= count($users) ?>)</h2>
     <?php foreach ($users as $u): ?>
+        <?php $user_name = $u['display_name'] ?: $u['username']; ?>
         <div class="user-row">
             <div style="display:flex; align-items:center; gap:12px;">
                 <?php if ($u['avatar']): ?>
@@ -96,18 +94,21 @@ require 'includes/header.php';
                          alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
-                        <?= strtoupper(substr($u['username'], 0, 1)) ?>
+                        <?= strtoupper(substr($user_name, 0, 1)) ?>
                     </div>
                 <?php endif; ?>
                 <a href="profile.php?u=<?= urlencode($u['username']) ?>" class="name">
-                    <?= htmlspecialchars($u['username']) ?>
+                    <?= htmlspecialchars($user_name) ?>
                 </a>
             </div>
-            <form method="POST" action="follow.php">
+            <form method="POST" action="follow.php" class="follow-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
                 <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
-                <button type="submit" class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>">
+                <button type="submit"
+                        class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>"
+                        data-follow-text="<?= __('profile_follow') ?>"
+                        data-unfollow-text="<?= __('profile_unfollow') ?>">
                     <?= $u['is_following'] ? __('profile_unfollow') : __('profile_follow') ?>
                 </button>
             </form>
@@ -118,6 +119,7 @@ require 'includes/header.php';
 <?php if (!empty($posts)): ?>
     <h2><?= __('search_posts') ?> (<?= count($posts) ?>)</h2>
     <?php foreach ($posts as $post): ?>
+        <?php $author_name = $post['display_name'] ?: $post['username']; ?>
         <div class="card">
             <div class="post-header">
                 <?php if ($post['avatar']): ?>
@@ -126,12 +128,12 @@ require 'includes/header.php';
                          alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
-                        <?= strtoupper(substr($post['username'], 0, 1)) ?>
+                        <?= strtoupper(substr($author_name, 0, 1)) ?>
                     </div>
                 <?php endif; ?>
                 <div class="author">
                     <a href="profile.php?u=<?= urlencode($post['username']) ?>">
-                        <?= htmlspecialchars($post['username']) ?>
+                        <?= htmlspecialchars($author_name) ?>
                     </a>
                 </div>
             </div>
@@ -145,14 +147,14 @@ require 'includes/header.php';
             <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
 
             <div class="actions">
-                <form method="POST" action="interact.php" style="display:inline;">
+                <form method="POST" action="interact.php" class="like-form" style="display:inline;">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                     <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
-                        <?= $post['liked_by_me'] ? '♥' : '♡' ?>
-                        <?= (int)$post['like_count'] ?>
+                        <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
+                        <span class="like-count"><?= (int)$post['like_count'] ?></span>
                     </button>
                 </form>
                 <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
