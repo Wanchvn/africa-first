@@ -13,6 +13,13 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = (int)$_SESSION['user_id'];
 $message = '';
 
+// Determine where to redirect back to (default: profile)
+$redirect_to = $_POST['redirect'] ?? 'profile.php';
+$allowed_redirects = ['profile.php', 'welcome.php'];
+if (!in_array($redirect_to, $allowed_redirects, true)) {
+    $redirect_to = 'profile.php';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
 }
@@ -57,14 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['avatar']['name'])) 
                 @unlink(__DIR__ . '/' . $old['avatar']);
             }
 
-            $message = 'Avatar updated.';
+            $message = 'Photo updated.';
         } else {
             $message = 'Could not save the file.';
         }
     }
 }
 
-// Store the message in session, then redirect back to profile
+// Store the message in session, then redirect back
 $_SESSION['avatar_message'] = $message;
-header('Location: profile.php');
+header('Location: ' . $redirect_to);
 exit;
