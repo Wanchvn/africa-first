@@ -1112,3 +1112,134 @@ select:focus {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+
+/* ---- Legal pages (Terms, Privacy, etc.) ---- */
+.legal-page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: var(--space-5) 0;
+}
+
+.legal-page h1 {
+    font-size: 2rem;
+    color: var(--deep-brown);
+    margin-bottom: var(--space-2);
+    letter-spacing: -0.02em;
+}
+
+.legal-meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.legal-card {
+    background: var(--ivory);
+    border-left: 4px solid var(--terracotta);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+    margin-bottom: var(--space-6);
+}
+
+.legal-card h2 {
+    font-size: 1.1rem;
+    margin-top: 0;
+    margin-bottom: var(--space-3);
+    color: var(--deep-brown);
+}
+
+.legal-card p {
+    margin-bottom: var(--space-3);
+    line-height: 1.7;
+}
+
+.legal-card p:last-child {
+    margin-bottom: 0;
+}
+
+.legal-section {
+    margin-bottom: var(--space-6);
+}
+
+.legal-section h2 {
+    font-size: 1.2rem;
+    color: var(--deep-brown);
+    margin: var(--space-5) 0 var(--space-3);
+    letter-spacing: -0.01em;
+}
+
+.legal-section p {
+    margin-bottom: var(--space-3);
+    line-height: 1.7;
+    color: var(--charcoal);
+}
+
+.legal-section ul,
+.legal-section ol {
+    margin: var(--space-3) 0;
+    padding-left: var(--space-5);
+}
+
+.legal-section li {
+    margin-bottom: var(--space-2);
+    line-height: 1.7;
+    color: var(--charcoal);
+}
+
+.legal-section strong {
+    color: var(--deep-brown);
+}
+
+.legal-footer {
+    text-align: center;
+    padding: var(--space-5) 0;
+    border-top: 1px solid var(--border);
+    margin-top: var(--space-6);
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.legal-footer a {
+    color: var(--terracotta);
+    font-weight: 600;
+}
+
+@media (max-width: 480px) {
+    .legal-page h1 { font-size: 1.5rem; }
+    .legal-card { padding: var(--space-4); }
+    .legal-section h2 { font-size: 1.05rem; }
+}
+
+
+/* ---- Inline code (for PHPSESSID etc.) ---- */
+.legal-section code {
+    background: var(--sand);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    color: var(--deep-brown);
+}
+
+/* ---- Legal subheadings (h3) ---- */
+.legal-section h3 {
+    font-size: 1rem;
+    color: var(--deep-brown);
+    margin: var(--space-4) 0 var(--space-2);
+    font-weight: 700;
+}
+
+/* ---- Nested lists ---- */
+.legal-section ul ul {
+    margin-top: var(--space-2);
+    padding-left: var(--space-5);
+}
+
+.legal-section ul ul li {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin-bottom: var(--space-1);
+}

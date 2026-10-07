@@ -6,7 +6,8 @@
         <br>
         <a href="privacy.php"><?= __('nav_privacy') ?></a> ·
         <a href="moderation.php"><?= __('nav_moderation') ?></a> ·
-        <a href="export.php"><?= __('profile_export') ?></a>
+        <a href="export.php"><?= __('profile_export') ?></a> ·
+        <a href="privacy_policy.php">Policy</a>
     </div>
 <?php endif; ?>
 

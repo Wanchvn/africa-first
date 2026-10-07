@@ -172,7 +172,7 @@ require 'includes/header.php';
                 <span>
                     <?= __('register_terms_label') ?>
                     (<a href="terms.php" target="_blank"><?= __('register_terms_link_terms') ?></a>,
-                    <a href="privacy.php" target="_blank"><?= __('register_terms_link_privacy') ?></a>)
+                    <a href="privacy_policy.php" target="_blank"><?= __('register_terms_link_privacy') ?></a>)
                 </span>
             </label>
         </div>
