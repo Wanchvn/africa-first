@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         session_regenerate_id(true);
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-        $message = 'Password updated. For your security, any other devices you were logged in on have been signed out.';
+        $message = 'Password updated. Use the new password next time you log in.';
 
         // Clear the form
         $current = $new = $confirm = '';
