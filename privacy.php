@@ -91,6 +91,7 @@ require 'includes/header.php';
         <li style="padding: 6px 0;"><strong>Right to access</strong> — You can see everything we have on this page.</li>
         <li style="padding: 6px 0;"><strong>Right to export</strong> — <a href="export.php">Download all your data as a ZIP file</a>.</li>
         <li style="padding: 6px 0;"><strong>Right to correction</strong> — Email us to correct inaccurate data.</li>
+        <li style="padding: 6px 0;"><strong>Change password</strong> — <a href="change_password.php">Update your password</a>.</li>
         <li style="padding: 6px 0;"><strong>Right to erasure</strong> — <a href="delete_account.php">Delete your account permanently</a>.</li>
         <li style="padding: 6px 0;"><strong>Right to withdraw consent</strong> — Deleting your account withdraws all consent.</li>
         <li style="padding: 6px 0;"><strong>Right to complain</strong> — You may contact Ghana's Data Protection Commission.</li>

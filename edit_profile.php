@@ -17,7 +17,6 @@ $message = '';
 $errors = [];
 $username_changed = false;
 
-// Fetch current profile data — includes username and username_changed_at
 $stmt = $pdo->prepare("
     SELECT username, username_changed_at, bio, display_name, location, occupation, education, languages, interests
     FROM users
@@ -41,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new_username = trim($_POST['new_username'] ?? '');
 
     if ($new_username !== '' && $new_username !== $user['username']) {
-        // Cooldown check: 30 days between changes
         $can_change = true;
         if ($user['username_changed_at']) {
             $last_change = strtotime($user['username_changed_at']);
@@ -85,7 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $languages    = trim($_POST['languages'] ?? '');
     $interests    = trim($_POST['interests'] ?? '');
 
-    // Validate lengths
     if (mb_strlen($bio) > 160)          $errors[] = 'Bio must be 160 characters or less.';
     if (mb_strlen($display_name) > 60)  $errors[] = 'Display name must be 60 characters or less.';
     if (mb_strlen($location) > 100)     $errors[] = 'Location must be 100 characters or less.';
@@ -120,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Recompute cooldown for display (in case username was just changed)
+// Recompute cooldown for display
 $can_change = true;
 $days_left = 0;
 if ($user['username_changed_at']) {
@@ -137,6 +134,10 @@ require 'includes/header.php';
 ?>
 
 <h1>Edit profile</h1>
+
+<div style="text-align: right; margin-bottom: var(--space-3);">
+    <a href="change_password.php" class="btn-secondary btn-small">🔑 Change password →</a>
+</div>
 
 <?php if ($username_changed): ?>
     <div class="message" style="background: #E8F5E9; border-left-color: #4CAF50;">

@@ -86,6 +86,10 @@ if (!isset($page_title)) $page_title = 'Qarota';
                     <span class="nav-icon">👤</span>
                     <span class="nav-label"><?= __('nav_profile') ?></span>
                 </a>
+                 <a href="change_password.php" title="Change password">
+                    <span class="nav-icon">🔑</span>
+                    <span class="nav-label">Password</span>
+            </a>
                 <a href="logout.php" class="nav-logout" title="<?= __('nav_logout') ?>">
                     <span class="nav-icon">→</span>
                     <span class="nav-label"><?= __('nav_logout') ?></span>
