@@ -1,6 +1,8 @@
 <?php
-require_once __DIR__ . '/session.php';
-start_secure_session();
+if (session_status() === PHP_SESSION_NONE) {
+    require_once __DIR__ . '/session.php';
+    start_secure_session();
+}
 
 require_once __DIR__ . '/../lang/init.php';
 require_once __DIR__ . '/csrf.php';
@@ -9,20 +11,17 @@ $logged_in = isset($_SESSION['user_id']);
 
 if ($logged_in) {
     require_once __DIR__ . '/../config/db.php';
-}
 
-$unread_count = 0;
-if ($logged_in) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :me AND is_read = 0");
     $stmt->execute([':me' => $_SESSION['user_id']]);
     $unread_count = (int)$stmt->fetchColumn();
-}
 
-$is_admin = false;
-if ($logged_in) {
     $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $is_admin = (bool)$stmt->fetchColumn();
+} else {
+    $unread_count = 0;
+    $is_admin = false;
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
@@ -44,27 +43,59 @@ if (!isset($page_title)) $page_title = 'Qarota';
             <span class="nav-toggle-icon">☰</span>
         </button>
 
+        <?php if ($logged_in): ?>
+            <form method="GET" action="search.php" class="nav-search">
+                <span class="nav-search-icon">🔍</span>
+                <input type="text" name="q" placeholder="<?= __('search_placeholder') ?>" autocomplete="off">
+            </form>
+        <?php endif; ?>
+
         <div class="nav-links" id="navLinks">
             <?php if ($logged_in): ?>
-                <a href="feed.php"><?= __('nav_feed') ?></a>
-                <a href="notifications.php" class="nav-notifications">
-                    <?= __('nav_notifications') ?>
+                <a href="feed.php" title="<?= __('nav_feed') ?>">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label"><?= __('nav_feed') ?></span>
+                </a>
+                <a href="notifications.php" title="<?= __('nav_notifications') ?>">
+                    <span class="nav-icon">🔔</span>
+                    <span class="nav-label"><?= __('nav_notifications') ?></span>
                     <?php if ($unread_count > 0): ?>
                         <span class="badge"><?= $unread_count ?></span>
                     <?php endif; ?>
                 </a>
-                <a href="discover.php"><?= __('nav_discover') ?></a>
-                <a href="search.php"><?= __('nav_search') ?></a>
+                <a href="discover.php" title="<?= __('nav_discover') ?>">
+                    <span class="nav-icon">🧭</span>
+                    <span class="nav-label"><?= __('nav_discover') ?></span>
+                </a>
                 <?php if ($is_admin): ?>
-                    <a href="admin_reports.php"><?= __('nav_admin') ?></a>
+                    <a href="admin_reports.php" title="<?= __('nav_admin') ?>">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-label"><?= __('nav_admin') ?></span>
+                    </a>
                 <?php endif; ?>
-                <a href="privacy.php"><?= __('nav_privacy') ?></a>
-                <a href="moderation.php"><?= __('nav_moderation') ?></a>
-                <a href="profile.php"><?= __('nav_profile') ?></a>
-                <a href="logout.php" class="nav-logout"><?= __('nav_logout') ?></a>
+                <a href="privacy.php" title="<?= __('nav_privacy') ?>">
+                    <span class="nav-icon">🔒</span>
+                    <span class="nav-label"><?= __('nav_privacy') ?></span>
+                </a>
+                <a href="moderation.php" title="<?= __('nav_moderation') ?>">
+                    <span class="nav-icon">📖</span>
+                    <span class="nav-label"><?= __('nav_moderation') ?></span>
+                </a>
+                <a href="profile.php" title="<?= __('nav_profile') ?>">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label"><?= __('nav_profile') ?></span>
+                </a>
+                <a href="logout.php" class="nav-logout" title="<?= __('nav_logout') ?>">
+                    <span class="nav-icon">→</span>
+                    <span class="nav-label"><?= __('nav_logout') ?></span>
+                </a>
             <?php else: ?>
-                <a href="login.php" class="nav-logout"><?= __('nav_login') ?></a>
-                <a href="register.php"><?= __('nav_register') ?></a>
+                <a href="login.php" class="nav-logout">
+                    <span class="nav-label"><?= __('nav_login') ?></span>
+                </a>
+                <a href="register.php">
+                    <span class="nav-label"><?= __('nav_register') ?></span>
+                </a>
             <?php endif; ?>
         </div>
 

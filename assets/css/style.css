@@ -672,3 +672,186 @@ select:focus {
         font-size: 1.8rem;
     }
 }
+
+/* ---- Welcome hero (login/register pages) ---- */
+.welcome-hero {
+    text-align: center;
+    padding: var(--space-6) var(--space-4) var(--space-5);
+    margin-bottom: var(--space-5);
+}
+
+.welcome-title {
+    font-size: 2rem;
+    color: var(--deep-brown);
+    margin-bottom: var(--space-3);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.welcome-subtitle {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto var(--space-6);
+    line-height: 1.7;
+    font-family: var(--font-serif);
+    font-style: italic;
+}
+
+.welcome-pillars {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-5);
+    flex-wrap: wrap;
+    margin-top: var(--space-4);
+}
+
+.welcome-pillar {
+    flex: 0 1 auto;
+    text-align: center;
+    min-width: 100px;
+}
+
+.welcome-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+    margin-bottom: var(--space-2);
+}
+
+.welcome-label {
+    font-size: 0.8rem;
+    color: var(--deep-brown);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+@media (max-width: 480px) {
+    .welcome-title { font-size: 1.5rem; }
+    .welcome-subtitle { font-size: 0.92rem; }
+    .welcome-pillars { gap: var(--space-4); }
+    .welcome-pillar { min-width: 80px; }
+    .welcome-icon { font-size: 1.5rem; }
+    .welcome-label { font-size: 0.75rem; }
+}
+
+
+/* ---- Header search bar ---- */
+.nav-search {
+    flex: 1;
+    max-width: 300px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    padding: 0 var(--space-3);
+    transition: background var(--transition), border-color var(--transition);
+}
+
+.nav-search:focus-within {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.nav-search-icon {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin-right: var(--space-2);
+}
+
+.nav-search input[type="text"] {
+    background: transparent;
+    border: none;
+    color: var(--sand);
+    padding: var(--space-2) 0;
+    font-size: 0.9rem;
+    width: 100%;
+}
+
+.nav-search input[type="text"]::placeholder {
+    color: rgba(245, 239, 230, 0.5);
+}
+
+.nav-search input[type="text"]:focus {
+    outline: none;
+    box-shadow: none;
+    border: none;
+}
+
+/* ---- Nav links with icons ---- */
+.nav-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--sand);
+    font-size: 0.9rem;
+    transition: color var(--transition);
+    position: relative;
+}
+
+.nav-links a:hover {
+    color: #fff;
+    text-decoration: none;
+}
+
+.nav-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+.nav-label {
+    font-size: 0.9rem;
+}
+
+/* Hide labels on medium screens (tablet) */
+@media (max-width: 900px) and (min-width: 601px) {
+    .nav-label {
+        display: none;
+    }
+    .nav-links a {
+        padding: var(--space-1) var(--space-2);
+    }
+}
+
+/* ---- Mobile: icons only in the hamburger menu ---- */
+@media (max-width: 600px) {
+    .nav-search {
+        max-width: 140px;
+        margin-left: auto;
+        margin-right: var(--space-2);
+        padding: 0 var(--space-2);
+    }
+    .nav-search input[type="text"] {
+        font-size: 0.85rem;
+        padding: var(--space-1) 0;
+    }
+    .nav-search-icon {
+        font-size: 0.75rem;
+    }
+
+    .nav-links {
+        /* Keep existing mobile layout */
+    }
+
+    .nav-links a {
+        display: flex;
+        gap: var(--space-2);
+        padding: var(--space-3) 0;
+        font-size: 0.95rem;
+    }
+
+    .nav-icon {
+        font-size: 1.1rem;
+        width: 1.5rem;
+        text-align: center;
+    }
+
+    /* On mobile, show labels in the hamburger menu */
+    .nav-label {
+        display: inline-block;
+    }
+}

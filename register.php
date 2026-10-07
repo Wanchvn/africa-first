@@ -7,6 +7,11 @@ require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 
+if (isset($_SESSION['user_id'])) {
+    header('Location: profile.php');
+    exit;
+}
+
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -42,13 +47,35 @@ $page_title = __('register_title');
 require 'includes/header.php';
 ?>
 
-<h1><?= __('register_title') ?></h1>
+<div class="welcome-hero">
+    <h1 class="welcome-title">Join Qarota</h1>
+    <p class="welcome-subtitle">
+        Create your account in 30 seconds. No phone number required,
+        no ads, no algorithm — just you and the community.
+    </p>
+
+    <div class="welcome-pillars">
+        <div class="welcome-pillar">
+            <div class="welcome-icon">⚡</div>
+            <div class="welcome-label">Fast signup</div>
+        </div>
+        <div class="welcome-pillar">
+            <div class="welcome-icon">🔒</div>
+            <div class="welcome-label">Private by default</div>
+        </div>
+        <div class="welcome-pillar">
+            <div class="welcome-icon">🌍</div>
+            <div class="welcome-label">Made for Africa</div>
+        </div>
+    </div>
+</div>
 
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
 
 <div class="card">
+    <h2 style="margin-top:0;"><?= __('register_title') ?></h2>
     <form method="POST" class="stack">
         <?= csrf_field() ?>
         <input type="text" name="username" placeholder="<?= __('login_username') ?>" required>
@@ -58,6 +85,9 @@ require 'includes/header.php';
     </form>
 </div>
 
-<p><?= __('register_have_account') ?> <a href="login.php"><?= __('register_login_link') ?></a></p>
+<p style="text-align:center;">
+    <?= __('register_have_account') ?>
+    <a href="login.php"><strong><?= __('register_login_link') ?></strong></a>
+</p>
 
 <?php require 'includes/footer.php'; ?>
