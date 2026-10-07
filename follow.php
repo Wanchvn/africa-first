@@ -95,7 +95,7 @@ if ($is_ajax) {
 
 // Fallback for non-AJAX: redirect
 $redirect = $_POST['redirect'] ?? 'discover.php';
-$allowed = ['discover.php', 'profile.php', 'search.php'];
+$allowed = ['discover.php', 'profile.php', 'search.php', 'discover_feed.php'];
 $redirect_base = strtok($redirect, '?');
 if (!in_array($redirect_base, $allowed, true)) {
     $redirect = 'discover.php';

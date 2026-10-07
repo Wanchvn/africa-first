@@ -1358,3 +1358,40 @@ select:focus {
         padding: var(--space-5) var(--space-4);
     }
 }
+
+/* ---- Discover reason badge ---- */
+.discover-reason {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    margin: calc(var(--space-2) * -1) 0 var(--space-3);
+    background: #FFF9F5;
+    border-left: 3px solid var(--terracotta);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--deep-brown);
+    font-weight: 500;
+}
+
+.discover-reason-icon {
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+/* ---- Follow button inline in post header ---- */
+.post-header .follow-form button.btn-small {
+    padding: var(--space-1) var(--space-3);
+    font-size: 0.8rem;
+    border-radius: var(--radius-md);
+}
+
+.post-header .follow-form button:not(.btn-secondary) {
+    background: var(--terracotta);
+    color: #fff;
+    border: none;
+}
+
+.post-header .follow-form button:not(.btn-secondary):hover {
+    background: #B14E2F;
+}

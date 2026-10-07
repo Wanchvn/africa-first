@@ -64,6 +64,10 @@ if (!isset($page_title)) $page_title = 'Qarota';
                         <span class="badge"><?= $unread_count ?></span>
                     <?php endif; ?>
                 </a>
+                <a href="discover_feed.php" title="Explore">
+                    <span class="nav-icon">✨</span>
+                    <span class="nav-label">Explore</span>
+                </a>
                 <a href="discover.php" title="<?= __('nav_discover') ?>">
                     <span class="nav-icon">🧭</span>
                     <span class="nav-label"><?= __('nav_discover') ?></span>
@@ -86,10 +90,10 @@ if (!isset($page_title)) $page_title = 'Qarota';
                     <span class="nav-icon">👤</span>
                     <span class="nav-label"><?= __('nav_profile') ?></span>
                 </a>
-                 <a href="change_password.php" title="Change password">
+                <a href="change_password.php" title="Change password">
                     <span class="nav-icon">🔑</span>
                     <span class="nav-label">Password</span>
-            </a>
+                </a>
                 <a href="logout.php" class="nav-logout" title="<?= __('nav_logout') ?>">
                     <span class="nav-icon">→</span>
                     <span class="nav-label"><?= __('nav_logout') ?></span>
