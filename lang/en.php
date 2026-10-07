@@ -108,4 +108,24 @@ return [
 'profile_posts_label' => 'posts',
 'profile_followers_label' => 'followers',
 'profile_following_label' => 'following',
+
+
+
+'register_email_label' => 'Email',
+'register_email_hint' => "We'll use this to contact you. Never shared, never sold.",
+'register_username_label' => 'Username',
+'register_username_hint' => 'Letters, numbers, dots, underscores. 3–30 characters.',
+'register_password_label' => 'Password',
+'register_password_placeholder' => 'At least 8 characters',
+'register_terms_label' => 'I agree to the Terms of Service and Privacy Policy',
+'register_terms_link_terms' => 'Terms of Service',
+'register_terms_link_privacy' => 'Privacy Policy',
+'register_strength_weak' => 'Weak',
+'register_strength_fair' => 'Fair',
+'register_strength_good' => 'Good',
+'register_strength_strong' => 'Strong',
+'register_username_available' => 'is available',
+'register_username_taken' => 'is taken',
+'register_username_checking' => 'Checking availability…',
+'register_error_terms' => 'You must agree to the Terms of Service and Privacy Policy.',
 ];

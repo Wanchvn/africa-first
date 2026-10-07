@@ -108,4 +108,23 @@ return [
 'profile_posts_label' => 'nnwoma',
 'profile_followers_label' => 'akyidifo',
 'profile_following_label' => 'adi akyi',
+
+
+'register_email_label' => 'Email',
+'register_email_hint' => 'Yɛde bɛfrɛ wo. Yɛnntɔn, yɛmma obiara.',
+'register_username_label' => 'Din',
+'register_username_hint' => 'Nkyerɛw, nɔma, nokwae. 3–30.',
+'register_password_label' => 'Kokoam nsɛm',
+'register_password_placeholder' => 'Nkyerɛw 8 anaa nea ɛboro so',
+'register_terms_label' => 'Mepene Nhyehyɛe ne Kokoam Mmara so',
+'register_terms_link_terms' => 'Nhyehyɛe',
+'register_terms_link_privacy' => 'Kokoam Mmara',
+'register_strength_weak' => 'Mmerɛ',
+'register_strength_fair' => 'Yie',
+'register_strength_good' => 'Papa',
+'register_strength_strong' => 'Tumi',
+'register_username_available' => 'wɔ hɔ',
+'register_username_taken' => 'wɔ hɔ dedaw',
+'register_username_checking' => 'Yɛrehwɛ…',
+'register_error_terms' => 'Ɛsɛ sɛ wopene Nhyehyɛe ne Kokoam Mmara so.',
 ];

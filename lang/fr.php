@@ -108,4 +108,24 @@ return [
 'profile_posts_label' => 'publications',
 'profile_followers_label' => 'abonnés',
 'profile_following_label' => 'abonnements',
+
+
+
+'register_email_label' => 'Email',
+'register_email_hint' => 'Nous vous contacterons. Jamais partagé, jamais vendu.',
+'register_username_label' => "Nom d'utilisateur",
+'register_username_hint' => 'Lettres, chiffres, points, underscores. 3–30 caractères.',
+'register_password_label' => 'Mot de passe',
+'register_password_placeholder' => 'Au moins 8 caractères',
+'register_terms_label' => "J'accepte les Conditions d'utilisation et la Politique de confidentialité",
+'register_terms_link_terms' => "Conditions d'utilisation",
+'register_terms_link_privacy' => 'Politique de confidentialité',
+'register_strength_weak' => 'Faible',
+'register_strength_fair' => 'Moyen',
+'register_strength_good' => 'Bon',
+'register_strength_strong' => 'Fort',
+'register_username_available' => 'est disponible',
+'register_username_taken' => 'est déjà pris',
+'register_username_checking' => 'Vérification…',
+'register_error_terms' => 'Vous devez accepter les Conditions et la Politique de confidentialité.',
 ];

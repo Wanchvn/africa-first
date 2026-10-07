@@ -129,4 +129,23 @@ return [
 'profile_posts_label' => 'lahabali',
 'profile_followers_label' => 'dɔli niriba',
 'profile_following_label' => 'dɔli',
+
+
+'register_email_label' => 'Email',
+'register_email_hint' => 'Ti ni ti yɛn boli a. Di bi tɔ.',
+'register_username_label' => 'Yuli',
+'register_username_hint' => 'Bachi, namba, dot. 3–30.',
+'register_password_label' => 'Asalichi yɛltɔɣa',
+'register_password_placeholder' => 'Bachi 8 bee din pahira',
+'register_terms_label' => 'N saɣi ti Yɛlimaŋli ni Asalichi zaligu',
+'register_terms_link_terms' => 'Yɛlimaŋli',
+'register_terms_link_privacy' => 'Asalichi zaligu',
+'register_strength_weak' => 'Chɛ',
+'register_strength_fair' => 'Vɛi',
+'register_strength_good' => 'Viɛla',
+'register_strength_strong' => 'Kpɛma',
+'register_username_available' => 'be',
+'register_username_taken' => 'be naabu',
+'register_username_checking' => 'Ti lihira…',
+'register_error_terms' => 'Di tu ni a saɣi Yɛlimaŋli ni Asalichi zaligu.',
 ];

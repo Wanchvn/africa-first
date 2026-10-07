@@ -10,5 +10,11 @@
     </div>
 <?php endif; ?>
 
+<script src="assets/js/interact.js"></script>
+
+<?php if (basename($_SERVER['PHP_SELF']) === 'register.php'): ?>
+    <script src="assets/js/register.js"></script>
+<?php endif; ?>
+
 </body>
 </html>
