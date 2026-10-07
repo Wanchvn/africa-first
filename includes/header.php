@@ -46,7 +46,9 @@ if (!isset($page_title)) $page_title = 'Qarota';
         <?php if ($logged_in): ?>
             <form method="GET" action="search.php" class="nav-search">
                 <span class="nav-search-icon">🔍</span>
-                <input type="text" name="q" placeholder="<?= __('search_placeholder') ?>" autocomplete="off">
+                <input type="text" name="q"
+                       placeholder="<?= __('search_placeholder') ?>"
+                       autocomplete="off">
             </form>
         <?php endif; ?>
 
