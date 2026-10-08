@@ -116,8 +116,23 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
             $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
             $stmt->execute([':t' => $topic_id, ':u' => $_SESSION['user_id']]);
             if ($stmt->fetch()) {
+                // Attach the topic to the post
                 $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
                 $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
+
+                // Notify all other members of this topic (excluding the author)
+                $stmt = $pdo->prepare("
+                    INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
+                    SELECT user_id, :actor, 'topic_posted', :post_id, :topic_id
+                    FROM topic_members
+                    WHERE topic_id = :topic_id
+                      AND user_id != :actor
+                ");
+                $stmt->execute([
+                    ':actor'    => $_SESSION['user_id'],
+                    ':post_id'  => $new_post_id,
+                    ':topic_id' => $topic_id,
+                ]);
             }
         }
 
@@ -154,6 +169,11 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
 $posts = $stmt->fetchAll();
+
+// ---- Fetch user's bookmarked post IDs ----
+$stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
+$stmt->execute([':me' => $_SESSION['user_id']]);
+$my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
 // ---- Topics attached to each post ----
 $topics_by_post = [];
@@ -234,39 +254,39 @@ require 'includes/header.php';
             || $profile_user['interests'];
         ?>
         <?php if ($has_details): ?>
-    <div class="profile-details">
-        <?php if ($profile_user['location']): ?>
-            <div class="profile-detail">
-                <i data-lucide="map-pin" class="profile-detail-icon"></i>
-                <span><?= htmlspecialchars($profile_user['location']) ?></span>
+            <div class="profile-details">
+                <?php if ($profile_user['location']): ?>
+                    <div class="profile-detail">
+                        <i data-lucide="map-pin" class="profile-detail-icon"></i>
+                        <span><?= htmlspecialchars($profile_user['location']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['occupation']): ?>
+                    <div class="profile-detail">
+                        <i data-lucide="briefcase" class="profile-detail-icon"></i>
+                        <span><?= htmlspecialchars($profile_user['occupation']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['education']): ?>
+                    <div class="profile-detail">
+                        <i data-lucide="graduation-cap" class="profile-detail-icon"></i>
+                        <span><?= htmlspecialchars($profile_user['education']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['languages']): ?>
+                    <div class="profile-detail">
+                        <i data-lucide="languages" class="profile-detail-icon"></i>
+                        <span><?= htmlspecialchars($profile_user['languages']) ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($profile_user['interests']): ?>
+                    <div class="profile-detail">
+                        <i data-lucide="star" class="profile-detail-icon"></i>
+                        <span><?= htmlspecialchars($profile_user['interests']) ?></span>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
-        <?php if ($profile_user['occupation']): ?>
-            <div class="profile-detail">
-                <i data-lucide="briefcase" class="profile-detail-icon"></i>
-                <span><?= htmlspecialchars($profile_user['occupation']) ?></span>
-            </div>
-        <?php endif; ?>
-        <?php if ($profile_user['education']): ?>
-            <div class="profile-detail">
-                <i data-lucide="graduation-cap" class="profile-detail-icon"></i>
-                <span><?= htmlspecialchars($profile_user['education']) ?></span>
-            </div>
-        <?php endif; ?>
-        <?php if ($profile_user['languages']): ?>
-            <div class="profile-detail">
-                <i data-lucide="languages" class="profile-detail-icon"></i>
-                <span><?= htmlspecialchars($profile_user['languages']) ?></span>
-            </div>
-        <?php endif; ?>
-        <?php if ($profile_user['interests']): ?>
-            <div class="profile-detail">
-                <i data-lucide="star" class="profile-detail-icon"></i>
-                <span><?= htmlspecialchars($profile_user['interests']) ?></span>
-            </div>
-        <?php endif; ?>
-    </div>
-<?php endif; ?>
 
         <?php if ($is_own_profile): ?>
             <div class="profile-actions">
@@ -278,6 +298,7 @@ require 'includes/header.php';
                            accept="image/jpeg,image/png,image/gif,image/webp"
                            onchange="this.form.submit()" style="display:none;">
                 </form>
+                <a href="saved.php" class="btn-secondary">Saved posts</a>
                 <a href="export.php" class="btn-secondary"><?= __('profile_export') ?></a>
                 <a href="privacy.php" class="btn-secondary"><?= __('profile_privacy') ?></a>
                 <a href="delete_account.php" class="btn-danger"><?= __('profile_delete') ?></a>
@@ -338,9 +359,7 @@ require 'includes/header.php';
         <div class="card">
             <div class="post-header">
                 <?php if ($post['avatar']): ?>
-                    <img class="avatar avatar-small"
-                         src="<?= htmlspecialchars($post['avatar']) ?>"
-                         alt="">
+                    <img class="avatar avatar-small" src="<?= htmlspecialchars($post['avatar']) ?>" alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
                         <?= strtoupper(substr($display_name, 0, 1)) ?>
@@ -383,9 +402,18 @@ require 'includes/header.php';
                     </button>
                 </form>
                 <span class="comment-count">
-    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
-    <?= (int)$post['comment_count'] ?>
-</span>
+                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                    <?= (int)$post['comment_count'] ?>
+                </span>
+                <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="bookmark">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                        <i data-lucide="bookmark" class="bookmark-icon"></i>
+                    </button>
+                </form>
                 <?php if (!$is_own_profile): ?>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>

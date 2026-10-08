@@ -19,10 +19,13 @@ $stmt = $pdo->prepare("
         u.display_name AS actor_display_name,
         u.avatar AS actor_avatar,
         u.id AS actor_id,
-        p.content AS post_content
+        p.content AS post_content,
+        t.name AS topic_name,
+        t.slug AS topic_slug
     FROM notifications n
     INNER JOIN users u ON n.actor_id = u.id
     LEFT JOIN posts p ON n.post_id = p.id
+    LEFT JOIN topics t ON n.topic_id = t.id
     WHERE n.user_id = :me
     ORDER BY n.created_at DESC
     LIMIT 100
@@ -67,6 +70,11 @@ require 'includes/header.php';
                         <?= __('notif_commented') ?>
                     <?php elseif ($n['type'] === 'follow'): ?>
                         <?= __('notif_followed') ?>
+                    <?php elseif ($n['type'] === 'topic_posted'): ?>
+                        posted in
+                        <a href="topic.php?slug=<?= urlencode($n['topic_slug']) ?>" style="font-weight:600;">
+                            #<?= htmlspecialchars($n['topic_name']) ?>
+                        </a>
                     <?php endif; ?>
 
                     <?php if ($n['post_content']): ?>
