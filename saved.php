@@ -12,14 +12,24 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = (int)$_SESSION['user_id'];
-$folder_filter = isset($_GET['folder']) ? (int)$_GET['folder'] : null;
+
+// Determine which folder we're viewing
+// - null     → all saved posts (no filter)
+// - 0        → default "Saved" folder (folder_id IS NULL)
+// - >0       → specific folder by ID
+$folder_param = $_GET['folder'] ?? null;
+$folder_filter = null; // null means "all"
+
+if ($folder_param !== null) {
+    $folder_filter = (int)$folder_param;
+}
 $show_default = ($folder_filter === 0);
 
 // Flash message
 $folder_message = $_SESSION['folder_message'] ?? '';
 unset($_SESSION['folder_message']);
 
-// Fetch all folders for sidebar
+// Fetch all folders for the sidebar
 $stmt = $pdo->prepare("
     SELECT
         f.id, f.name,
@@ -31,19 +41,19 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me2' => $user_id]);
 $folders = $stmt->fetchAll();
 
-// Count of default (NULL folder) bookmarks
+// Count of default folder (NULL) bookmarks
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM bookmarks WHERE user_id = :me AND folder_id IS NULL");
 $stmt->execute([':me' => $user_id]);
 $default_count = (int)$stmt->fetchColumn();
 
-$total_count = $default_count;
-foreach ($folders as $f) {
-    $total_count += $f['count'];
-}
+// Total bookmarks
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM bookmarks WHERE user_id = :me");
+$stmt->execute([':me' => $user_id]);
+$total_count = (int)$stmt->fetchColumn();
 
-// Build query for the posts
+// Fetch posts based on folder filter
 if ($folder_filter === null) {
-    // All saved posts (any folder)
+    // All saved posts
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
@@ -62,7 +72,7 @@ if ($folder_filter === null) {
     ");
     $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 } elseif ($show_default) {
-    // Only default folder
+    // Default "Saved" folder (folder_id IS NULL)
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
@@ -101,6 +111,7 @@ if ($folder_filter === null) {
 }
 $posts = $stmt->fetchAll();
 
+// Fetch comments for these posts
 $comments_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -121,6 +132,19 @@ if (!empty($posts)) {
 
 $my_bookmarks = array_column($posts, 'id');
 
+// Which folder name is currently active (for the heading)
+$current_folder_name = 'All saved';
+if ($folder_filter === 0) {
+    $current_folder_name = 'Saved';
+} elseif ($folder_filter !== null) {
+    foreach ($folders as $f) {
+        if ((int)$f['id'] === $folder_filter) {
+            $current_folder_name = $f['name'];
+            break;
+        }
+    }
+}
+
 $page_title = 'Saved posts';
 require 'includes/header.php';
 ?>
@@ -136,13 +160,14 @@ require 'includes/header.php';
     <!-- Sidebar: folders -->
     <aside class="folders-sidebar">
         <div class="folders-header">
-            <strong>Folders</strong>
+            <span>Folders</span>
             <button type="button" class="folders-add-btn" onclick="toggleNewFolder()" title="New folder">+</button>
         </div>
 
         <form method="POST" action="bookmark_folders.php" class="new-folder-form" id="newFolderForm" style="display:none;">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="create">
+            <input type="hidden" name="redirect" value="saved.php">
             <input type="text" name="name" placeholder="Folder name" maxlength="50" required>
             <div style="display:flex; gap:6px;">
                 <button type="submit" class="btn btn-small">Create</button>
@@ -161,23 +186,29 @@ require 'includes/header.php';
         </a>
 
         <?php foreach ($folders as $f): ?>
-            <a href="saved.php?folder=<?= $f['id'] ?>" class="folder-item <?= $folder_filter === (int)$f['id'] ? 'active' : '' ?>">
-                <span><?= htmlspecialchars($f['name']) ?></span>
-                <span class="folder-count"><?= $f['count'] ?></span>
-            </a>
-            <form method="POST" action="bookmark_folders.php" class="folder-delete-form"
-                  onsubmit="return confirm('Delete this folder? Posts inside will move to &quot;Saved&quot;.');">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="folder_id" value="<?= $f['id'] ?>">
-                <input type="hidden" name="redirect" value="saved.php">
-                <button type="submit" class="folder-delete-btn" title="Delete folder">×</button>
-            </form>
+            <div class="folder-row">
+                <a href="saved.php?folder=<?= $f['id'] ?>" class="folder-item <?= $folder_filter === (int)$f['id'] ? 'active' : '' ?>">
+                    <span><?= htmlspecialchars($f['name']) ?></span>
+                    <span class="folder-count"><?= $f['count'] ?></span>
+                </a>
+                <form method="POST" action="bookmark_folders.php" class="folder-delete-form"
+                      onsubmit="return confirm('Delete this folder? Posts inside will move to Saved.');">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="folder_id" value="<?= $f['id'] ?>">
+                    <input type="hidden" name="redirect" value="saved.php">
+                    <button type="submit" class="folder-delete-btn" title="Delete folder">×</button>
+                </form>
+            </div>
         <?php endforeach; ?>
     </aside>
 
-    <!-- Main content: posts -->
+    <!-- Main content -->
     <div class="saved-main">
+        <h2 style="margin-top:0; color: var(--muted); font-size: 1rem; font-weight: 600;">
+            <?= htmlspecialchars($current_folder_name) ?> (<?= count($posts) ?>)
+        </h2>
+
         <?php if (empty($posts)): ?>
             <div class="empty">
                 <strong>No saved posts here</strong>

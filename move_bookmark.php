@@ -34,7 +34,7 @@ if ($post_id <= 0) {
     exit;
 }
 
-// folder_id = 0 means "move to Saved (default)"
+// folder_id = 0 means "move to Saved (default / NULL)"
 $folder_value = $folder_id > 0 ? $folder_id : null;
 
 // If a specific folder is set, verify ownership
@@ -47,7 +47,7 @@ if ($folder_value !== null) {
     }
 }
 
-// Update the bookmark (only if it belongs to the user)
+// Update the bookmark — only if it belongs to this user
 $stmt = $pdo->prepare("
     UPDATE bookmarks
     SET folder_id = :f

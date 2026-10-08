@@ -38,7 +38,7 @@ if ($action === 'create') {
     } elseif (mb_strlen($name) > 50) {
         $_SESSION['folder_message'] = 'Folder name must be 50 characters or less.';
     } else {
-        // Check if a folder with this name already exists
+        // Check for duplicate
         $stmt = $pdo->prepare("SELECT id FROM bookmark_folders WHERE user_id = :u AND name = :n");
         $stmt->execute([':u' => $user_id, ':n' => $name]);
 
@@ -59,7 +59,7 @@ if ($action === 'create') {
         $stmt->execute([':id' => $folder_id, ':u' => $user_id]);
 
         if ($stmt->fetch()) {
-            // Move its bookmarks to the default folder (NULL)
+            // Move bookmarks to default (NULL)
             $stmt = $pdo->prepare("UPDATE bookmarks SET folder_id = NULL WHERE folder_id = :f AND user_id = :u");
             $stmt->execute([':f' => $folder_id, ':u' => $user_id]);
 
