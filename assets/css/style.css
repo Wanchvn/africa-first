@@ -1939,3 +1939,117 @@ i[data-lucide] svg {
         width: 100%;
     }
 }
+
+/* ---- Comment editing ---- */
+.comment-body {
+    /* wrapper for JS targeting */
+}
+
+.comment-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-2) 0;
+}
+
+.comment-edit-form textarea {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.92rem;
+    min-height: 60px;
+}
+
+.comment-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.comment-edit-actions button {
+    font-size: 0.8rem;
+    padding: 5px 12px;
+}
+
+/* ---- Suggestions card ---- */
+.suggestions-card {
+    border-left: 4px solid var(--baobab-green);
+}
+
+.suggestion-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.suggestion-row:last-of-type {
+    border-bottom: none;
+}
+
+.suggestion-user {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1;
+    min-width: 0;
+}
+
+.suggestion-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.suggestion-name {
+    display: block;
+    font-weight: 600;
+    color: var(--deep-brown);
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.suggestion-name:hover {
+    color: var(--terracotta);
+    text-decoration: none;
+}
+
+.suggestion-reason {
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .suggestion-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .suggestion-row form {
+        width: 100%;
+    }
+    .suggestion-row form button {
+        width: 100%;
+    }
+}
+
+/* ---- View count ---- */
+.view-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: help;
+}
+
+.view-count svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2;
+}

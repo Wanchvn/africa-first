@@ -383,3 +383,121 @@ function handleBookmark(form) {
         return input ? input.value : '';
     }
 })();
+
+
+/* ========================================
+   COMMENT EDITING
+   Inline edit of your own comments
+   ======================================== */
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.comment-edit-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            startEditComment(btn);
+        });
+    });
+});
+
+function startEditComment(btn) {
+    const comment = btn.closest('.comment');
+    if (!comment) return;
+
+    const commentId = btn.dataset.commentId;
+    const bodyEl = comment.querySelector('.comment-body');
+    const metaEl = comment.querySelector('.comment-meta-actions');
+
+    if (!bodyEl) return;
+
+    const originalContent = bodyEl.textContent.trim();
+
+    // Replace body with textarea + buttons
+    bodyEl.innerHTML = `
+        <form class="comment-edit-form" onsubmit="return false;">
+            <textarea maxlength="500" required>${escapeHtmlJs(originalContent)}</textarea>
+            <div class="comment-edit-actions">
+                <button type="button" class="btn btn-small comment-save-btn">Save</button>
+                <button type="button" class="btn-secondary btn-small comment-cancel-btn">Cancel</button>
+                <span class="comment-edit-error" style="color: var(--danger); font-size: 0.8rem; margin-left: auto;"></span>
+            </div>
+        </form>
+    `;
+
+    const textarea = bodyEl.querySelector('textarea');
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+    const saveBtn = bodyEl.querySelector('.comment-save-btn');
+    const cancelBtn = bodyEl.querySelector('.comment-cancel-btn');
+    const errorEl = bodyEl.querySelector('.comment-edit-error');
+
+    saveBtn.addEventListener('click', function() {
+        const newContent = textarea.value.trim();
+        if (newContent === '') {
+            errorEl.textContent = 'Comment cannot be empty';
+            return;
+        }
+        if (newContent === originalContent) {
+            errorEl.textContent = 'No changes made';
+            return;
+        }
+
+        saveBtn.disabled = true;
+        errorEl.textContent = '';
+
+        // Find CSRF token from any form on the page
+        const csrfInput = document.querySelector('input[name="csrf_token"]');
+        const csrfToken = csrfInput ? csrfInput.value : '';
+
+        fetch('edit_comment.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                comment_id: commentId,
+                content: newContent,
+                csrf_token: csrfToken
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // Replace body with the new content
+                bodyEl.innerHTML = escapeHtmlJs(data.content);
+
+                // Add or update the "Edited" label in the meta
+                const meta = comment.querySelector('.comment-meta');
+                if (meta && !meta.querySelector('.edited-label')) {
+                    const editedSpan = document.createElement('span');
+                    editedSpan.className = 'edited-label';
+                    editedSpan.title = 'Edited ' + data.edited_at;
+                    editedSpan.textContent = ' · Edited';
+                    meta.appendChild(editedSpan);
+                } else if (meta) {
+                    const existing = meta.querySelector('.edited-label');
+                    if (existing) existing.title = 'Edited ' + data.edited_at;
+                }
+            } else {
+                errorEl.textContent = data.error || 'Could not save';
+                saveBtn.disabled = false;
+            }
+        })
+        .catch(function() {
+            errorEl.textContent = 'Network error';
+            saveBtn.disabled = false;
+        });
+    });
+
+    cancelBtn.addEventListener('click', function() {
+        bodyEl.innerHTML = escapeHtmlJs(originalContent);
+    });
+}
+
+function escapeHtmlJs(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
