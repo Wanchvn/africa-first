@@ -9,6 +9,10 @@ require_once __DIR__ . '/csrf.php';
 
 $logged_in = isset($_SESSION['user_id']);
 
+$unread_count = 0;
+$is_admin = false;
+$user_theme = 'light';
+
 if ($logged_in) {
     require_once __DIR__ . '/../config/db.php';
 
@@ -16,12 +20,11 @@ if ($logged_in) {
     $stmt->execute([':me' => $_SESSION['user_id']]);
     $unread_count = (int)$stmt->fetchColumn();
 
-    $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT is_admin, theme FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
-    $is_admin = (bool)$stmt->fetchColumn();
-} else {
-    $unread_count = 0;
-    $is_admin = false;
+    $user_row = $stmt->fetch();
+    $is_admin = (bool)($user_row['is_admin'] ?? false);
+    $user_theme = $user_row['theme'] ?? 'light';
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
@@ -44,7 +47,7 @@ $og_description = "Africa's social network. Your data stays home.";
     <meta name="twitter:card" content="summary_large_image">
     <script src="assets/js/lucide.min.js"></script>
 </head>
-<body>
+<body class="<?= $user_theme === 'dark' ? 'dark-mode' : '' ?>">
 <header class="site-header">
     <nav>
         <a href="feed.php" class="brand">

@@ -17,8 +17,9 @@ $message = '';
 $errors = [];
 $username_changed = false;
 
+// Fetch current profile data
 $stmt = $pdo->prepare("
-    SELECT username, username_changed_at, bio, display_name, location, occupation, education, languages, interests
+    SELECT username, username_changed_at, bio, display_name, location, occupation, education, languages, interests, theme
     FROM users
     WHERE id = :id
 ");
@@ -92,6 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (mb_strlen($interests) > 200)    $errors[] = 'Interests must be 200 characters or less.';
 
     if (empty($errors)) {
+        $theme = !empty($_POST['dark_mode']) ? 'dark' : 'light';
+
         $stmt = $pdo->prepare("
             UPDATE users
             SET bio = :bio,
@@ -100,7 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 occupation = :occupation,
                 education = :education,
                 languages = :languages,
-                interests = :interests
+                interests = :interests,
+                theme = :theme
             WHERE id = :id
         ");
         $stmt->execute([
@@ -111,8 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':education'    => $education !== '' ? $education : null,
             ':languages'    => $languages !== '' ? $languages : null,
             ':interests'    => $interests !== '' ? $interests : null,
+            ':theme'        => $theme,
             ':id'           => $user_id,
         ]);
+
+        $user['theme'] = $theme;
         $message = $username_changed ? 'Username and profile updated.' : 'Profile updated.';
     }
 }
@@ -134,10 +141,6 @@ require 'includes/header.php';
 ?>
 
 <h1>Edit profile</h1>
-
-<div style="text-align: right; margin-bottom: var(--space-3);">
-    <a href="change_password.php" class="btn-secondary btn-small">🔑 Change password →</a>
-</div>
 
 <?php if ($username_changed): ?>
     <div class="message" style="background: #E8F5E9; border-left-color: #4CAF50;">
@@ -266,6 +269,21 @@ require 'includes/header.php';
                    placeholder="e.g. football, coding, music">
             <div class="field-hint">Separate with commas.</div>
         </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Appearance</h2>
+
+        <label class="toggle-row">
+            <input type="checkbox"
+                   name="dark_mode"
+                   value="1"
+                   <?= ($user['theme'] ?? 'light') === 'dark' ? 'checked' : '' ?>>
+            <span class="toggle-label">
+                <strong>Dark mode</strong>
+                <span class="toggle-hint">Easier on the eyes at night. Applies everywhere you're logged in.</span>
+            </span>
+        </label>
     </div>
 
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
