@@ -234,39 +234,39 @@ require 'includes/header.php';
             || $profile_user['interests'];
         ?>
         <?php if ($has_details): ?>
-            <div class="profile-details">
-                <?php if ($profile_user['location']): ?>
-                    <div class="profile-detail">
-                        <span class="profile-detail-icon">📍</span>
-                        <span><?= htmlspecialchars($profile_user['location']) ?></span>
-                    </div>
-                <?php endif; ?>
-                <?php if ($profile_user['occupation']): ?>
-                    <div class="profile-detail">
-                        <span class="profile-detail-icon">💼</span>
-                        <span><?= htmlspecialchars($profile_user['occupation']) ?></span>
-                    </div>
-                <?php endif; ?>
-                <?php if ($profile_user['education']): ?>
-                    <div class="profile-detail">
-                        <span class="profile-detail-icon">🎓</span>
-                        <span><?= htmlspecialchars($profile_user['education']) ?></span>
-                    </div>
-                <?php endif; ?>
-                <?php if ($profile_user['languages']): ?>
-                    <div class="profile-detail">
-                        <span class="profile-detail-icon">🗣</span>
-                        <span><?= htmlspecialchars($profile_user['languages']) ?></span>
-                    </div>
-                <?php endif; ?>
-                <?php if ($profile_user['interests']): ?>
-                    <div class="profile-detail">
-                        <span class="profile-detail-icon">✦</span>
-                        <span><?= htmlspecialchars($profile_user['interests']) ?></span>
-                    </div>
-                <?php endif; ?>
+    <div class="profile-details">
+        <?php if ($profile_user['location']): ?>
+            <div class="profile-detail">
+                <i data-lucide="map-pin" class="profile-detail-icon"></i>
+                <span><?= htmlspecialchars($profile_user['location']) ?></span>
             </div>
         <?php endif; ?>
+        <?php if ($profile_user['occupation']): ?>
+            <div class="profile-detail">
+                <i data-lucide="briefcase" class="profile-detail-icon"></i>
+                <span><?= htmlspecialchars($profile_user['occupation']) ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($profile_user['education']): ?>
+            <div class="profile-detail">
+                <i data-lucide="graduation-cap" class="profile-detail-icon"></i>
+                <span><?= htmlspecialchars($profile_user['education']) ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($profile_user['languages']): ?>
+            <div class="profile-detail">
+                <i data-lucide="languages" class="profile-detail-icon"></i>
+                <span><?= htmlspecialchars($profile_user['languages']) ?></span>
+            </div>
+        <?php endif; ?>
+        <?php if ($profile_user['interests']): ?>
+            <div class="profile-detail">
+                <i data-lucide="star" class="profile-detail-icon"></i>
+                <span><?= htmlspecialchars($profile_user['interests']) ?></span>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
         <?php if ($is_own_profile): ?>
             <div class="profile-actions">
@@ -382,7 +382,10 @@ require 'includes/header.php';
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
                     </button>
                 </form>
-                <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+                <span class="comment-count">
+    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+    <?= (int)$post['comment_count'] ?>
+</span>
                 <?php if (!$is_own_profile): ?>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>

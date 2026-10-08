@@ -1,6 +1,5 @@
 /* ========================================
    QAROTA — AJAX Interactions
-   Handles likes, follows without page reload
    ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -17,6 +16,14 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             handleFollow(form);
+        });
+    });
+
+    // Bookmark buttons
+    document.querySelectorAll('.bookmark-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleBookmark(form);
         });
     });
 });
@@ -110,6 +117,45 @@ function handleFollow(form) {
         console.error('Error:', error);
         button.disabled = false;
         button.textContent = originalText;
+        form.submit();
+    });
+}
+
+/* ---- BOOKMARK HANDLER ---- */
+function handleBookmark(form) {
+    const button = form.querySelector('button');
+    const postId = form.querySelector('input[name="post_id"]').value;
+    const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+
+    button.disabled = true;
+
+    fetch('interact.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({
+            action: 'bookmark',
+            post_id: postId,
+            csrf_token: csrfToken,
+            redirect: window.location.pathname + window.location.search
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.bookmarked) {
+                button.classList.add('bookmarked');
+            } else {
+                button.classList.remove('bookmarked');
+            }
+        }
+        button.disabled = false;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        button.disabled = false;
         form.submit();
     });
 }

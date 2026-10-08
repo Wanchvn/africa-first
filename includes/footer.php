@@ -17,5 +17,14 @@
     <script src="assets/js/register.js"></script>
 <?php endif; ?>
 
+<script>
+    // Initialize Lucide icons on every page load
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    });
+</script>
+
 </body>
 </html>

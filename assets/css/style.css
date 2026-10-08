@@ -1478,3 +1478,147 @@ select:focus {
         height: 30px;
     }
 }
+
+/* ---- Lucide icon sizing ---- */
+.nav-icon svg,
+i[data-lucide] svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Nav toggle button styling */
+.nav-toggle {
+    color: var(--sand);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: none;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+}
+
+.nav-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-toggle svg {
+    width: 24px;
+    height: 24px;
+}
+
+@media (max-width: 600px) {
+    .nav-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Search icon in header */
+.nav-search-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sand);
+    opacity: 0.6;
+    margin-right: var(--space-2);
+}
+
+.nav-search-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Profile detail icons */
+.profile-detail-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    flex-shrink: 0;
+    color: var(--terracotta);
+    opacity: 0.85;
+}
+
+.profile-detail-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Discover reason pin */
+.discover-reason-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--terracotta);
+}
+
+.discover-reason-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Comment count icon */
+.comment-count svg {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 2px;
+}
+
+
+/* ---- Bookmark button ---- */
+.bookmark-btn {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.9rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 500;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color var(--transition), background var(--transition);
+}
+
+.bookmark-btn:hover {
+    background: #FBEDE8;
+    color: var(--terracotta);
+}
+
+.bookmark-btn.bookmarked {
+    color: var(--terracotta);
+    font-weight: 700;
+}
+
+.bookmark-btn.bookmarked .bookmark-icon svg {
+    fill: var(--terracotta);
+}
+
+.bookmark-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
+/* On mobile */
+@media (max-width: 480px) {
+    .bookmark-btn {
+        padding: 6px 8px;
+    }
+    .bookmark-icon svg {
+        width: 14px;
+        height: 14px;
+    }
+}

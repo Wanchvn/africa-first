@@ -157,7 +157,10 @@ require 'includes/header.php';
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
                     </button>
                 </form>
-                <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+                <span class="comment-count">
+    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+    <?= (int)$post['comment_count'] ?>
+</span>
                 <?php if ($post['author_id'] !== $user_id): ?>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link">
                         <?= __('post_report') ?>

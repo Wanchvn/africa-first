@@ -201,7 +201,10 @@ require 'includes/header.php';
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
                     </button>
                 </form>
-                <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+                <span class="comment-count">
+    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+    <?= (int)$post['comment_count'] ?>
+</span>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>

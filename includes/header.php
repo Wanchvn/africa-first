@@ -25,7 +25,6 @@ if ($logged_in) {
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
-
 $og_description = "Africa's social network. Your data stays home.";
 ?>
 <!DOCTYPE html>
@@ -34,24 +33,16 @@ $og_description = "Africa's social network. Your data stays home.";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — Qarota</title>
-
     <link rel="stylesheet" href="assets/css/style.css">
-
-    <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
     <link rel="apple-touch-icon" href="assets/img/favicon-512.png">
-
-    <!-- Social preview (Open Graph) -->
     <meta property="og:title" content="<?= htmlspecialchars($page_title) ?> — Qarota">
     <meta property="og:description" content="<?= htmlspecialchars($og_description) ?>">
     <meta property="og:image" content="https://qarota.com/assets/img/social-preview.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
-
-    <!-- Lucide icons -->
-    <!-- Lucide icons (local) -->
-<script src="assets/js/lucide.min.js"></script>
+    <script src="assets/js/lucide.min.js"></script>
 </head>
 <body>
 <header class="site-header">
@@ -68,9 +59,7 @@ $og_description = "Africa's social network. Your data stays home.";
         <?php if ($logged_in): ?>
             <form method="GET" action="search.php" class="nav-search">
                 <i data-lucide="search" class="nav-search-icon"></i>
-                <input type="text" name="q"
-                       placeholder="<?= __('search_placeholder') ?>"
-                       autocomplete="off">
+                <input type="text" name="q" placeholder="<?= __('search_placeholder') ?>" autocomplete="off">
             </form>
         <?php endif; ?>
 
@@ -116,6 +105,10 @@ $og_description = "Africa's social network. Your data stays home.";
                 <a href="profile.php" title="<?= __('nav_profile') ?>">
                     <i data-lucide="user" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_profile') ?></span>
+                </a>
+                <a href="saved.php" title="Saved posts">
+                    <i data-lucide="bookmark" class="nav-icon"></i>
+                    <span class="nav-label">Saved</span>
                 </a>
                 <a href="change_password.php" title="Change password">
                     <i data-lucide="key" class="nav-icon"></i>

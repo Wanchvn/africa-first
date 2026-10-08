@@ -12,34 +12,31 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
+// Fetch bookmarked posts, newest bookmark first
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at,
-        users.username, users.avatar, users.display_name, users.id AS author_id,
+        users.username, users.display_name, users.avatar, users.id AS author_id,
+        bookmarks.created_at AS bookmarked_at,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
         (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
-    FROM posts
-    INNER JOIN follows ON posts.user_id = follows.following_id
+    FROM bookmarks
+    INNER JOIN posts ON bookmarks.post_id = posts.id
     INNER JOIN users ON posts.user_id = users.id
-    WHERE follows.follower_id = :me
-    ORDER BY posts.created_at DESC
-    LIMIT 50
+    WHERE bookmarks.user_id = :me
+    ORDER BY bookmarks.created_at DESC
 ");
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
-$feed = $stmt->fetchAll();
+$posts = $stmt->fetchAll();
 
-// Fetch user's bookmarked post IDs
-$stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
-$stmt->execute([':me' => $user_id]);
-$my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
-
-$post_ids = array_column($feed, 'id');
+// Comments for these posts
 $comments_by_post = [];
-if (!empty($post_ids)) {
+if (!empty($posts)) {
+    $post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.id, comments.post_id, comments.content, comments.created_at,
+        SELECT comments.post_id, comments.content, comments.created_at,
                users.username, users.display_name, users.avatar
         FROM comments
         INNER JOIN users ON comments.user_id = users.id
@@ -52,18 +49,25 @@ if (!empty($post_ids)) {
     }
 }
 
-$page_title = __('feed_title');
+// All saved posts are (obviously) bookmarked by this user
+$my_bookmarks = array_column($posts, 'id');
+
+$page_title = 'Saved posts';
 require 'includes/header.php';
 ?>
 
-<h1><?= __('feed_title') ?></h1>
+<h1>Saved posts</h1>
+<p style="color: var(--muted); margin-bottom: var(--space-5);">
+    Posts you've bookmarked. Only you can see this page.
+</p>
 
-<?php if (empty($feed)): ?>
+<?php if (empty($posts)): ?>
     <div class="empty">
-        <?= __('feed_empty') ?> <a href="discover.php"><?= __('feed_find_people') ?></a>.
+        <strong>No saved posts yet</strong>
+        Tap the bookmark icon on any post to save it here for later.
     </div>
 <?php else: ?>
-    <?php foreach ($feed as $post): ?>
+    <?php foreach ($posts as $post): ?>
         <?php $author_name = $post['display_name'] ?: $post['username']; ?>
         <div class="card">
             <div class="post-header">
@@ -78,6 +82,9 @@ require 'includes/header.php';
                     <a href="profile.php?u=<?= urlencode($post['username']) ?>">
                         <?= htmlspecialchars($author_name) ?>
                     </a>
+                </div>
+                <div class="meta" style="margin-left:auto;font-size:0.8rem;">
+                    Saved <?= htmlspecialchars(date('M j', strtotime($post['bookmarked_at']))) ?>
                 </div>
             </div>
 
@@ -94,7 +101,7 @@ require 'includes/header.php';
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="feed.php">
+                    <input type="hidden" name="redirect" value="saved.php">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
                         <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
@@ -108,14 +115,11 @@ require 'includes/header.php';
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="bookmark">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="feed.php">
-                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                    <input type="hidden" name="redirect" value="saved.php">
+                    <button type="submit" class="bookmark-btn bookmarked">
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
                     </button>
                 </form>
-                <?php if ($post['author_id'] !== (int)$_SESSION['user_id']): ?>
-                    <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
-                <?php endif; ?>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>
@@ -139,22 +143,8 @@ require 'includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-
-            <form method="POST" action="interact.php" class="comment-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="comment">
-                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="feed.php">
-                <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
-                <button type="submit"><?= __('post_send') ?></button>
-            </form>
         </div>
     <?php endforeach; ?>
-
-    <div class="end-of-feed">
-        <strong>You're all caught up</strong>
-        There are no more posts from people you follow.
-    </div>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

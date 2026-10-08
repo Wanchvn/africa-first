@@ -26,8 +26,7 @@ $action  = $_POST['action'] ?? '';
 $post_id = (int)($_POST['post_id'] ?? 0);
 $redirect = $_POST['redirect'] ?? 'feed.php';
 
-// Safety: only allow redirect to a known safe page
-$allowed_redirects = ['feed.php', 'profile.php', 'search.php', 'discover_feed.php'];
+$allowed_redirects = ['feed.php', 'profile.php', 'search.php', 'discover_feed.php', 'topic.php', 'saved.php'];
 $redirect_base = strtok($redirect, '?');
 if (!in_array($redirect_base, $allowed_redirects, true)) {
     $redirect = 'feed.php';
@@ -43,7 +42,6 @@ if ($post_id <= 0) {
     exit;
 }
 
-// Verify the post exists and get its owner
 $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = :id");
 $stmt->execute([':id' => $post_id]);
 $post_owner = $stmt->fetchColumn();
@@ -63,12 +61,10 @@ $post_owner = (int)$post_owner;
 if ($action === 'like') {
     rate_limit_enforce($pdo, client_ip(), 'like', 60, 60);
 
-    // Toggle like
     $stmt = $pdo->prepare("SELECT id FROM likes WHERE user_id = :u AND post_id = :p");
     $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
     if ($stmt->fetch()) {
-        // Unlike
         $stmt = $pdo->prepare("DELETE FROM likes WHERE user_id = :u AND post_id = :p");
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
@@ -77,12 +73,10 @@ if ($action === 'like') {
 
         $new_liked = false;
     } else {
-        // Like
         $stmt = $pdo->prepare("INSERT INTO likes (user_id, post_id) VALUES (:u, :p)");
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
         if ($post_owner !== $user_id) {
-            // Avoid duplicates
             $stmt = $pdo->prepare("
                 SELECT id FROM notifications
                 WHERE user_id = :owner AND actor_id = :actor AND type = 'like' AND post_id = :p
@@ -101,12 +95,10 @@ if ($action === 'like') {
         $new_liked = true;
     }
 
-    // Get updated like count
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE post_id = :p");
     $stmt->execute([':p' => $post_id]);
     $new_count = (int)$stmt->fetchColumn();
 
-    // Return JSON for AJAX, fall through for normal form submit
     if ($is_ajax) {
         header('Content-Type: application/json');
         echo json_encode([
@@ -131,6 +123,30 @@ if ($action === 'like') {
             ");
             $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
         }
+    }
+} elseif ($action === 'bookmark') {
+    rate_limit_enforce($pdo, client_ip(), 'bookmark', 60, 60);
+
+    $stmt = $pdo->prepare("SELECT id FROM bookmarks WHERE user_id = :u AND post_id = :p");
+    $stmt->execute([':u' => $user_id, ':p' => $post_id]);
+
+    if ($stmt->fetch()) {
+        $stmt = $pdo->prepare("DELETE FROM bookmarks WHERE user_id = :u AND post_id = :p");
+        $stmt->execute([':u' => $user_id, ':p' => $post_id]);
+        $bookmarked = false;
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO bookmarks (user_id, post_id) VALUES (:u, :p)");
+        $stmt->execute([':u' => $user_id, ':p' => $post_id]);
+        $bookmarked = true;
+    }
+
+    if ($is_ajax) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success'    => true,
+            'bookmarked' => $bookmarked,
+        ]);
+        exit;
     }
 }
 

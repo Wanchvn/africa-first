@@ -214,7 +214,7 @@ require 'includes/header.php';
         <div class="card">
             <?php if ($reason_text): ?>
                 <div class="discover-reason">
-                    <span class="discover-reason-icon">📌</span>
+                    <i data-lucide="pin" class="discover-reason-icon"></i>
                     <span><?= htmlspecialchars($reason_text) ?></span>
                 </div>
             <?php endif; ?>
@@ -267,7 +267,10 @@ require 'includes/header.php';
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
                     </button>
                 </form>
-                <span class="comment-count">💬 <?= (int)$post['comment_count'] ?></span>
+                <span class="comment-count">
+    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+    <?= (int)$post['comment_count'] ?>
+</span>
                 <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
             </div>
 
