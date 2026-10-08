@@ -48,6 +48,10 @@ $og_description = "Africa's social network. Your data stays home.";
     <meta property="og:image" content="https://qarota.com/assets/img/social-preview.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
+
+    <!-- Lucide icons -->
+    <!-- Lucide icons (local) -->
+<script src="assets/js/lucide.min.js"></script>
 </head>
 <body>
 <header class="site-header">
@@ -58,11 +62,12 @@ $og_description = "Africa's social network. Your data stays home.";
         </a>
 
         <button class="nav-toggle" onclick="toggleNav()" aria-label="Menu">
-            <span class="nav-toggle-icon">☰</span>
+            <i data-lucide="menu"></i>
         </button>
 
         <?php if ($logged_in): ?>
             <form method="GET" action="search.php" class="nav-search">
+                <i data-lucide="search" class="nav-search-icon"></i>
                 <input type="text" name="q"
                        placeholder="<?= __('search_placeholder') ?>"
                        autocomplete="off">
@@ -72,52 +77,52 @@ $og_description = "Africa's social network. Your data stays home.";
         <div class="nav-links" id="navLinks">
             <?php if ($logged_in): ?>
                 <a href="feed.php" title="<?= __('nav_feed') ?>">
-                    <span class="nav-icon">🏠</span>
+                    <i data-lucide="home" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_feed') ?></span>
                 </a>
                 <a href="notifications.php" title="<?= __('nav_notifications') ?>">
-                    <span class="nav-icon">🔔</span>
+                    <i data-lucide="bell" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_notifications') ?></span>
                     <?php if ($unread_count > 0): ?>
                         <span class="badge"><?= $unread_count ?></span>
                     <?php endif; ?>
                 </a>
                 <a href="discover_feed.php" title="Explore">
-                    <span class="nav-icon">✨</span>
+                    <i data-lucide="sparkles" class="nav-icon"></i>
                     <span class="nav-label">Explore</span>
                 </a>
                 <a href="topics.php" title="Topics">
-                    <span class="nav-icon">#️⃣</span>
+                    <i data-lucide="hash" class="nav-icon"></i>
                     <span class="nav-label">Topics</span>
                 </a>
                 <a href="discover.php" title="<?= __('nav_discover') ?>">
-                    <span class="nav-icon">🧭</span>
+                    <i data-lucide="compass" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_discover') ?></span>
                 </a>
                 <?php if ($is_admin): ?>
                     <a href="admin_reports.php" title="<?= __('nav_admin') ?>">
-                        <span class="nav-icon">⚙️</span>
+                        <i data-lucide="settings" class="nav-icon"></i>
                         <span class="nav-label"><?= __('nav_admin') ?></span>
                     </a>
                 <?php endif; ?>
                 <a href="privacy.php" title="<?= __('nav_privacy') ?>">
-                    <span class="nav-icon">🔒</span>
+                    <i data-lucide="lock" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_privacy') ?></span>
                 </a>
                 <a href="moderation.php" title="<?= __('nav_moderation') ?>">
-                    <span class="nav-icon">📖</span>
+                    <i data-lucide="book-open" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_moderation') ?></span>
                 </a>
                 <a href="profile.php" title="<?= __('nav_profile') ?>">
-                    <span class="nav-icon">👤</span>
+                    <i data-lucide="user" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_profile') ?></span>
                 </a>
                 <a href="change_password.php" title="Change password">
-                    <span class="nav-icon">🔑</span>
+                    <i data-lucide="key" class="nav-icon"></i>
                     <span class="nav-label">Password</span>
                 </a>
                 <a href="logout.php" class="nav-logout" title="<?= __('nav_logout') ?>">
-                    <span class="nav-icon">→</span>
+                    <i data-lucide="log-out" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_logout') ?></span>
                 </a>
             <?php else: ?>
