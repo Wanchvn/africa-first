@@ -1649,3 +1649,110 @@ i[data-lucide] svg {
     text-decoration: underline dotted var(--muted);
     text-underline-offset: 3px;
 }
+
+/* ---- User hover card ---- */
+.user-hover-card {
+    position: absolute;
+    background: var(--ivory);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    box-shadow: 0 8px 24px rgba(62, 39, 35, 0.15);
+    z-index: 1000;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    animation: hoverCardIn 0.15s ease-out;
+}
+
+@keyframes hoverCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-hover-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+.user-hover-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.user-hover-avatar-placeholder {
+    background: var(--terracotta);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+.user-hover-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-hover-name {
+    display: block;
+    font-weight: 700;
+    color: var(--deep-brown);
+    font-size: 1rem;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-hover-name:hover {
+    color: var(--terracotta);
+    text-decoration: none;
+}
+
+.user-hover-handle {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.user-hover-stats {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: var(--space-3);
+}
+
+.user-hover-stats strong {
+    color: var(--deep-brown);
+    font-weight: 700;
+}
+
+.user-hover-bio {
+    color: var(--charcoal);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin-bottom: var(--space-3);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.user-hover-follow-form {
+    margin: 0;
+}
+
+.user-hover-follow-form button {
+    width: 100%;
+}

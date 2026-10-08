@@ -60,10 +60,9 @@ require 'includes/header.php';
                 <?php endif; ?>
 
                 <div class="notification-body">
-                    <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>">
-                        <strong><?= htmlspecialchars($actor_name) ?></strong>
-                    </a>
-
+                   <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>" data-user-id="<?= $n['actor_id'] ?>">
+    <strong><?= htmlspecialchars($actor_name) ?></strong>
+</a>
                     <?php if ($n['type'] === 'like'): ?>
                         <?= __('notif_liked') ?>
                     <?php elseif ($n['type'] === 'comment'): ?>

@@ -82,9 +82,10 @@ if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.post_id, comments.content, comments.created_at,
-               users.username, users.display_name, users.avatar
-        FROM comments
+        SELECT comments.id, comments.post_id, comments.content, comments.created_at,
+       comments.user_id,
+       users.username, users.display_name, users.avatar
+FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
         ORDER BY comments.created_at ASC

@@ -39,9 +39,10 @@ $comments_by_post = [];
 if (!empty($post_ids)) {
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.id, comments.post_id, comments.content, comments.created_at,
-               users.username, users.display_name, users.avatar
-        FROM comments
+       SELECT comments.id, comments.post_id, comments.content, comments.created_at,
+       comments.user_id,
+       users.username, users.display_name, users.avatar
+FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
         ORDER BY comments.created_at ASC
@@ -75,9 +76,9 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?u=<?= urlencode($post['username']) ?>">
-                        <?= htmlspecialchars($author_name) ?>
-                    </a>
+                   <a href="profile.php?u=<?= urlencode($post['username']) ?>" data-user-id="<?= $post['author_id'] ?>">
+    <?= htmlspecialchars($author_name) ?>
+</a>
                 </div>
             </div>
 
@@ -140,8 +141,9 @@ require 'includes/header.php';
                                     <div class="avatar avatar-tiny avatar-placeholder">
                                         <?= strtoupper(substr($comment_name, 0, 1)) ?>
                                     </div>
-                                <?php endif; ?>
-                                <strong><?= htmlspecialchars($comment_name) ?></strong>
+                                <?php endif; ?><a href="profile.php?u=<?= urlencode($c['username']) ?>" data-user-id="<?= $c['user_id'] ?>">
+    <strong><?= htmlspecialchars($comment_name) ?></strong>
+</a> <strong><?= htmlspecialchars($comment_name) ?></strong>
                             </div>
                             <?= htmlspecialchars($c['content']) ?>
                             <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>

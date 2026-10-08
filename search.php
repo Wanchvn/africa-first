@@ -98,9 +98,9 @@ require 'includes/header.php';
                         <?= strtoupper(substr($user_name, 0, 1)) ?>
                     </div>
                 <?php endif; ?>
-                <a href="profile.php?u=<?= urlencode($u['username']) ?>" class="name">
-                    <?= htmlspecialchars($user_name) ?>
-                </a>
+                <a href="profile.php?u=<?= urlencode($u['username']) ?>" class="name" data-user-id="<?= $u['id'] ?>">
+    <?= htmlspecialchars($user_name) ?>
+</a>
             </div>
             <form method="POST" action="follow.php" class="follow-form">
                 <?= csrf_field() ?>

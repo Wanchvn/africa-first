@@ -34,9 +34,10 @@ if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-        SELECT comments.post_id, comments.content, comments.created_at,
-               users.username, users.display_name, users.avatar
-        FROM comments
+       SELECT comments.id, comments.post_id, comments.content, comments.created_at,
+       comments.user_id,
+       users.username, users.display_name, users.avatar
+FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
         ORDER BY comments.created_at ASC
@@ -76,9 +77,9 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?u=<?= urlencode($post['username']) ?>">
-                        <?= htmlspecialchars($author_name) ?>
-                    </a>
+                   <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>" data-user-id="<?= $n['actor_id'] ?>">
+    <strong><?= htmlspecialchars($actor_name) ?></strong>
+</a>
                 </div>
                 <div class="meta" style="margin-left:auto;font-size:0.8rem;">
                     Saved <?= htmlspecialchars(date('M j', strtotime($post['bookmarked_at']))) ?>
