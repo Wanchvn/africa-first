@@ -29,6 +29,30 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 $feed = $stmt->fetchAll();
 
+// Record views for posts in the feed (only for posts by others)
+if (!empty($feed)) {
+    $view_post_ids = [];
+    foreach ($feed as $p) {
+        if ((int)$p['author_id'] !== $user_id) {
+            $view_post_ids[] = $p['id'];
+        }
+    }
+
+    if (!empty($view_post_ids)) {
+        $placeholders = implode(',', array_fill(0, count($view_post_ids), '(?, ?)'));
+        $params = [];
+        foreach ($view_post_ids as $pid) {
+            $params[] = $pid;
+            $params[] = $user_id;
+        }
+        $stmt = $pdo->prepare("
+            INSERT IGNORE INTO post_views (post_id, user_id)
+            VALUES $placeholders
+        ");
+        $stmt->execute($params);
+    }
+}
+
 // Fetch user's bookmarked post IDs
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
 $stmt->execute([':me' => $user_id]);
@@ -39,10 +63,10 @@ $comments_by_post = [];
 if (!empty($post_ids)) {
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-       SELECT comments.id, comments.post_id, comments.content, comments.created_at,
-       comments.user_id,
-       users.username, users.display_name, users.avatar
-FROM comments
+        SELECT comments.id, comments.post_id, comments.content, comments.created_at,
+               comments.user_id,
+               users.username, users.display_name, users.avatar
+        FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
         ORDER BY comments.created_at ASC
@@ -76,9 +100,9 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                   <a href="profile.php?u=<?= urlencode($post['username']) ?>" data-user-id="<?= $post['author_id'] ?>">
-    <?= htmlspecialchars($author_name) ?>
-</a>
+                    <a href="profile.php?u=<?= urlencode($post['username']) ?>" data-user-id="<?= $post['author_id'] ?>">
+                        <?= htmlspecialchars($author_name) ?>
+                    </a>
                 </div>
             </div>
 
@@ -141,12 +165,20 @@ require 'includes/header.php';
                                     <div class="avatar avatar-tiny avatar-placeholder">
                                         <?= strtoupper(substr($comment_name, 0, 1)) ?>
                                     </div>
-                                <?php endif; ?><a href="profile.php?u=<?= urlencode($c['username']) ?>" data-user-id="<?= $c['user_id'] ?>">
-    <strong><?= htmlspecialchars($comment_name) ?></strong>
-</a> <strong><?= htmlspecialchars($comment_name) ?></strong>
+                                <?php endif; ?>
+                                <a href="profile.php?u=<?= urlencode($c['username']) ?>" data-user-id="<?= $c['user_id'] ?>">
+                                    <strong><?= htmlspecialchars($comment_name) ?></strong>
+                                </a>
                             </div>
                             <?= htmlspecialchars($c['content']) ?>
-                            <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>
+                            <div class="meta" style="display:flex; justify-content:space-between; align-items:center;">
+                                <span><?= htmlspecialchars($c['created_at']) ?></span>
+                                <?php if ((int)$c['user_id'] !== $user_id): ?>
+                                    <a href="report.php?comment_id=<?= $c['id'] ?>" class="report-link" style="font-size:0.75rem;">
+                                        Report
+                                    </a>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

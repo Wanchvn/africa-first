@@ -119,22 +119,22 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
                 $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
                 $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
 
-                // Notify all other members of this topic
+                // Notify topic members respecting preferences
                 $stmt = $pdo->prepare("
-    INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
-    SELECT tm.user_id, :actor, 'topic_posted', :post_id, :topic_id
-    FROM topic_members tm
-    INNER JOIN users u ON u.id = tm.user_id
-    WHERE tm.topic_id = :topic_id
-      AND tm.user_id != :actor
-      AND u.notify_topic_posts = 1
-      AND u.notify_paused = 0
-");
-$stmt->execute([
-    ':actor'    => $_SESSION['user_id'],
-    ':post_id'  => $new_post_id,
-    ':topic_id' => $topic_id,
-]);
+                    INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
+                    SELECT tm.user_id, :actor, 'topic_posted', :post_id, :topic_id
+                    FROM topic_members tm
+                    INNER JOIN users u ON u.id = tm.user_id
+                    WHERE tm.topic_id = :topic_id
+                      AND tm.user_id != :actor
+                      AND u.notify_topic_posts = 1
+                      AND u.notify_paused = 0
+                ");
+                $stmt->execute([
+                    ':actor'    => $_SESSION['user_id'],
+                    ':post_id'  => $new_post_id,
+                    ':topic_id' => $topic_id,
+                ]);
             }
         }
 
@@ -156,14 +156,15 @@ if ($is_own_profile) {
     $my_topics = $stmt->fetchAll();
 }
 
-// ---- Fetch the profile user's posts (WITH edited_at) ----
+// ---- Fetch the profile user's posts (WITH edited_at AND view_count) ----
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.avatar,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
-        (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
+        (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count,
+        (SELECT COUNT(*) FROM post_views WHERE post_id = posts.id) AS view_count
     FROM posts
     INNER JOIN users ON posts.user_id = users.id
     WHERE posts.user_id = :user_id
@@ -171,6 +172,22 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
 $posts = $stmt->fetchAll();
+
+// Record views for posts on this profile (only if visiting someone else's profile)
+if (!$is_own_profile && !empty($posts)) {
+    $view_post_ids = array_column($posts, 'id');
+    $placeholders = implode(',', array_fill(0, count($view_post_ids), '(?, ?)'));
+    $params = [];
+    foreach ($view_post_ids as $pid) {
+        $params[] = $pid;
+        $params[] = $_SESSION['user_id'];
+    }
+    $stmt = $pdo->prepare("
+        INSERT IGNORE INTO post_views (post_id, user_id)
+        VALUES $placeholders
+    ");
+    $stmt->execute($params);
+}
 
 // ---- Fetch user's bookmarked post IDs ----
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
@@ -200,10 +217,9 @@ if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
-       SELECT comments.id, comments.post_id, comments.content, comments.created_at,
-       comments.user_id,
-       users.username, users.display_name, users.avatar
-FROM comments
+        SELECT comments.id, comments.post_id, comments.user_id, comments.content, comments.created_at,
+               users.username, users.display_name, users.avatar
+        FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
         ORDER BY comments.created_at ASC
@@ -371,8 +387,8 @@ require 'includes/header.php';
                 <?php endif; ?>
                 <div class="author">
                     <a href="profile.php?u=<?= urlencode($profile_user['username']) ?>" data-user-id="<?= $profile_id ?>">
-    <?= htmlspecialchars($display_name) ?>
-</a>
+                        <?= htmlspecialchars($display_name) ?>
+                    </a>
                 </div>
             </div>
 
@@ -396,6 +412,13 @@ require 'includes/header.php';
                 <?= htmlspecialchars($post['created_at']) ?>
                 <?php if (!empty($post['edited_at'])): ?>
                     · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+                <?php if ($is_own_profile): ?>
+                    · 
+                    <span class="view-count" title="<?= (int)$post['view_count'] ?> people saw this">
+                        <i data-lucide="eye" style="width:13px;height:13px;"></i>
+                        <?= (int)$post['view_count'] ?>
+                    </span>
                 <?php endif; ?>
             </div>
 
@@ -440,18 +463,25 @@ require 'includes/header.php';
                         <div class="comment">
                             <div class="comment-header">
                                 <?php if (!empty($c['avatar'])): ?>
-                                    <img class="avatar avatar-tiny"
-                                         src="<?= htmlspecialchars($c['avatar']) ?>"
-                                         alt="">
+                                    <img class="avatar avatar-tiny" src="<?= htmlspecialchars($c['avatar']) ?>" alt="">
                                 <?php else: ?>
                                     <div class="avatar avatar-tiny avatar-placeholder">
                                         <?= strtoupper(substr($comment_name, 0, 1)) ?>
                                     </div>
                                 <?php endif; ?>
-                                <strong><?= htmlspecialchars($comment_name) ?></strong>
+                                <a href="profile.php?u=<?= urlencode($c['username']) ?>" data-user-id="<?= $c['user_id'] ?>">
+                                    <strong><?= htmlspecialchars($comment_name) ?></strong>
+                                </a>
                             </div>
                             <?= htmlspecialchars($c['content']) ?>
-                            <div class="meta"><?= htmlspecialchars($c['created_at']) ?></div>
+                            <div class="meta" style="display:flex; justify-content:space-between; align-items:center;">
+                                <span><?= htmlspecialchars($c['created_at']) ?></span>
+                                <?php if ((int)$c['user_id'] !== (int)$_SESSION['user_id']): ?>
+                                    <a href="report.php?comment_id=<?= $c['id'] ?>" class="report-link" style="font-size:0.75rem;">
+                                        Report
+                                    </a>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

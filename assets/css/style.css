@@ -1853,3 +1853,19 @@ i[data-lucide] svg {
     background: var(--terracotta);
     color: #fff;
 }
+
+/* ---- View count ---- */
+.view-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: help;
+}
+
+.view-count svg {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2;
+}
