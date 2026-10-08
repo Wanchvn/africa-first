@@ -121,17 +121,20 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
 
                 // Notify all other members of this topic
                 $stmt = $pdo->prepare("
-                    INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
-                    SELECT user_id, :actor, 'topic_posted', :post_id, :topic_id
-                    FROM topic_members
-                    WHERE topic_id = :topic_id
-                      AND user_id != :actor
-                ");
-                $stmt->execute([
-                    ':actor'    => $_SESSION['user_id'],
-                    ':post_id'  => $new_post_id,
-                    ':topic_id' => $topic_id,
-                ]);
+    INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
+    SELECT tm.user_id, :actor, 'topic_posted', :post_id, :topic_id
+    FROM topic_members tm
+    INNER JOIN users u ON u.id = tm.user_id
+    WHERE tm.topic_id = :topic_id
+      AND tm.user_id != :actor
+      AND u.notify_topic_posts = 1
+      AND u.notify_paused = 0
+");
+$stmt->execute([
+    ':actor'    => $_SESSION['user_id'],
+    ':post_id'  => $new_post_id,
+    ':topic_id' => $topic_id,
+]);
             }
         }
 

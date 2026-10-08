@@ -76,21 +76,32 @@ if ($action === 'like') {
         $stmt = $pdo->prepare("INSERT INTO likes (user_id, post_id) VALUES (:u, :p)");
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
-        if ($post_owner !== $user_id) {
+       if ($post_owner !== $user_id) {
+    // Check recipient's preferences
+    $stmt = $pdo->prepare("
+        SELECT notify_likes, notify_paused
+        FROM users WHERE id = :id
+    ");
+    $stmt->execute([':id' => $post_owner]);
+    $prefs = $stmt->fetch();
+
+    if ($prefs && $prefs['notify_likes'] && !$prefs['notify_paused']) {
+        // Avoid duplicates
+        $stmt = $pdo->prepare("
+            SELECT id FROM notifications
+            WHERE user_id = :owner AND actor_id = :actor AND type = 'like' AND post_id = :p
+        ");
+        $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+
+        if (!$stmt->fetch()) {
             $stmt = $pdo->prepare("
-                SELECT id FROM notifications
-                WHERE user_id = :owner AND actor_id = :actor AND type = 'like' AND post_id = :p
+                INSERT INTO notifications (user_id, actor_id, type, post_id)
+                VALUES (:owner, :actor, 'like', :p)
             ");
             $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
-
-            if (!$stmt->fetch()) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO notifications (user_id, actor_id, type, post_id)
-                    VALUES (:owner, :actor, 'like', :p)
-                ");
-                $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
-            }
         }
+    }
+}
 
         $new_liked = true;
     }
@@ -117,12 +128,22 @@ if ($action === 'like') {
         $stmt->execute([':u' => $user_id, ':p' => $post_id, ':c' => $content]);
 
         if ($post_owner !== $user_id) {
-            $stmt = $pdo->prepare("
-                INSERT INTO notifications (user_id, actor_id, type, post_id)
-                VALUES (:owner, :actor, 'comment', :p)
-            ");
-            $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
-        }
+    // Check recipient's preferences
+    $stmt = $pdo->prepare("
+        SELECT notify_comments, notify_paused
+        FROM users WHERE id = :id
+    ");
+    $stmt->execute([':id' => $post_owner]);
+    $prefs = $stmt->fetch();
+
+    if ($prefs && $prefs['notify_comments'] && !$prefs['notify_paused']) {
+        $stmt = $pdo->prepare("
+            INSERT INTO notifications (user_id, actor_id, type, post_id)
+            VALUES (:owner, :actor, 'comment', :p)
+        ");
+        $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+    }
+}
     }
 } elseif ($action === 'bookmark') {
     rate_limit_enforce($pdo, client_ip(), 'bookmark', 60, 60);

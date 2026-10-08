@@ -73,13 +73,22 @@ if ($stmt->fetch()) {
     $stmt->execute([':them' => $target_id, ':me' => $my_id]);
 
     if (!$stmt->fetch()) {
+    // Check recipient's preferences
+    $stmt = $pdo->prepare("
+        SELECT notify_follows, notify_paused
+        FROM users WHERE id = :id
+    ");
+    $stmt->execute([':id' => $target_id]);
+    $prefs = $stmt->fetch();
+
+    if ($prefs && $prefs['notify_follows'] && !$prefs['notify_paused']) {
         $stmt = $pdo->prepare("
             INSERT INTO notifications (user_id, actor_id, type)
             VALUES (:them, :me, 'follow')
         ");
         $stmt->execute([':them' => $target_id, ':me' => $my_id]);
     }
-
+}
     $new_state = 'followed';
 }
 

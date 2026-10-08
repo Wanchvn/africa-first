@@ -42,6 +42,13 @@ require 'includes/header.php';
 
 <h1><?= __('notifications_title') ?></h1>
 
+<p style="text-align:right; margin-bottom: var(--space-4);">
+    <a href="notification_settings.php" class="btn-secondary btn-small">
+        <i data-lucide="settings" style="width:14px;height:14px;"></i>
+        Settings
+    </a>
+</p>
+
 <?php if (empty($notifications)): ?>
     <div class="empty"><?= __('notifications_empty') ?></div>
 <?php else: ?>
