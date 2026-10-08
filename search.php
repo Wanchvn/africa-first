@@ -12,6 +12,12 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 $query = trim($_GET['q'] ?? '');
+$type  = $_GET['type'] ?? 'all';
+
+// Whitelist type
+if (!in_array($type, ['all', 'people', 'posts'], true)) {
+    $type = 'all';
+}
 
 $users = [];
 $posts = [];
@@ -19,42 +25,48 @@ $posts = [];
 if ($query !== '' && mb_strlen($query) >= 2) {
     $like = '%' . $query . '%';
 
-    $stmt = $pdo->prepare("
-        SELECT
-            users.id, users.username, users.display_name, users.avatar,
-            (SELECT 1 FROM follows WHERE follower_id = :me_follow AND following_id = users.id) AS is_following
-        FROM users
-        WHERE (users.username LIKE :like OR users.display_name LIKE :like2)
-          AND users.id != :me
-        ORDER BY users.username ASC
-        LIMIT 20
-    ");
-    $stmt->execute([
-        ':like' => $like,
-        ':like2' => $like,
-        ':me' => $user_id,
-        ':me_follow' => $user_id,
-    ]);
-    $users = $stmt->fetchAll();
+    // ---- User search ----
+    if ($type === 'all' || $type === 'people') {
+        $stmt = $pdo->prepare("
+            SELECT
+                users.id, users.username, users.display_name, users.avatar,
+                (SELECT 1 FROM follows WHERE follower_id = :me_follow AND following_id = users.id) AS is_following
+            FROM users
+            WHERE (users.username LIKE :like OR users.display_name LIKE :like2)
+              AND users.id != :me
+            ORDER BY users.username ASC
+            LIMIT 20
+        ");
+        $stmt->execute([
+            ':like' => $like,
+            ':like2' => $like,
+            ':me' => $user_id,
+            ':me_follow' => $user_id,
+        ]);
+        $users = $stmt->fetchAll();
+    }
 
-    $stmt = $pdo->prepare("
-        SELECT
-            posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
-            users.username, users.display_name, users.avatar, users.id AS author_id,
-            (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
-            (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
-            (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
-        FROM posts
-        INNER JOIN users ON posts.user_id = users.id
-        WHERE posts.content LIKE :like
-        ORDER BY posts.created_at DESC
-        LIMIT 30
-    ");
-    $stmt->execute([':like' => $like, ':me_like' => $user_id]);
-    $posts = $stmt->fetchAll();
+    // ---- Post search ----
+    if ($type === 'all' || $type === 'posts') {
+        $stmt = $pdo->prepare("
+            SELECT
+                posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+                users.username, users.display_name, users.avatar, users.id AS author_id,
+                (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
+                (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
+                (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
+            FROM posts
+            INNER JOIN users ON posts.user_id = users.id
+            WHERE posts.content LIKE :like
+            ORDER BY posts.created_at DESC
+            LIMIT 30
+        ");
+        $stmt->execute([':like' => $like, ':me_like' => $user_id]);
+        $posts = $stmt->fetchAll();
+    }
 }
 
-// Fetch user's bookmarked post IDs
+// Bookmarked post IDs
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
 $stmt->execute([':me' => $user_id]);
 $my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
@@ -75,6 +87,23 @@ require 'includes/header.php';
         <strong class="search-context-query">"<?= htmlspecialchars($query) ?>"</strong>
         <a href="search.php" class="search-clear-link">Clear</a>
     </div>
+
+    <div class="search-tabs">
+        <a href="search.php?q=<?= urlencode($query) ?>&type=all"
+           class="search-tab <?= $type === 'all' ? 'active' : '' ?>">
+            All
+        </a>
+        <a href="search.php?q=<?= urlencode($query) ?>&type=people"
+           class="search-tab <?= $type === 'people' ? 'active' : '' ?>">
+            People
+            <?php if (!empty($users)): ?><span class="tab-count"><?= count($users) ?></span><?php endif; ?>
+        </a>
+        <a href="search.php?q=<?= urlencode($query) ?>&type=posts"
+           class="search-tab <?= $type === 'posts' ? 'active' : '' ?>">
+            Posts
+            <?php if (!empty($posts)): ?><span class="tab-count"><?= count($posts) ?></span><?php endif; ?>
+        </a>
+    </div>
 <?php endif; ?>
 
 <?php if ($query_too_short): ?>
@@ -86,7 +115,9 @@ require 'includes/header.php';
 <?php endif; ?>
 
 <?php if (!empty($users)): ?>
-    <h2><?= __('search_people') ?> (<?= count($users) ?>)</h2>
+    <?php if ($type === 'all'): ?>
+        <h2><?= __('search_people') ?> (<?= count($users) ?>)</h2>
+    <?php endif; ?>
     <?php foreach ($users as $u): ?>
         <?php $user_name = $u['display_name'] ?: $u['username']; ?>
         <div class="user-row">
@@ -99,13 +130,13 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <a href="profile.php?u=<?= urlencode($u['username']) ?>" class="name" data-user-id="<?= $u['id'] ?>">
-    <?= htmlspecialchars($user_name) ?>
-</a>
+                    <?= htmlspecialchars($user_name) ?>
+                </a>
             </div>
             <form method="POST" action="follow.php" class="follow-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
-                <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
+                <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>&type=<?= $type ?>">
                 <button type="submit"
                         class="<?= $u['is_following'] ? 'btn-secondary' : '' ?>"
                         data-follow-text="<?= __('profile_follow') ?>"
@@ -118,7 +149,9 @@ require 'includes/header.php';
 <?php endif; ?>
 
 <?php if (!empty($posts)): ?>
-    <h2><?= __('search_posts') ?> (<?= count($posts) ?>)</h2>
+    <?php if ($type === 'all'): ?>
+        <h2><?= __('search_posts') ?> (<?= count($posts) ?>)</h2>
+    <?php endif; ?>
     <?php foreach ($posts as $post): ?>
         <?php $author_name = $post['display_name'] ?: $post['username']; ?>
         <div class="card">
@@ -131,7 +164,7 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?u=<?= urlencode($post['username']) ?>">
+                    <a href="profile.php?u=<?= urlencode($post['username']) ?>" data-user-id="<?= $post['author_id'] ?>">
                         <?= htmlspecialchars($author_name) ?>
                     </a>
                 </div>
@@ -155,7 +188,7 @@ require 'includes/header.php';
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="like">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
+                    <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>&type=<?= $type ?>">
                     <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
                         <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
@@ -169,13 +202,13 @@ require 'includes/header.php';
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="bookmark">
                     <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
+                    <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>&type=<?= $type ?>">
                     <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
                     </button>
                 </form>
                 <?php if ((int)$post['author_id'] === $user_id): ?>
-                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('search.php?q=' . $query) ?>" class="edit-link">
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('search.php?q=' . $query . '&type=' . $type) ?>" class="edit-link">
                         <i data-lucide="pencil" style="width:14px;height:14px;"></i>
                         Edit
                     </a>
