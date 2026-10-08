@@ -14,7 +14,7 @@ $user_id = (int)$_SESSION['user_id'];
 
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at,
+        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.username, users.avatar, users.display_name, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -87,7 +87,12 @@ require 'includes/header.php';
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
 
-            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+            <div class="meta">
+                <?= htmlspecialchars($post['created_at']) ?>
+                <?php if (!empty($post['edited_at'])): ?>
+                    · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+            </div>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">
@@ -113,7 +118,12 @@ require 'includes/header.php';
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
                     </button>
                 </form>
-                <?php if ($post['author_id'] !== (int)$_SESSION['user_id']): ?>
+                <?php if ((int)$post['author_id'] === $user_id): ?>
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=feed.php" class="edit-link">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Edit
+                    </a>
+                <?php else: ?>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>
             </div>

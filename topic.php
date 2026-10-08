@@ -36,7 +36,6 @@ $post_count = topic_post_count($pdo, $topic_id);
 $message = '';
 $error = '';
 
-// ---- Handle join / leave ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     csrf_verify();
     $action = $_POST['action'];
@@ -56,10 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// ---- Fetch posts in this topic ----
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at,
+        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.username, users.display_name, users.avatar, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -74,7 +72,11 @@ $stmt = $pdo->prepare("
 $stmt->execute([':topic_id' => $topic_id, ':me_like' => $user_id]);
 $posts = $stmt->fetchAll();
 
-// Comments for these posts
+// Fetch user's bookmarked post IDs
+$stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
+$stmt->execute([':me' => $user_id]);
+$my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
+
 $comments_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -119,12 +121,8 @@ require 'includes/header.php';
 
     <div style="margin-top: var(--space-4); display:flex; gap:10px; flex-wrap:wrap;">
         <?php if ($is_curator): ?>
-            <span class="btn-secondary btn-small" style="cursor:default;">
-                ✓ You curate this topic
-            </span>
-            <a href="edit_topic.php?slug=<?= urlencode($topic['slug']) ?>" class="btn-secondary btn-small">
-                Edit topic
-            </a>
+            <span class="btn-secondary btn-small" style="cursor:default;">✓ You curate this topic</span>
+            <a href="edit_topic.php?slug=<?= urlencode($topic['slug']) ?>" class="btn-secondary btn-small">Edit topic</a>
         <?php elseif ($is_member): ?>
             <form method="POST" style="display:inline;">
                 <?= csrf_field() ?>
@@ -170,7 +168,7 @@ require 'includes/header.php';
                     </a>
                 </div>
                 <?php if ($is_curator && (int)$post['author_id'] !== $user_id): ?>
-                    <form method="POST" action="remove_from_topic.php" style="margin-left:auto;" onsubmit="return confirm('Remove this post from the topic? The post stays on Qarota — it just leaves this topic.');">
+                    <form method="POST" action="remove_from_topic.php" style="margin-left:auto;" onsubmit="return confirm('Remove this post from the topic?');">
                         <?= csrf_field() ?>
                         <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
                         <input type="hidden" name="topic_id" value="<?= $topic_id ?>">
@@ -188,7 +186,12 @@ require 'includes/header.php';
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
 
-            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+            <div class="meta">
+                <?= htmlspecialchars($post['created_at']) ?>
+                <?php if (!empty($post['edited_at'])): ?>
+                    · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+            </div>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">
@@ -202,9 +205,24 @@ require 'includes/header.php';
                     </button>
                 </form>
                 <span class="comment-count">
-    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
-    <?= (int)$post['comment_count'] ?>
-</span>
+                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                    <?= (int)$post['comment_count'] ?>
+                </span>
+                <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="bookmark">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="topic.php?slug=<?= urlencode($topic['slug']) ?>">
+                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                        <i data-lucide="bookmark" class="bookmark-icon"></i>
+                    </button>
+                </form>
+                <?php if ((int)$post['author_id'] === $user_id): ?>
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('topic.php?slug=' . $topic['slug']) ?>" class="edit-link">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Edit
+                    </a>
+                <?php endif; ?>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>

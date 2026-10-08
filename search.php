@@ -19,7 +19,6 @@ $posts = [];
 if ($query !== '' && mb_strlen($query) >= 2) {
     $like = '%' . $query . '%';
 
-    // Search users — now includes display_name for matching too
     $stmt = $pdo->prepare("
         SELECT
             users.id, users.username, users.display_name, users.avatar,
@@ -38,10 +37,9 @@ if ($query !== '' && mb_strlen($query) >= 2) {
     ]);
     $users = $stmt->fetchAll();
 
-    // Search posts
     $stmt = $pdo->prepare("
         SELECT
-            posts.id, posts.content, posts.media_path, posts.created_at,
+            posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
             users.username, users.display_name, users.avatar, users.id AS author_id,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -55,6 +53,11 @@ if ($query !== '' && mb_strlen($query) >= 2) {
     $stmt->execute([':like' => $like, ':me_like' => $user_id]);
     $posts = $stmt->fetchAll();
 }
+
+// Fetch user's bookmarked post IDs
+$stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
+$stmt->execute([':me' => $user_id]);
+$my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
 $has_results = !empty($users) || !empty($posts);
 $show_empty = ($query !== '' && mb_strlen($query) >= 2 && !$has_results);
@@ -89,9 +92,7 @@ require 'includes/header.php';
         <div class="user-row">
             <div style="display:flex; align-items:center; gap:12px;">
                 <?php if ($u['avatar']): ?>
-                    <img class="avatar avatar-small"
-                         src="<?= htmlspecialchars($u['avatar']) ?>"
-                         alt="">
+                    <img class="avatar avatar-small" src="<?= htmlspecialchars($u['avatar']) ?>" alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
                         <?= strtoupper(substr($user_name, 0, 1)) ?>
@@ -123,9 +124,7 @@ require 'includes/header.php';
         <div class="card">
             <div class="post-header">
                 <?php if ($post['avatar']): ?>
-                    <img class="avatar avatar-small"
-                         src="<?= htmlspecialchars($post['avatar']) ?>"
-                         alt="">
+                    <img class="avatar avatar-small" src="<?= htmlspecialchars($post['avatar']) ?>" alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
                         <?= strtoupper(substr($author_name, 0, 1)) ?>
@@ -144,7 +143,12 @@ require 'includes/header.php';
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
 
-            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+            <div class="meta">
+                <?= htmlspecialchars($post['created_at']) ?>
+                <?php if (!empty($post['edited_at'])): ?>
+                    · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+            </div>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">
@@ -158,10 +162,24 @@ require 'includes/header.php';
                     </button>
                 </form>
                 <span class="comment-count">
-    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
-    <?= (int)$post['comment_count'] ?>
-</span>
-                <?php if ($post['author_id'] !== $user_id): ?>
+                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                    <?= (int)$post['comment_count'] ?>
+                </span>
+                <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="bookmark">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="search.php?q=<?= urlencode($query) ?>">
+                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                        <i data-lucide="bookmark" class="bookmark-icon"></i>
+                    </button>
+                </form>
+                <?php if ((int)$post['author_id'] === $user_id): ?>
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('search.php?q=' . $query) ?>" class="edit-link">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Edit
+                    </a>
+                <?php else: ?>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link">
                         <?= __('post_report') ?>
                     </a>

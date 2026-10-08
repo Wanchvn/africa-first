@@ -12,21 +12,18 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
-// Get current user's location and languages
 $stmt = $pdo->prepare("SELECT location, languages FROM users WHERE id = :id");
 $stmt->execute([':id' => $user_id]);
 $me = $stmt->fetch();
 $my_location = trim($me['location'] ?? '');
 $my_languages = trim($me['languages'] ?? '');
 
-// Collect posts from multiple sources
 $suggestions = [];
 
-// ---- Reason 1: Friends of friends ----
-// Posts from users followed by people you follow, excluding people you already follow
+// Reason 1: Friends of friends
 $stmt = $pdo->prepare("
     SELECT DISTINCT
-        posts.id, posts.content, posts.media_path, posts.created_at,
+        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.username, users.display_name, users.avatar, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -48,11 +45,11 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 $suggestions = array_merge($suggestions, $stmt->fetchAll());
 
-// ---- Reason 2: Same location ----
+// Reason 2: Same location
 if ($my_location !== '') {
     $stmt = $pdo->prepare("
         SELECT
-            posts.id, posts.content, posts.media_path, posts.created_at,
+            posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
             users.username, users.display_name, users.avatar, users.id AS author_id,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -70,13 +67,11 @@ if ($my_location !== '') {
     $suggestions = array_merge($suggestions, $stmt->fetchAll());
 }
 
-// ---- Reason 3: Shared language ----
+// Reason 3: Shared language
 if ($my_languages !== '') {
-    // Build a list of my language tokens
     $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages)));
 
     if (!empty($my_lang_tokens)) {
-        // Build a LIKE clause: users.languages LIKE '%Twi%' OR LIKE '%English%' ...
         $lang_conditions = [];
         $lang_params = [':me' => $user_id, ':me_like' => $user_id];
         foreach ($my_lang_tokens as $i => $lang) {
@@ -88,7 +83,7 @@ if ($my_languages !== '') {
 
         $stmt = $pdo->prepare("
             SELECT
-                posts.id, posts.content, posts.media_path, posts.created_at,
+                posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
                 users.username, users.display_name, users.avatar, users.id AS author_id,
                 (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
                 (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -107,10 +102,10 @@ if ($my_languages !== '') {
     }
 }
 
-// ---- Reason 4: Trending today ----
+// Reason 4: Trending
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at,
+        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.username, users.display_name, users.avatar, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -128,7 +123,7 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 $suggestions = array_merge($suggestions, $stmt->fetchAll());
 
-// ---- Deduplicate and sort ----
+// Deduplicate
 $seen = [];
 $unique = [];
 foreach ($suggestions as $s) {
@@ -139,10 +134,9 @@ foreach ($suggestions as $s) {
 usort($unique, function($a, $b) {
     return strtotime($b['created_at']) - strtotime($a['created_at']);
 });
-// Limit total to 30
 $discover = array_slice($unique, 0, 30);
 
-// ---- Fetch comments for these posts ----
+// Comments
 $post_ids = array_column($discover, 'id');
 $comments_by_post = [];
 if (!empty($post_ids)) {
@@ -161,7 +155,7 @@ if (!empty($post_ids)) {
     }
 }
 
-// ---- Check which authors we follow (for follow buttons) ----
+// Following map
 $author_ids = array_unique(array_column($discover, 'author_id'));
 $following_map = [];
 if (!empty($author_ids)) {
@@ -175,6 +169,11 @@ if (!empty($author_ids)) {
         $following_map[$row['following_id']] = true;
     }
 }
+
+// Bookmark map
+$stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
+$stmt->execute([':me' => $user_id]);
+$my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
 $page_title = 'Discover';
 require 'includes/header.php';
@@ -221,9 +220,7 @@ require 'includes/header.php';
 
             <div class="post-header">
                 <?php if ($post['avatar']): ?>
-                    <img class="avatar avatar-small"
-                         src="<?= htmlspecialchars($post['avatar']) ?>"
-                         alt="">
+                    <img class="avatar avatar-small" src="<?= htmlspecialchars($post['avatar']) ?>" alt="">
                 <?php else: ?>
                     <div class="avatar avatar-small avatar-placeholder">
                         <?= strtoupper(substr($author_name, 0, 1)) ?>
@@ -254,7 +251,12 @@ require 'includes/header.php';
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
 
-            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+            <div class="meta">
+                <?= htmlspecialchars($post['created_at']) ?>
+                <?php if (!empty($post['edited_at'])): ?>
+                    · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+            </div>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">
@@ -268,10 +270,26 @@ require 'includes/header.php';
                     </button>
                 </form>
                 <span class="comment-count">
-    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
-    <?= (int)$post['comment_count'] ?>
-</span>
-                <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
+                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                    <?= (int)$post['comment_count'] ?>
+                </span>
+                <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="bookmark">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="discover_feed.php">
+                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                        <i data-lucide="bookmark" class="bookmark-icon"></i>
+                    </button>
+                </form>
+                <?php if ((int)$post['author_id'] === $user_id): ?>
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=discover_feed.php" class="edit-link">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Edit
+                    </a>
+                <?php else: ?>
+                    <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link">Report</a>
+                <?php endif; ?>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>
@@ -281,9 +299,7 @@ require 'includes/header.php';
                         <div class="comment">
                             <div class="comment-header">
                                 <?php if (!empty($c['avatar'])): ?>
-                                    <img class="avatar avatar-tiny"
-                                         src="<?= htmlspecialchars($c['avatar']) ?>"
-                                         alt="">
+                                    <img class="avatar avatar-tiny" src="<?= htmlspecialchars($c['avatar']) ?>" alt="">
                                 <?php else: ?>
                                     <div class="avatar avatar-tiny avatar-placeholder">
                                         <?= strtoupper(substr($comment_name, 0, 1)) ?>
@@ -297,15 +313,6 @@ require 'includes/header.php';
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-
-            <form method="POST" action="interact.php" class="comment-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="comment">
-                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="discover_feed.php">
-                <input type="text" name="content" placeholder="Write a comment..." maxlength="500" required>
-                <button type="submit">Send</button>
-            </form>
         </div>
     <?php endforeach; ?>
 

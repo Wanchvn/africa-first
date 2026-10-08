@@ -1622,3 +1622,30 @@ i[data-lucide] svg {
         height: 14px;
     }
 }
+
+/* ---- Edit link ---- */
+.edit-link {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+    opacity: 0.7;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color var(--transition), opacity var(--transition);
+}
+
+.edit-link:hover {
+    color: var(--terracotta);
+    opacity: 1;
+    text-decoration: none;
+}
+
+/* ---- Edited label ---- */
+.edited-label {
+    color: var(--muted);
+    font-size: 0.85rem;
+    cursor: help;
+    text-decoration: underline dotted var(--muted);
+    text-underline-offset: 3px;
+}

@@ -12,10 +12,9 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
-// Fetch bookmarked posts, newest bookmark first
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at,
+        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.username, users.display_name, users.avatar, users.id AS author_id,
         bookmarks.created_at AS bookmarked_at,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
@@ -30,7 +29,6 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 $posts = $stmt->fetchAll();
 
-// Comments for these posts
 $comments_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -49,7 +47,6 @@ if (!empty($posts)) {
     }
 }
 
-// All saved posts are (obviously) bookmarked by this user
 $my_bookmarks = array_column($posts, 'id');
 
 $page_title = 'Saved posts';
@@ -94,7 +91,12 @@ require 'includes/header.php';
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
 
-            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+            <div class="meta">
+                <?= htmlspecialchars($post['created_at']) ?>
+                <?php if (!empty($post['edited_at'])): ?>
+                    · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+            </div>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">
@@ -120,6 +122,12 @@ require 'includes/header.php';
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
                     </button>
                 </form>
+                <?php if ((int)$post['author_id'] === $user_id): ?>
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=saved.php" class="edit-link">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Edit
+                    </a>
+                <?php endif; ?>
             </div>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>

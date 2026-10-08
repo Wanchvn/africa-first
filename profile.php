@@ -116,11 +116,10 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
             $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
             $stmt->execute([':t' => $topic_id, ':u' => $_SESSION['user_id']]);
             if ($stmt->fetch()) {
-                // Attach the topic to the post
                 $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
                 $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
 
-                // Notify all other members of this topic (excluding the author)
+                // Notify all other members of this topic
                 $stmt = $pdo->prepare("
                     INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
                     SELECT user_id, :actor, 'topic_posted', :post_id, :topic_id
@@ -154,10 +153,10 @@ if ($is_own_profile) {
     $my_topics = $stmt->fetchAll();
 }
 
-// ---- Fetch the profile user's posts ----
+// ---- Fetch the profile user's posts (WITH edited_at) ----
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at,
+        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         users.avatar,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -388,7 +387,12 @@ require 'includes/header.php';
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
             <?php endif; ?>
 
-            <div class="meta"><?= htmlspecialchars($post['created_at']) ?></div>
+            <div class="meta">
+                <?= htmlspecialchars($post['created_at']) ?>
+                <?php if (!empty($post['edited_at'])): ?>
+                    · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
+                <?php endif; ?>
+            </div>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">
@@ -414,7 +418,12 @@ require 'includes/header.php';
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
                     </button>
                 </form>
-                <?php if (!$is_own_profile): ?>
+                <?php if ($is_own_profile): ?>
+                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('profile.php?u=' . $profile_user['username']) ?>" class="edit-link">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Edit
+                    </a>
+                <?php else: ?>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 <?php endif; ?>
             </div>
