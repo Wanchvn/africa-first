@@ -2,3 +2,7 @@ uploads/
 config/db.php
 *.log
 *.zip
+
+config/mail.php
+storage/
+vendor/

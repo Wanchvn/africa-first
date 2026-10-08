@@ -63,6 +63,7 @@ $message = '';
 $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
 
+// ---- Handle new post (with optional topic tag) ----
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
     csrf_verify();
     $content = trim($_POST['content']);
@@ -107,10 +108,38 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
             ':content' => $content,
             ':media'   => $media_path,
         ]);
+        $new_post_id = (int)$pdo->lastInsertId();
+
+        // Attach topic if selected and user is a member
+        $topic_id = (int)($_POST['topic_id'] ?? 0);
+        if ($topic_id > 0) {
+            $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
+            $stmt->execute([':t' => $topic_id, ':u' => $_SESSION['user_id']]);
+            if ($stmt->fetch()) {
+                $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
+                $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
+            }
+        }
+
         $message = __('post_published');
     }
 }
 
+// ---- Fetch topics the user is a member of (for the composer dropdown) ----
+$my_topics = [];
+if ($is_own_profile) {
+    $stmt = $pdo->prepare("
+        SELECT t.id, t.name, t.slug
+        FROM topics t
+        INNER JOIN topic_members tm ON tm.topic_id = t.id
+        WHERE tm.user_id = :me
+        ORDER BY t.name ASC
+    ");
+    $stmt->execute([':me' => $_SESSION['user_id']]);
+    $my_topics = $stmt->fetchAll();
+}
+
+// ---- Fetch the profile user's posts ----
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at,
@@ -126,6 +155,24 @@ $stmt = $pdo->prepare("
 $stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
 $posts = $stmt->fetchAll();
 
+// ---- Topics attached to each post ----
+$topics_by_post = [];
+if (!empty($posts)) {
+    $post_ids = array_column($posts, 'id');
+    $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
+    $stmt = $pdo->prepare("
+        SELECT post_topics.post_id, topics.name, topics.slug
+        FROM post_topics
+        INNER JOIN topics ON topics.id = post_topics.topic_id
+        WHERE post_topics.post_id IN ($placeholders)
+    ");
+    $stmt->execute($post_ids);
+    foreach ($stmt->fetchAll() as $t) {
+        $topics_by_post[$t['post_id']][] = $t;
+    }
+}
+
+// ---- Comments for these posts ----
 $comments_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -265,6 +312,19 @@ require 'includes/header.php';
         <form method="POST" enctype="multipart/form-data" class="stack">
             <?= csrf_field() ?>
             <textarea name="content" maxlength="500" placeholder="<?= __('post_placeholder') ?>" required></textarea>
+
+            <?php if (!empty($my_topics)): ?>
+                <div class="form-field">
+                    <label for="topic_id">Tag with a topic <span class="optional">(optional)</span></label>
+                    <select id="topic_id" name="topic_id">
+                        <option value="">— No topic —</option>
+                        <?php foreach ($my_topics as $t): ?>
+                            <option value="<?= $t['id'] ?>">#<?= htmlspecialchars($t['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
+
             <input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
             <button type="submit"><?= __('post_button') ?></button>
         </form>
@@ -294,6 +354,16 @@ require 'includes/header.php';
             </div>
 
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
+
+            <?php if (!empty($topics_by_post[$post['id']])): ?>
+                <div style="margin: var(--space-2) 0;">
+                    <?php foreach ($topics_by_post[$post['id']] as $t): ?>
+                        <a href="topic.php?slug=<?= urlencode($t['slug']) ?>" class="topic-tag">
+                            #<?= htmlspecialchars($t['name']) ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
 
             <?php if ($post['media_path']): ?>
                 <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">

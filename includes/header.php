@@ -25,6 +25,8 @@ if ($logged_in) {
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
+
+$og_description = "Africa's social network. Your data stays home.";
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($_SESSION['lang']) ?>">
@@ -32,12 +34,28 @@ if (!isset($page_title)) $page_title = 'Qarota';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — Qarota</title>
+
     <link rel="stylesheet" href="assets/css/style.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
+    <link rel="apple-touch-icon" href="assets/img/favicon-512.png">
+
+    <!-- Social preview (Open Graph) -->
+    <meta property="og:title" content="<?= htmlspecialchars($page_title) ?> — Qarota">
+    <meta property="og:description" content="<?= htmlspecialchars($og_description) ?>">
+    <meta property="og:image" content="https://qarota.com/assets/img/social-preview.png">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 <header class="site-header">
     <nav>
-        <a href="feed.php" class="brand">Qarota</a>
+        <a href="feed.php" class="brand">
+            <img src="assets/img/logo-icon.PNG" alt="Qarota" class="brand-icon">
+            <span class="brand-text">Qarota</span>
+        </a>
 
         <button class="nav-toggle" onclick="toggleNav()" aria-label="Menu">
             <span class="nav-toggle-icon">☰</span>
@@ -67,6 +85,10 @@ if (!isset($page_title)) $page_title = 'Qarota';
                 <a href="discover_feed.php" title="Explore">
                     <span class="nav-icon">✨</span>
                     <span class="nav-label">Explore</span>
+                </a>
+                <a href="topics.php" title="Topics">
+                    <span class="nav-icon">#️⃣</span>
+                    <span class="nav-label">Topics</span>
                 </a>
                 <a href="discover.php" title="<?= __('nav_discover') ?>">
                     <span class="nav-icon">🧭</span>

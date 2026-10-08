@@ -64,6 +64,12 @@ require 'includes/header.php';
     </form>
 </div>
 
+<p style="text-align:center;margin-top:var(--space-3);">
+    <a href="forgot_password.php" style="font-size:0.9rem;color:var(--muted);">
+        Forgot your password?
+    </a>
+</p>
+
 <p><?= __('login_no_account') ?> <a href="register.php"><?= __('login_register_link') ?></a></p>
 
 <?php require 'includes/footer.php'; ?>

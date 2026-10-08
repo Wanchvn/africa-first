@@ -1395,3 +1395,86 @@ select:focus {
 .post-header .follow-form button:not(.btn-secondary):hover {
     background: #B14E2F;
 }
+
+/* ---- Topics page ---- */
+.topic-card {
+    background: var(--ivory);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-3);
+    transition: box-shadow var(--transition);
+}
+
+.topic-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.topic-card h2 {
+    margin: 0 0 var(--space-1);
+}
+
+.topic-card h2 a {
+    color: var(--deep-brown);
+    text-decoration: none;
+}
+
+.topic-card h2 a:hover {
+    color: var(--terracotta);
+    text-decoration: none;
+}
+
+/* ---- Post header when curator has remove button ---- */
+.post-header .report-link {
+    opacity: 0.6;
+    font-size: 0.8rem;
+}
+
+
+/* ---- Brand logo ---- */
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+}
+
+.brand:hover {
+    text-decoration: none;
+}
+
+.brand-icon {
+    height: 32px;
+    width: 32px;
+    display: block;
+}
+
+.brand-text {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.4rem;
+    letter-spacing: 0.5px;
+}
+
+/* On mobile, keep the icon but shrink it slightly */
+@media (max-width: 600px) {
+    .brand-icon {
+        height: 28px;
+        width: 28px;
+    }
+    .brand-text {
+        font-size: 1.2rem;
+    }
+}
+
+.brand-logo {
+    height: 36px;
+    width: auto;
+    display: block;
+}
+
+@media (max-width: 600px) {
+    .brand-logo {
+        height: 30px;
+    }
+}
