@@ -58,6 +58,7 @@ if ($post_owner === false) {
 
 $post_owner = (int)$post_owner;
 
+/* ==================== LIKE ==================== */
 if ($action === 'like') {
     rate_limit_enforce($pdo, client_ip(), 'like', 60, 60);
 
@@ -65,6 +66,7 @@ if ($action === 'like') {
     $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
     if ($stmt->fetch()) {
+        // Unlike
         $stmt = $pdo->prepare("DELETE FROM likes WHERE user_id = :u AND post_id = :p");
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
@@ -73,39 +75,41 @@ if ($action === 'like') {
 
         $new_liked = false;
     } else {
+        // Like
         $stmt = $pdo->prepare("INSERT INTO likes (user_id, post_id) VALUES (:u, :p)");
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
-       if ($post_owner !== $user_id) {
-    // Check recipient's preferences
-    $stmt = $pdo->prepare("
-        SELECT notify_likes, notify_paused
-        FROM users WHERE id = :id
-    ");
-    $stmt->execute([':id' => $post_owner]);
-    $prefs = $stmt->fetch();
-
-    if ($prefs && $prefs['notify_likes'] && !$prefs['notify_paused']) {
-        // Avoid duplicates
-        $stmt = $pdo->prepare("
-            SELECT id FROM notifications
-            WHERE user_id = :owner AND actor_id = :actor AND type = 'like' AND post_id = :p
-        ");
-        $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
-
-        if (!$stmt->fetch()) {
+        if ($post_owner !== $user_id) {
+            // Check recipient's notification preferences
             $stmt = $pdo->prepare("
-                INSERT INTO notifications (user_id, actor_id, type, post_id)
-                VALUES (:owner, :actor, 'like', :p)
+                SELECT notify_likes, notify_paused
+                FROM users WHERE id = :id
             ");
-            $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+            $stmt->execute([':id' => $post_owner]);
+            $prefs = $stmt->fetch();
+
+            if ($prefs && $prefs['notify_likes'] && !$prefs['notify_paused']) {
+                // Avoid duplicate notifications
+                $stmt = $pdo->prepare("
+                    SELECT id FROM notifications
+                    WHERE user_id = :owner AND actor_id = :actor AND type = 'like' AND post_id = :p
+                ");
+                $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+
+                if (!$stmt->fetch()) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO notifications (user_id, actor_id, type, post_id)
+                        VALUES (:owner, :actor, 'like', :p)
+                    ");
+                    $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+                }
+            }
         }
-    }
-}
 
         $new_liked = true;
     }
 
+    // Updated count
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM likes WHERE post_id = :p");
     $stmt->execute([':p' => $post_id]);
     $new_count = (int)$stmt->fetchColumn();
@@ -119,45 +123,66 @@ if ($action === 'like') {
         ]);
         exit;
     }
-} elseif ($action === 'comment') {
+}
+
+/* ==================== COMMENT ==================== */
+elseif ($action === 'comment') {
     rate_limit_enforce($pdo, client_ip(), 'comment', 10, 60);
 
     $content = trim($_POST['content'] ?? '');
+
     if ($content !== '' && mb_strlen($content) <= 500) {
         $stmt = $pdo->prepare("INSERT INTO comments (user_id, post_id, content) VALUES (:u, :p, :c)");
         $stmt->execute([':u' => $user_id, ':p' => $post_id, ':c' => $content]);
 
         if ($post_owner !== $user_id) {
-    // Check recipient's preferences
-    $stmt = $pdo->prepare("
-        SELECT notify_comments, notify_paused
-        FROM users WHERE id = :id
-    ");
-    $stmt->execute([':id' => $post_owner]);
-    $prefs = $stmt->fetch();
+            // Check recipient's notification preferences
+            $stmt = $pdo->prepare("
+                SELECT notify_comments, notify_paused
+                FROM users WHERE id = :id
+            ");
+            $stmt->execute([':id' => $post_owner]);
+            $prefs = $stmt->fetch();
 
-    if ($prefs && $prefs['notify_comments'] && !$prefs['notify_paused']) {
-        $stmt = $pdo->prepare("
-            INSERT INTO notifications (user_id, actor_id, type, post_id)
-            VALUES (:owner, :actor, 'comment', :p)
-        ");
-        $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+            if ($prefs && $prefs['notify_comments'] && !$prefs['notify_paused']) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO notifications (user_id, actor_id, type, post_id)
+                    VALUES (:owner, :actor, 'comment', :p)
+                ");
+                $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
+            }
+        }
     }
 }
-    }
-} elseif ($action === 'bookmark') {
+
+/* ==================== BOOKMARK ==================== */
+elseif ($action === 'bookmark') {
     rate_limit_enforce($pdo, client_ip(), 'bookmark', 60, 60);
 
     $stmt = $pdo->prepare("SELECT id FROM bookmarks WHERE user_id = :u AND post_id = :p");
     $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
     if ($stmt->fetch()) {
+        // Unbookmark
         $stmt = $pdo->prepare("DELETE FROM bookmarks WHERE user_id = :u AND post_id = :p");
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
         $bookmarked = false;
     } else {
-        $stmt = $pdo->prepare("INSERT INTO bookmarks (user_id, post_id) VALUES (:u, :p)");
-        $stmt->execute([':u' => $user_id, ':p' => $post_id]);
+        // Bookmark — with optional folder
+        $folder_id = (int)($_POST['folder_id'] ?? 0);
+        $folder_value = $folder_id > 0 ? $folder_id : null;
+
+        // If folder_id is set, verify ownership
+        if ($folder_value !== null) {
+            $stmt = $pdo->prepare("SELECT id FROM bookmark_folders WHERE id = :id AND user_id = :u");
+            $stmt->execute([':id' => $folder_value, ':u' => $user_id]);
+            if (!$stmt->fetch()) {
+                $folder_value = null;
+            }
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO bookmarks (user_id, post_id, folder_id) VALUES (:u, :p, :f)");
+        $stmt->execute([':u' => $user_id, ':p' => $post_id, ':f' => $folder_value]);
         $bookmarked = true;
     }
 

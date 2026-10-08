@@ -2203,3 +2203,203 @@ body.dark-mode .suggestion-row {
 body.dark-mode .suggestion-name {
     color: var(--charcoal);
 }
+
+/* ---- Saved page layout ---- */
+.saved-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--space-5);
+    align-items: start;
+}
+
+/* ---- Folders sidebar ---- */
+.folders-sidebar {
+    position: sticky;
+    top: 80px;
+    background: var(--ivory);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+}
+
+.folders-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-3);
+    font-size: 0.85rem;
+    color: var(--deep-brown);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.folders-add-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--terracotta);
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.folders-add-btn:hover {
+    background: var(--terracotta);
+    color: #fff;
+    border-color: var(--terracotta);
+}
+
+.new-folder-form {
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border);
+}
+
+.new-folder-form input {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-2);
+}
+
+.folder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    color: var(--charcoal);
+    font-size: 0.9rem;
+    text-decoration: none;
+    margin-bottom: 2px;
+    transition: background var(--transition), color var(--transition);
+}
+
+.folder-item:hover {
+    background: var(--sand);
+    text-decoration: none;
+    color: var(--terracotta);
+}
+
+.folder-item.active {
+    background: var(--terracotta);
+    color: #fff;
+    font-weight: 600;
+}
+
+.folder-count {
+    font-size: 0.75rem;
+    background: rgba(0,0,0,0.06);
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+}
+
+.folder-item.active .folder-count {
+    background: rgba(255,255,255,0.25);
+    color: #fff;
+}
+
+.folder-delete-form {
+    display: inline;
+    position: relative;
+    top: -34px;
+    left: 178px;
+    height: 0;
+}
+
+.folder-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+}
+
+.folders-sidebar:hover .folder-delete-btn {
+    opacity: 0.6;
+}
+
+.folder-delete-btn:hover {
+    color: var(--danger);
+    opacity: 1 !important;
+}
+
+/* ---- Post folder badge ---- */
+.post-folder-badge {
+    background: var(--sand);
+    color: var(--deep-brown);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    margin-left: auto;
+}
+
+/* ---- Move folder select ---- */
+.folder-move-select {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.folder-move-select:hover {
+    border-color: var(--terracotta);
+    color: var(--terracotta);
+}
+
+/* ---- Dark mode ---- */
+body.dark-mode .folders-sidebar {
+    background: var(--ivory);
+}
+
+body.dark-mode .folder-item:hover {
+    background: #1A1614;
+}
+
+body.dark-mode .folder-count {
+    background: rgba(255,255,255,0.08);
+}
+
+body.dark-mode .post-folder-badge {
+    background: #3A322B;
+    color: var(--charcoal);
+}
+
+/* ---- Mobile: stack ---- */
+@media (max-width: 700px) {
+    .saved-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .folders-sidebar {
+        position: static;
+    }
+
+    .folder-delete-form {
+        top: 0;
+        left: 0;
+        height: auto;
+        display: inline-block;
+    }
+
+    .folder-delete-btn {
+        opacity: 0.6;
+    }
+}
