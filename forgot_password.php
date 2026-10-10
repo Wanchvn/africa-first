@@ -30,34 +30,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
+        // Look up the user
         $stmt = $pdo->prepare("SELECT id, username FROM users WHERE email = :email");
         $stmt->execute([':email' => $submitted_email]);
         $user = $stmt->fetch();
 
-        // Same message whether or not the account exists
+        // Whether or not the email exists, show the same message
         $message = 'If an account exists for that email, we have sent a password reset link. Check your inbox and spam folder.';
 
         if ($user) {
+            // Delete any existing unused tokens
             $stmt = $pdo->prepare("DELETE FROM password_resets WHERE user_id = :id");
             $stmt->execute([':id' => $user['id']]);
 
+            // Generate token
             $raw_token = bin2hex(random_bytes(32));
             $token_hash = hash('sha256', $raw_token);
             $expires_at = date('Y-m-d H:i:s', time() + 3600);
 
             $stmt = $pdo->prepare("
                 INSERT INTO password_resets (user_id, token_hash, expires_at)
-                VALUES (:u, :h, :e)
+                VALUES (:user_id, :token_hash, :expires_at)
             ");
             $stmt->execute([
-                ':u' => $user['id'],
-                ':h' => $token_hash,
-                ':e' => $expires_at,
+                ':user_id'    => $user['id'],
+                ':token_hash' => $token_hash,
+                ':expires_at' => $expires_at,
             ]);
 
+            // Build reset URL
             $base_url = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
             $reset_url = $base_url . dirname($_SERVER['PHP_SELF']) . '/reset_password.php?token=' . $raw_token;
 
+            // Send email
             $body = password_reset_email($user['username'], $reset_url);
             send_email($submitted_email, $user['username'], 'Reset your Qarota password', $body);
         }
@@ -76,13 +81,13 @@ require 'includes/header.php';
 </div>
 
 <?php if ($message): ?>
-    <div class="message" style="background:#E8F5E9;border-left-color:#4CAF50;">
+    <div class="message" style="background: #E8F5E9; border-left-color: #4CAF50;">
         <?= htmlspecialchars($message) ?>
     </div>
 <?php endif; ?>
 
 <?php if (!empty($errors)): ?>
-    <div class="message" style="border-left-color:#c0392b;background:#FDECEA;">
+    <div class="message" style="border-left-color: #c0392b; background: #FDECEA;">
         <?php foreach ($errors as $e): ?>
             <div><?= htmlspecialchars($e) ?></div>
         <?php endforeach; ?>

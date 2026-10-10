@@ -6,6 +6,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/topics.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -20,7 +21,7 @@ $description = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-
+    rate_limit_enforce($pdo, client_ip(), 'create_topic', 5, 3600);
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
 

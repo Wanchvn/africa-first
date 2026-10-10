@@ -11,7 +11,7 @@
     </div>
 <?php endif; ?>
 
-<script src="assets/js/interact.js"></script>
+<script src="assets/js/interact.js?v=<?= filemtime(__DIR__ . '/../assets/js/interact.js') ?>"></script>
 
 <?php if (basename($_SERVER['PHP_SELF']) === 'register.php'): ?>
     <script src="assets/js/register.js"></script>

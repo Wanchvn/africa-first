@@ -4,6 +4,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -22,6 +23,7 @@ if (!in_array($redirect_to, $allowed_redirects, true)) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'avatar_upload', 10, 3600);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['avatar']['name'])) {

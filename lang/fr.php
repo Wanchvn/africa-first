@@ -128,4 +128,41 @@ return [
 'register_username_taken' => 'est déjà pris',
 'register_username_checking' => 'Vérification…',
 'register_error_terms' => 'Vous devez accepter les Conditions et la Politique de confidentialité.',
+
+// Messages
+'messages_title'           => 'Messages',
+'messages_empty'           => 'Aucune conversation. Commencez-en une depuis un profil.',
+'messages_no_messages_yet' => 'Aucun message',
+'messages_thread_empty'    => 'Aucun message. Dites bonjour !',
+'messages_placeholder'     => 'Écrire un message…',
+'messages_send'            => 'Envoyer',
+'messages_back_to_inbox'   => 'Retour à la boîte de réception',
+'messages_not_found'       => 'Conversation introuvable.',
+'messages_with'            => 'Discuter avec %s',
+'profile_message_button'   => 'Message',
+'notif_messaged' => '%s vous a envoyé un message',
+'notify_messages_label' => 'Messages',
+'notify_messages_hint' => 'Quand quelqu\'un vous envoie un message privé.',
+
+'report_title'          => 'Signaler',
+'report_reason'         => 'Raison',
+'report_details'        => 'Détails supplémentaires',
+'report_submit'         => 'Envoyer le signalement',
+'report_success'        => 'Merci. Votre signalement a été soumis.',
+'report_error_reason'   => 'Veuillez choisir une raison valide.',
+'report_error_length'   => 'Les détails doivent faire moins de 1000 caractères.',
+'report_error_duplicate'=> 'Vous avez déjà un signalement en attente.',
+'report_dm_title'       => 'Signaler un message',
+'report_dm_intro'       => 'Le contenu du message est visible par les modérateurs uniquement. Le journal public enregistre qu’un signalement a été fait, pas ce qui a été signalé.',
+
+// Admin reports
+'admin_title'       => 'Contenu signalé',
+'admin_no_reports'  => 'Aucun signalement en attente.',
+'admin_dismiss'     => 'Rejeter',
+'admin_remove'      => 'Supprimer',
+
+'block_error_cannot_interact' => 'Vous ne pouvez pas interagir avec le contenu de cet utilisateur.',
+'block_error_cannot_follow'   => 'Vous ne pouvez pas suivre cet utilisateur.',
+'block_cannot_interact'       => 'Vous ne pouvez pas interagir avec cette publication.',
+'block_cannot_comment'        => 'Vous ne pouvez pas commenter cette publication.',
 ];

@@ -13,6 +13,37 @@ if (!isset($_SESSION['user_id'])) {
 
 csrf_verify();
 
+require_once __DIR__ . '/includes/blocks.php';
+
+$me     = (int)$_SESSION['user_id'];
+$target = (int)($_POST['target_id'] ?? 0);
+
+if ($target > 0 && $target !== $me && is_blocked_either($pdo, $me, $target)) {
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'error' => __('block_error_cannot_follow')]);
+    } else {
+        $_SESSION['flash'] = __('block_error_cannot_follow');
+        header('Location: ' . ($_POST['redirect'] ?? 'feed.php'));
+    }
+    exit;
+}
+
+require 'includes/blocks.php';
+$me     = (int)$_SESSION['user_id'];
+$target = (int)($_POST['target_id'] ?? 0);
+
+if ($target > 0 && $target !== $me && is_blocked_either($pdo, $me, $target)) {
+    http_response_code(403);
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'error' => __('block_error_cannot_follow')]);
+    } else {
+        header('Location: ' . ($_POST['redirect'] ?? 'feed.php'));
+    }
+    exit;
+}
+
 $is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
     && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 

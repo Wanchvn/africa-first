@@ -127,4 +127,41 @@ return [
 'register_username_taken' => 'wɔ hɔ dedaw',
 'register_username_checking' => 'Yɛrehwɛ…',
 'register_error_terms' => 'Ɛsɛ sɛ wopene Nhyehyɛe ne Kokoam Mmara so.',
+
+// Messages
+'messages_title'           => 'Nkra',
+'messages_empty'           => 'Nkra biara nni hɔ. Fi obi profile so fi ase.',
+'messages_no_messages_yet' => 'Nkra biara nni hɔ',
+'messages_thread_empty'    => 'Nkra biara nni hɔ. Ka akwaaba!',
+'messages_placeholder'     => 'Kyerɛw nkra…',
+'messages_send'            => 'Soma',
+'messages_back_to_inbox'   => 'San kɔ nkra mu',
+'messages_not_found'       => 'Yɛanhu nkra no.',
+'messages_with'            => 'Kasa ne %s',
+'profile_message_button'   => 'Soma nkra',
+'notif_messaged' => '%s soma wo nkra',
+'notify_messages_label' => 'Nkra',
+'notify_messages_hint' => 'Sɛ obi soma wo nkra tẽẽ.',
+
+'report_title'          => 'Bɔ amanneɛ',
+'report_reason'         => 'Ntini',
+'report_details'        => 'Nsɛm foforɔ',
+'report_submit'         => 'Soma amanneɛ',
+'report_success'        => 'Yɛda wo ase. Wɔahwɛ wo amanneɛ no.',
+'report_error_reason'   => 'Yi ntini pa.',
+'report_error_length'   => 'Nsɛm no nnyɛ tenten.',
+'report_error_duplicate'=> 'Wowɔ amanneɛ a ɛwɔ hɔ dedaw.',
+'report_dm_title'       => 'Bɔ amanneɛ wɔ nkra ho',
+'report_dm_intro'       => 'Admins nko ara behu nsɛm no. Nnipa nyinaa behu sɛ wɔabɔ amanneɛ, nanso ɛnyɛ nsɛm no.',
+
+// Admin reports
+'admin_title'       => 'Amanneɛ a ɛwɔ hɔ',
+'admin_no_reports'  => 'Amanneɛ biara nni hɔ.',
+'admin_dismiss'     => 'Popa amanneɛ',
+'admin_remove'      => 'Yi biribi',
+
+'block_error_cannot_interact' => 'Wontumi nyɛ biribi wɔ saa nnipa no ho.',
+'block_error_cannot_follow'   => 'Wontumi di saa nnipa no akyi.',
+'block_cannot_interact'       => 'Wontumi nyɛ biribi wɔ saa nhoma yi ho.',
+'block_cannot_comment'        => 'Wontumi nkyerɛw asɛm wɔ saa nhoma yi ho.',
 ];

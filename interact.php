@@ -5,6 +5,7 @@ start_secure_session();
 require 'config/db.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require 'includes/blocks.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -18,20 +19,24 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 csrf_verify();
 
-$is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) 
-    && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
-
+// ---- Gather input ----
 $user_id = (int)$_SESSION['user_id'];
 $action  = $_POST['action'] ?? '';
 $post_id = (int)($_POST['post_id'] ?? 0);
-$redirect = $_POST['redirect'] ?? 'feed.php';
 
+// AJAX detection
+$is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
+        && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+// ---- Sanitize redirect ----
+$redirect = $_POST['redirect'] ?? 'feed.php';
 $allowed_redirects = ['feed.php', 'profile.php', 'search.php', 'discover_feed.php', 'topic.php', 'saved.php'];
 $redirect_base = strtok($redirect, '?');
 if (!in_array($redirect_base, $allowed_redirects, true)) {
     $redirect = 'feed.php';
 }
 
+// ---- Validate post_id ----
 if ($post_id <= 0) {
     if ($is_ajax) {
         header('Content-Type: application/json');
@@ -42,6 +47,7 @@ if ($post_id <= 0) {
     exit;
 }
 
+// ---- Look up the post owner (needed for both block gate and notification logic) ----
 $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = :id");
 $stmt->execute([':id' => $post_id]);
 $post_owner = $stmt->fetchColumn();
@@ -55,8 +61,27 @@ if ($post_owner === false) {
     header("Location: $redirect");
     exit;
 }
-
 $post_owner = (int)$post_owner;
+
+// =============================================================
+//  BLOCK ENFORCEMENT
+//  Runs AFTER $action, $post_id, $user_id are all defined.
+//  Blocks like/comment/bookmark on posts by a user who has a
+//  block in either direction with the acting user.
+// =============================================================
+if (in_array($action, ['like', 'comment', 'bookmark'], true)) {
+    if ($post_owner !== $user_id && is_blocked_either($pdo, $user_id, $post_owner)) {
+        http_response_code(403);
+        if ($is_ajax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'error' => __('block_error_cannot_interact')]);
+        } else {
+            $_SESSION['flash'] = __('block_error_cannot_interact');
+            header('Location: ' . $redirect);
+        }
+        exit;
+    }
+}
 
 /* ==================== LIKE ==================== */
 if ($action === 'like') {
@@ -80,11 +105,8 @@ if ($action === 'like') {
         $stmt->execute([':u' => $user_id, ':p' => $post_id]);
 
         if ($post_owner !== $user_id) {
-            // Check recipient's notification preferences
-            $stmt = $pdo->prepare("
-                SELECT notify_likes, notify_paused
-                FROM users WHERE id = :id
-            ");
+            // Respect the recipient's notification preferences
+            $stmt = $pdo->prepare("SELECT notify_likes, notify_paused FROM users WHERE id = :id");
             $stmt->execute([':id' => $post_owner]);
             $prefs = $stmt->fetch();
 
@@ -136,11 +158,8 @@ elseif ($action === 'comment') {
         $stmt->execute([':u' => $user_id, ':p' => $post_id, ':c' => $content]);
 
         if ($post_owner !== $user_id) {
-            // Check recipient's notification preferences
-            $stmt = $pdo->prepare("
-                SELECT notify_comments, notify_paused
-                FROM users WHERE id = :id
-            ");
+            // Respect the recipient's notification preferences
+            $stmt = $pdo->prepare("SELECT notify_comments, notify_paused FROM users WHERE id = :id");
             $stmt->execute([':id' => $post_owner]);
             $prefs = $stmt->fetch();
 
@@ -172,7 +191,7 @@ elseif ($action === 'bookmark') {
         $folder_id = (int)($_POST['folder_id'] ?? 0);
         $folder_value = $folder_id > 0 ? $folder_id : null;
 
-        // If folder_id is set, verify ownership
+        // If a folder was specified, verify ownership
         if ($folder_value !== null) {
             $stmt = $pdo->prepare("SELECT id FROM bookmark_folders WHERE id = :id AND user_id = :u");
             $stmt->execute([':id' => $folder_value, ':u' => $user_id]);

@@ -1,6 +1,13 @@
-# uploads/.htaccess
+# Block PHP execution in the uploads folder
 php_flag engine off
-<FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|jsp|asp|sh|cgi)$">
+
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|pl|py|jsp|asp|aspx|sh|cgi|htaccess)$">
     Order allow,deny
     Deny from all
+</FilesMatch>
+
+# Only allow these file types to be served
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    Order allow,deny
+    Allow from all
 </FilesMatch>

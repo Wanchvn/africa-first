@@ -19,17 +19,32 @@ if (isset($_GET['setlang']) && in_array($_GET['setlang'], $LANGUAGES, true)) {
     exit;
 }
 
-// Load the language file
+// Load the chosen language
 $lang_file = __DIR__ . '/' . $_SESSION['lang'] . '.php';
 if (!file_exists($lang_file)) {
     $lang_file = __DIR__ . '/en.php';
 }
 $TRANSLATIONS = require $lang_file;
 
-// Translation helper
+// Always load English as a fallback source
+$FALLBACK = require __DIR__ . '/en.php';
+
+// Translation helper — falls back to English if a key is missing
 if (!function_exists('__')) {
     function __($key) {
-        global $TRANSLATIONS;
-        return $TRANSLATIONS[$key] ?? $key;
+        global $TRANSLATIONS, $FALLBACK;
+
+        // 1. Use the current language if the key exists there
+        if (isset($TRANSLATIONS[$key]) && $TRANSLATIONS[$key] !== '') {
+            return $TRANSLATIONS[$key];
+        }
+
+        // 2. Otherwise use English
+        if (isset($FALLBACK[$key]) && $FALLBACK[$key] !== '') {
+            return $FALLBACK[$key];
+        }
+
+        // 3. Last resort: return the raw key (helps you spot missing strings in dev)
+        return $key;
     }
 }

@@ -501,3 +501,288 @@ function escapeHtmlJs(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+/* ========================================
+   MESSAGES — AJAX send + poll
+   ======================================== */
+
+(function () {
+    var card = document.getElementById('conversationCard');
+    if (!card) return;
+
+    var conv   = card.dataset.conv;
+    var me     = parseInt(card.dataset.me, 10);
+    var thread = document.getElementById('thread');
+    var empty  = document.getElementById('threadEmpty');
+    var form   = document.getElementById('messageForm');
+    var bodyEl = document.getElementById('messageBody');
+    var btn    = document.getElementById('sendBtn');
+
+    if (!form || !thread) return;
+
+    var lastId = 0;
+    thread.querySelectorAll('.bubble').forEach(function (el) {
+        var id = parseInt(el.dataset.id, 10);
+        if (!isNaN(id) && id > lastId) lastId = id;
+    });
+
+    function scrollToBottom() {
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+ function renderMessage(m) {
+    var mine = (parseInt(m.sender_id, 10) === me);
+    var isDeleted = !!m.deleted_at;
+
+    var div = document.createElement('div');
+    div.className = 'bubble ' + (mine ? 'bubble-mine' : 'bubble-theirs')
+                  + (isDeleted ? ' bubble-deleted' : '');
+    if (m.id) div.dataset.id = m.id;
+
+    // Body
+    var bodyDiv = document.createElement('div');
+    bodyDiv.className = 'bubble-body';
+    if (isDeleted) {
+        var em = document.createElement('em');
+        em.className = 'bubble-deleted-text';
+        em.textContent = 'Message deleted';
+        bodyDiv.appendChild(em);
+    } else {
+        var lines = String(m.body).split('\n');
+        lines.forEach(function (line, i) {
+            if (i > 0) bodyDiv.appendChild(document.createElement('br'));
+            bodyDiv.appendChild(document.createTextNode(line));
+        });
+    }
+
+    // Time
+    var timeDiv = document.createElement('div');
+    timeDiv.className = 'bubble-time';
+    timeDiv.textContent = m.created_at;
+
+    div.appendChild(bodyDiv);
+    div.appendChild(timeDiv);
+
+    // Report link (incoming + not deleted)
+    if (!mine && !isDeleted) {
+        var rep = document.createElement('a');
+        rep.className = 'bubble-report';
+        rep.href = 'report_message.php?conversation_id=' + encodeURIComponent(conv)
+                 + '&message_id=' + encodeURIComponent(m.id);
+        rep.title = 'Report';
+        rep.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
+        div.appendChild(rep);
+    }
+
+    // Delete button (outgoing + not deleted)
+    if (mine && !isDeleted) {
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'bubble-delete';
+        del.dataset.messageId = m.id;
+        del.title = 'Delete';
+        del.setAttribute('aria-label', 'Delete message');
+        del.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+        div.appendChild(del);
+    }
+
+    thread.appendChild(div);
+}
+
+    function poll() {
+        fetch('messages_fetch.php?id=' + encodeURIComponent(conv)
+              + '&after=' + encodeURIComponent(lastId), {
+            credentials: 'same-origin'
+        })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+            if (!data || !data.messages || !data.messages.length) return;
+            if (empty) empty.style.display = 'none';
+            data.messages.forEach(function (m) {
+                renderMessage(m);
+                var id = parseInt(m.id, 10);
+                if (!isNaN(id) && id > lastId) lastId = id;
+            });
+            scrollToBottom();
+
+            var badge = document.querySelector('a[href="messages.php"] .badge');
+            if (badge) badge.remove();
+        })
+        .catch(function () {});
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        var text = bodyEl.value.trim();
+        if (!text) return;
+
+        var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+        var convId    = form.querySelector('input[name="conversation_id"]').value;
+
+        btn.disabled = true;
+
+        fetch('message_send.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                conversation_id: convId,
+                body: text,
+                csrf_token: csrfToken
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success && data.message) {
+                bodyEl.value = '';
+                if (empty) empty.style.display = 'none';
+                renderMessage(data.message);
+                var id = parseInt(data.message.id, 10);
+                if (!isNaN(id) && id > lastId) lastId = id;
+                scrollToBottom();
+            } else {
+                alert(data.error || 'Something went wrong');
+            }
+            btn.disabled = false;
+        })
+        .catch(function (err) {
+    console.error('Send error:', err);
+    btn.disabled = false;
+    // Only fall back if the network request truly failed.
+    // If a downstream render threw, don't hijack the page.
+    if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
+        form.submit();
+    } else {
+        alert('Something went wrong sending your message. Check the console.');
+    }
+});
+    });
+
+
+
+    // ---- Delete message handler (event delegation) ----
+thread.addEventListener('click', function (e) {
+    var btn = e.target.closest('.bubble-delete');
+    if (!btn) return;
+    e.preventDefault();
+
+    var messageId = btn.dataset.messageId;
+    if (!messageId) return;
+    if (!confirm('Delete this message?')) return;
+
+    var csrfInput = form.querySelector('input[name="csrf_token"]');
+    var csrfToken = csrfInput ? csrfInput.value : '';
+
+    btn.disabled = true;
+
+    fetch('message_delete.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({
+            message_id: messageId,
+            csrf_token: csrfToken
+        })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.success) {
+            var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
+            if (bubble) {
+                bubble.classList.add('bubble-deleted');
+                var bodyEl = bubble.querySelector('.bubble-body');
+                if (bodyEl) {
+                    bodyEl.innerHTML = '';
+                    var em = document.createElement('em');
+                    em.className = 'bubble-deleted-text';
+                    em.textContent = 'Message deleted';
+                    bodyEl.appendChild(em);
+                }
+                // Remove delete button + report link
+                var db = bubble.querySelector('.bubble-delete');
+                if (db) db.remove();
+                var rb = bubble.querySelector('.bubble-report');
+                if (rb) rb.remove();
+            }
+        } else {
+            alert(data.error || 'Could not delete message.');
+            btn.disabled = false;
+        }
+    })
+    .catch(function (err) {
+        console.error('Delete error:', err);
+        alert('Could not delete message.');
+        btn.disabled = false;
+    });
+});
+
+    scrollToBottom();
+    setInterval(poll, 4000);
+})();
+
+
+
+
+/* ========================================
+   BLOCK / UNBLOCK — AJAX
+   ======================================== */
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.block-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            // If the form has a confirm() attribute, let the inline handler run first
+            var btn = form.querySelector('button[type="submit"]');
+            if (btn && btn.getAttribute('onclick')) {
+                // The onclick already ran; if it returned false, we shouldn't submit
+                // (inline onclick returning false stops submit before this handler fires anyway)
+            }
+            e.preventDefault();
+            handleBlock(form);
+        });
+    });
+});
+
+function handleBlock(form) {
+    const button = form.querySelector('button');
+    const targetId = form.querySelector('input[name="target_id"]').value;
+    const action   = form.querySelector('input[name="block_action"]').value;
+    const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+    const redirect = form.querySelector('input[name="redirect"]')?.value
+                   || (window.location.pathname + window.location.search);
+
+    button.disabled = true;
+
+    fetch('block.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({
+            target_id: targetId,
+            block_action: action,
+            csrf_token: csrfToken,
+            redirect: redirect
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Simplest UX: reload so all state (buttons, banners) reflects the new block status
+            window.location.href = redirect;
+        } else {
+            alert(data.error || 'Something went wrong');
+            button.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Block error:', error);
+        button.disabled = false;
+        form.submit();
+    });
+}

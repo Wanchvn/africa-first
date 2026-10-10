@@ -5,13 +5,17 @@ start_secure_session();
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/messages.php';   // messaging helpers
+require 'includes/blocks.php';     // block helpers
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-// Backward compatibility: redirect old ?id= URLs
+// -----------------------------------------------------------------------------
+// Backwards compat: redirect old ?id= URLs to ?u=username
+// -----------------------------------------------------------------------------
 if (isset($_GET['id']) && !isset($_GET['u'])) {
     $old_id = (int)$_GET['id'];
     if ($old_id > 0) {
@@ -29,6 +33,9 @@ if (isset($_GET['id']) && !isset($_GET['u'])) {
 
 $profile_username = $_GET['u'] ?? $_SESSION['username'];
 
+// -----------------------------------------------------------------------------
+// Load profile being viewed
+// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("
     SELECT
         id, username, avatar, bio,
@@ -47,11 +54,13 @@ if (!$profile_user) {
     exit;
 }
 
-$profile_id = (int)$profile_user['id'];
+$profile_id     = (int)$profile_user['id'];
 $is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
+$display_name   = $profile_user['display_name'] ?: $profile_user['username'];
 
-$display_name = $profile_user['display_name'] ?: $profile_user['username'];
-
+// -----------------------------------------------------------------------------
+// Follow state
+// -----------------------------------------------------------------------------
 $is_following = false;
 if (!$is_own_profile) {
     $stmt = $pdo->prepare("SELECT 1 FROM follows WHERE follower_id = :me AND following_id = :them");
@@ -59,11 +68,28 @@ if (!$is_own_profile) {
     $is_following = (bool)$stmt->fetch();
 }
 
+// -----------------------------------------------------------------------------
+// Block state
+//   $i_blocked_them  = I blocked this person
+//   $they_blocked_me = they blocked me
+//   $blocked_either  = a block exists in either direction → disable interaction
+// -----------------------------------------------------------------------------
+$i_blocked_them  = false;
+$they_blocked_me = false;
+$blocked_either  = false;
+if (!$is_own_profile) {
+    $i_blocked_them  = is_blocked($pdo, (int)$_SESSION['user_id'], $profile_id);
+    $they_blocked_me = is_blocked($pdo, $profile_id, (int)$_SESSION['user_id']);
+    $blocked_either  = $i_blocked_them || $they_blocked_me;
+}
+
 $message = '';
 $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
 
-// ---- Handle new post (with optional topic tag) ----
+// -----------------------------------------------------------------------------
+// New post (own profile only)
+// -----------------------------------------------------------------------------
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
     csrf_verify();
     $content = trim($_POST['content']);
@@ -110,7 +136,7 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
         ]);
         $new_post_id = (int)$pdo->lastInsertId();
 
-        // Attach topic if selected and user is a member
+        // Optional topic tag
         $topic_id = (int)($_POST['topic_id'] ?? 0);
         if ($topic_id > 0) {
             $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
@@ -119,7 +145,7 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
                 $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
                 $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
 
-                // Notify topic members respecting preferences
+                // Notify topic members respecting their prefs
                 $stmt = $pdo->prepare("
                     INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
                     SELECT tm.user_id, :actor, 'topic_posted', :post_id, :topic_id
@@ -142,7 +168,9 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
     }
 }
 
-// ---- Fetch topics the user is a member of (for the composer dropdown) ----
+// -----------------------------------------------------------------------------
+// Topics the viewer belongs to (for the composer dropdown)
+// -----------------------------------------------------------------------------
 $my_topics = [];
 if ($is_own_profile) {
     $stmt = $pdo->prepare("
@@ -156,7 +184,9 @@ if ($is_own_profile) {
     $my_topics = $stmt->fetchAll();
 }
 
-// ---- Fetch the profile user's posts (WITH edited_at AND view_count) ----
+// -----------------------------------------------------------------------------
+// Posts
+// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
@@ -173,7 +203,7 @@ $stmt = $pdo->prepare("
 $stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
 $posts = $stmt->fetchAll();
 
-// Record views for posts on this profile (only if visiting someone else's profile)
+// Record views (skip own profile)
 if (!$is_own_profile && !empty($posts)) {
     $view_post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($view_post_ids), '(?, ?)'));
@@ -182,19 +212,20 @@ if (!$is_own_profile && !empty($posts)) {
         $params[] = $pid;
         $params[] = $_SESSION['user_id'];
     }
-    $stmt = $pdo->prepare("
-        INSERT IGNORE INTO post_views (post_id, user_id)
-        VALUES $placeholders
-    ");
+    $stmt = $pdo->prepare("INSERT IGNORE INTO post_views (post_id, user_id) VALUES $placeholders");
     $stmt->execute($params);
 }
 
-// ---- Fetch user's bookmarked post IDs ----
+// -----------------------------------------------------------------------------
+// Bookmarks
+// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
 $stmt->execute([':me' => $_SESSION['user_id']]);
 $my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
-// ---- Topics attached to each post ----
+// -----------------------------------------------------------------------------
+// Topics + comments per post
+// -----------------------------------------------------------------------------
 $topics_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -211,7 +242,6 @@ if (!empty($posts)) {
     }
 }
 
-// ---- Comments for these posts ----
 $comments_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -236,9 +266,7 @@ require 'includes/header.php';
 
 <div class="profile-header">
     <?php if ($profile_user['avatar']): ?>
-        <img class="avatar avatar-large"
-             src="<?= htmlspecialchars($profile_user['avatar']) ?>"
-             alt="Profile picture">
+        <img class="avatar avatar-large" src="<?= htmlspecialchars($profile_user['avatar']) ?>" alt="Profile picture">
     <?php else: ?>
         <div class="avatar avatar-large avatar-placeholder">
             <?= strtoupper(substr($display_name, 0, 1)) ?>
@@ -309,6 +337,9 @@ require 'includes/header.php';
         <?php endif; ?>
 
         <?php if ($is_own_profile): ?>
+            <!-- ============================================================
+                 OWN PROFILE — management actions
+                 ============================================================ -->
             <div class="profile-actions">
                 <a href="edit_profile.php" class="btn-secondary"><?= __('bio_edit_link') ?></a>
                 <form method="POST" action="avatar.php" enctype="multipart/form-data" style="display:inline;">
@@ -323,18 +354,59 @@ require 'includes/header.php';
                 <a href="privacy.php" class="btn-secondary"><?= __('profile_privacy') ?></a>
                 <a href="delete_account.php" class="btn-danger"><?= __('profile_delete') ?></a>
             </div>
+
         <?php else: ?>
-            <form method="POST" action="follow.php" class="follow-form" style="margin-top:8px;">
-                <?= csrf_field() ?>
-                <input type="hidden" name="target_id" value="<?= $profile_id ?>">
-                <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-                <button type="submit"
-                        class="<?= $is_following ? 'btn-secondary' : '' ?>"
-                        data-follow-text="<?= __('profile_follow') ?>"
-                        data-unfollow-text="<?= __('profile_unfollow') ?>">
-                    <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
-                </button>
-            </form>
+            <!-- ============================================================
+                 SOMEONE ELSE'S PROFILE — Follow / Message / Block
+                 ============================================================ -->
+            <div class="profile-actions" style="margin-top: 8px;">
+
+                <?php if (!$blocked_either): ?>
+                    <!-- Follow -->
+                    <form method="POST" action="follow.php" class="follow-form">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+                        <input type="hidden" name="redirect"
+                               value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                        <button type="submit"
+                                class="<?= $is_following ? 'btn-secondary' : '' ?>"
+                                data-follow-text="<?= __('profile_follow') ?>"
+                                data-unfollow-text="<?= __('profile_unfollow') ?>">
+                            <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
+                        </button>
+                    </form>
+
+                    <!-- Message -->
+                    <a href="start_conversation.php?user=<?= $profile_id ?>" class="btn-secondary">
+                        <i data-lucide="mail" style="width:16px;height:16px;vertical-align:middle;"></i>
+                        <?= __('profile_message_button') ?>
+                    </a>
+                <?php endif; ?>
+
+                <!-- Block / Unblock toggle -->
+                <form method="POST" action="block.php" class="block-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+                    <input type="hidden" name="block_action"
+                           value="<?= $i_blocked_them ? 'unblock' : 'block' ?>">
+                    <input type="hidden" name="redirect"
+                           value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                    <button type="submit"
+                            class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?>"
+                            <?php if (!$i_blocked_them): ?>
+                                onclick="return confirm('<?= htmlspecialchars(__('block_confirm'), ENT_QUOTES) ?>');"
+                            <?php endif; ?>>
+                        <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Status note -->
+            <?php if ($i_blocked_them): ?>
+                <p class="blocked-note"><?= __('block_you_blocked') ?></p>
+            <?php elseif ($they_blocked_me): ?>
+                <p class="blocked-note"><?= __('block_they_blocked') ?></p>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -348,6 +420,7 @@ require 'includes/header.php';
 <?php endif; ?>
 
 <?php if ($is_own_profile): ?>
+    <!-- Composer (own profile only) -->
     <div class="card">
         <h2 style="margin-top:0;"><?= __('post_share') ?></h2>
         <form method="POST" enctype="multipart/form-data" class="stack">
@@ -414,7 +487,7 @@ require 'includes/header.php';
                     · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
                 <?php endif; ?>
                 <?php if ($is_own_profile): ?>
-                    · 
+                    ·
                     <span class="view-count" title="<?= (int)$post['view_count'] ?> people saw this">
                         <i data-lucide="eye" style="width:13px;height:13px;"></i>
                         <?= (int)$post['view_count'] ?>
@@ -422,39 +495,60 @@ require 'includes/header.php';
                 <?php endif; ?>
             </div>
 
-            <div class="actions">
-                <form method="POST" action="interact.php" class="like-form" style="display:inline;">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="like">
-                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-                    <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
-                        <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
+            <?php if ($blocked_either): ?>
+                <!-- ============================================================
+                     Blocked: read-only counts, no interaction forms
+                     ============================================================ -->
+                <div class="actions">
+                    <span class="like-btn" style="opacity:0.5; cursor:not-allowed;" title="<?= __('block_cannot_interact') ?>">
+                        <span class="like-heart">♡</span>
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
-                    </button>
-                </form>
-                <span class="comment-count">
-                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
-                    <?= (int)$post['comment_count'] ?>
-                </span>
-                <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="bookmark">
-                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                    </span>
+                    <span class="comment-count">
+                        <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                        <?= (int)$post['comment_count'] ?>
+                    </span>
+                    <span class="bookmark-btn" style="opacity:0.5; cursor:not-allowed;">
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
-                    </button>
-                </form>
-                <?php if ($is_own_profile): ?>
-                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('profile.php?u=' . $profile_user['username']) ?>" class="edit-link">
-                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
-                        Edit
-                    </a>
-                <?php else: ?>
+                    </span>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
-                <?php endif; ?>
-            </div>
+                </div>
+            <?php else: ?>
+                <!-- Normal: full interaction -->
+                <div class="actions">
+                    <form method="POST" action="interact.php" class="like-form" style="display:inline;">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="like">
+                        <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                        <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                        <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
+                            <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
+                            <span class="like-count"><?= (int)$post['like_count'] ?></span>
+                        </button>
+                    </form>
+                    <span class="comment-count">
+                        <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                        <?= (int)$post['comment_count'] ?>
+                    </span>
+                    <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="bookmark">
+                        <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                        <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                        <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                            <i data-lucide="bookmark" class="bookmark-icon"></i>
+                        </button>
+                    </form>
+                    <?php if ($is_own_profile): ?>
+                        <a href="edit_post.php?id=<?= $post['id'] ?>&from=<?= urlencode('profile.php?u=' . $profile_user['username']) ?>" class="edit-link">
+                            <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                            Edit
+                        </a>
+                    <?php else: ?>
+                        <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>
                 <div class="comments">
@@ -487,14 +581,20 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="interact.php" class="comment-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="comment">
-                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-                <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
-                <button type="submit"><?= __('post_send') ?></button>
-            </form>
+            <?php if ($is_own_profile || !$blocked_either): ?>
+                <form method="POST" action="interact.php" class="comment-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="comment">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                    <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
+                    <button type="submit"><?= __('post_send') ?></button>
+                </form>
+            <?php else: ?>
+                <p class="blocked-note" style="font-size: 0.85rem;">
+                    <?= __('block_cannot_comment') ?>
+                </p>
+            <?php endif; ?>
         </div>
     <?php endforeach; ?>
 <?php endif; ?>

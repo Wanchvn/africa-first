@@ -15,11 +15,17 @@ $user_theme = 'light';
 
 if ($logged_in) {
     require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/messages.php';
 
+    // Notifications
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :me AND is_read = 0");
     $stmt->execute([':me' => $_SESSION['user_id']]);
     $unread_count = (int)$stmt->fetchColumn();
 
+    // Messages
+    $unread_messages = unread_message_count($pdo, (int)$_SESSION['user_id']);
+
+    // User info
     $stmt = $pdo->prepare("SELECT is_admin, theme FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $user_row = $stmt->fetch();

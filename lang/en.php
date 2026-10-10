@@ -128,4 +128,80 @@ return [
 'register_username_taken' => 'is taken',
 'register_username_checking' => 'Checking availability…',
 'register_error_terms' => 'You must agree to the Terms of Service and Privacy Policy.',
+
+// Messages
+'messages_title'           => 'Messages',
+'messages_empty'           => 'No conversations yet. Start one from a profile page.',
+'messages_no_messages_yet' => 'No messages yet',
+'messages_thread_empty'    => 'No messages yet. Say hello!',
+'messages_placeholder'     => 'Write a message…',
+'messages_send'            => 'Send',
+'messages_back_to_inbox'   => 'Back to inbox',
+'messages_not_found'       => 'Conversation not found.',
+'messages_with'            => 'Chat with %s',
+'profile_message_button'   => 'Message',
+'notif_messaged' => '%s sent you a message',
+'notify_messages_label' => 'Messages',
+'notify_messages_hint' => 'When someone sends you a direct message.',
+
+'report_title'          => 'Report',
+'report_reason'         => 'Reason',
+'report_details'        => 'Additional details',
+'report_submit'         => 'Submit report',
+'report_success'        => 'Thank you. Your report has been submitted. A moderator will review it.',
+'report_error_reason'   => 'Please choose a valid reason.',
+'report_error_length'   => 'Details must be under 1000 characters.',
+'report_error_duplicate'=> 'You already have a pending report on this.',
+'report_dm_title'       => 'Report a message',
+'report_dm_intro'       => 'The message content is visible to moderators only. The public log will record that a report was made, not what was reported.',
+
+
+// Admin reports
+'admin_title'       => 'Reported content',
+'admin_no_reports'  => 'No pending reports.',
+'admin_dismiss'     => 'Dismiss',
+'admin_remove'      => 'Remove',
+
+
+
+// Block / mute
+'block_button'           => 'Block',
+'block_unblock'          => 'Unblock',
+'block_confirm'          => 'Block this user? They will not be able to message or follow you.',
+'block_you_blocked'      => 'You have blocked this user.',
+'block_they_blocked'     => 'You cannot reply to this conversation.',
+'block_note_you_blocked' => 'You blocked this user. Unblock to send messages.',
+'block_note_they_blocked'=> 'You can no longer send messages in this conversation.',
+'block_error_cannot_message' => 'You cannot message this user.',
+'blocked_users_title'    => 'Blocked users',
+'blocked_users_intro'    => 'People on this list cannot message you, follow you, or see your profile.',
+'blocked_users_empty'    => 'You haven\'t blocked anyone.',
+
+
+'block_error_cannot_interact' => 'You cannot interact with this user\'s content.',
+'block_error_cannot_follow'   => 'You cannot follow this user.',
+'block_cannot_interact'       => 'You cannot interact with this post.',
+'block_cannot_comment'        => 'You cannot comment on this post.',
+
+
+'block_button'                => 'Block',
+'block_unblock'               => 'Unblock',
+'block_confirm'               => 'Block this user? They will not be able to message or follow you.',
+'block_you_blocked'           => 'You have blocked this user.',
+'block_they_blocked'          => 'You cannot reply to this conversation.',
+'block_note_you_blocked'      => 'You blocked this user. Unblock to send messages.',
+'block_note_they_blocked'     => 'You can no longer send messages in this conversation.',
+'block_error_cannot_message'  => 'You cannot message this user.',
+'block_error_cannot_interact' => 'You cannot interact with this user\'s content.',
+'block_error_cannot_follow'   => 'You cannot follow this user.',
+'block_cannot_interact'       => 'You cannot interact with this post.',
+'block_cannot_comment'        => 'You cannot comment on this post.',
+'blocked_users_title'         => 'Blocked users',
+'blocked_users_intro'         => 'People on this list cannot message you, follow you, or see your profile.',
+'blocked_users_empty'         => 'You haven\'t blocked anyone.',
+
+'message_deleted'              => 'Message deleted',
+'message_delete'               => 'Delete',
+'message_delete_confirm'       => 'Delete this message?',
+'message_delete_not_allowed'   => 'You cannot delete this message.',
 ];

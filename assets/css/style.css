@@ -2629,3 +2629,502 @@ body.dark-mode .post-folder-badge {
         display: inline-block;
     }
 }
+
+
+/* ========================================
+   DIRECT MESSAGES
+   ======================================== */
+
+/* ---- Inbox list ---- */
+.messages-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.messages-item + .messages-item {
+    border-top: 1px solid var(--border);
+}
+
+.messages-item a {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-2);
+    text-decoration: none;
+    color: inherit;
+    border-radius: var(--radius-md);
+    transition: background var(--transition);
+}
+
+.messages-item a:hover {
+    background: var(--sand);
+    text-decoration: none;
+}
+
+.messages-meta {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.messages-meta strong {
+    color: var(--deep-brown);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.messages-preview {
+    color: var(--muted);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---- Thread ---- */
+.conversation-thread {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: var(--space-2) 0;
+}
+
+.bubble {
+    max-width: 75%;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
+    background: var(--sand);
+    border: 1px solid var(--border);
+    word-wrap: break-word;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.bubble-mine {
+    background: var(--terracotta);
+    border-color: var(--terracotta);
+    color: #fff;
+    align-self: flex-end;
+}
+
+.bubble-theirs {
+    align-self: flex-start;
+    color: var(--charcoal);
+}
+
+.bubble-time {
+    font-size: 0.72rem;
+    opacity: 0.7;
+    margin-top: var(--space-1);
+}
+
+.bubble-mine .bubble-time {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.messages-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: var(--space-5) 0;
+    font-style: italic;
+}
+
+/* ---- Dark mode ---- */
+body.dark-mode .messages-item a:hover {
+    background: #1A1614;
+}
+
+body.dark-mode .messages-meta strong {
+    color: var(--charcoal);
+}
+
+body.dark-mode .bubble {
+    background: #2A2219;
+    border-color: var(--border);
+    color: var(--charcoal);
+}
+
+body.dark-mode .bubble-mine {
+    background: var(--terracotta);
+    border-color: var(--terracotta);
+    color: #fff;
+}
+
+/* ---- Mobile ---- */
+@media (max-width: 600px) {
+    .bubble {
+        max-width: 85%;
+    }
+    .conversation-thread {
+        max-height: 55vh;
+    }
+}
+
+
+/* ========================================
+   DIRECT MESSAGES
+   ======================================== */
+
+.conversation-thread {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: var(--space-3) 0;
+    scroll-behavior: smooth;
+}
+
+.bubble {
+    max-width: 75%;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
+    background: var(--sand);
+    border: 1px solid var(--border);
+    word-wrap: break-word;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.bubble-mine {
+    background: var(--terracotta);
+    border-color: var(--terracotta);
+    color: #fff;
+    align-self: flex-end;
+}
+
+.bubble-theirs {
+    align-self: flex-start;
+    color: var(--charcoal);
+}
+
+.bubble-time {
+    font-size: 0.72rem;
+    opacity: 0.7;
+    margin-top: var(--space-1);
+}
+
+.bubble-mine .bubble-time {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.messages-empty {
+    color: var(--muted);
+    text-align: center;
+    padding: var(--space-5) 0;
+    font-style: italic;
+}
+
+body.dark-mode .bubble {
+    background: #2A2219;
+    border-color: var(--border);
+    color: var(--charcoal);
+}
+body.dark-mode .bubble-mine {
+    background: var(--terracotta);
+    border-color: var(--terracotta);
+    color: #fff;
+}
+
+@media (max-width: 600px) {
+    .bubble { max-width: 85%; }
+    .conversation-thread { max-height: 55vh; }
+}
+
+
+/* ---- Report preview (hidden from public log) ---- */
+.report-preview {
+    background: var(--sand);
+    border-left: 4px solid var(--terracotta);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin: var(--space-3) 0;
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--charcoal);
+    font-size: 0.95rem;
+}
+.report-preview .meta {
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: var(--space-2);
+    font-style: normal;
+}
+
+/* ---- Small report icon on incoming bubbles ---- */
+.bubble-report {
+    position: absolute;
+    bottom: 4px;
+    right: -22px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+    text-decoration: none;
+}
+.bubble-theirs { position: relative; }
+.bubble-theirs:hover .bubble-report { opacity: 0.8; }
+.bubble-report:hover { opacity: 1 !important; color: var(--danger); }
+
+/* Dark mode */
+body.dark-mode .report-preview {
+    background: #2A2219;
+    border-left-color: var(--terracotta);
+}
+
+
+/* ---- Blocked banners + notes ---- */
+.blocked-banner {
+    background: #FFF4E5;
+    border-left: 4px solid var(--terracotta);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
+    font-size: 0.9rem;
+    color: var(--deep-brown);
+    font-weight: 500;
+}
+.blocked-banner.blocked-them {
+    background: #FDECEA;
+    border-left-color: var(--danger);
+}
+
+.blocked-note {
+    text-align: center;
+    color: var(--muted);
+    padding: var(--space-5) var(--space-4);
+    margin-top: var(--space-4);
+    font-size: 0.9rem;
+    font-style: italic;
+    background: var(--sand);
+    border-radius: var(--radius-md);
+}
+
+/* Dark mode */
+body.dark-mode .blocked-banner {
+    background: #2A2219;
+    border-left-color: var(--terracotta);
+    color: var(--charcoal);
+}
+body.dark-mode .blocked-banner.blocked-them {
+    background: #2A1818;
+    border-left-color: var(--danger);
+}
+body.dark-mode .blocked-note {
+    background: #2A2219;
+    color: var(--muted);
+}
+
+
+/* ---- Block interaction disabled note ---- */
+.blocked-note {
+    text-align: center;
+    color: var(--muted);
+    padding: var(--space-3) var(--space-4);
+    margin: var(--space-3) 0;
+    font-size: 0.88rem;
+    font-style: italic;
+    background: var(--sand);
+    border-radius: var(--radius-md);
+}
+
+body.dark-mode .blocked-note {
+    background: #2A2219;
+    color: var(--muted);
+}
+
+
+@media (max-width: 600px) {
+    .bubble { max-width: 85%; }
+    .conversation-thread { max-height: 55vh; }
+    .messages-item a { padding: var(--space-2); gap: var(--space-2); }
+    .profile-actions { flex-wrap: wrap; }
+    .profile-actions form,
+    .profile-actions a { flex: 1 1 auto; }
+}
+
+
+@media (max-width: 600px) {
+    .nav-links .badge {
+        margin-left: var(--space-2);
+        margin-top: 0;
+        display: inline-block;
+    }
+}
+
+
+
+/* ---- Deleted message bubbles ---- */
+.bubble-deleted {
+    opacity: 0.65;
+}
+
+.bubble-deleted .bubble-body {
+    font-style: italic;
+    color: var(--muted);
+}
+
+.bubble-mine.bubble-deleted {
+    background: var(--muted) !important;
+    border-color: var(--muted) !important;
+}
+
+.bubble-mine.bubble-deleted .bubble-body,
+.bubble-mine.bubble-deleted .bubble-deleted-text {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.bubble-deleted-text {
+    color: var(--muted);
+}
+
+/* ---- Delete button on own messages ---- */
+.bubble {
+    position: relative;   /* already set on .bubble-theirs — ensure both sides get it */
+}
+
+.bubble-delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition), color var(--transition);
+    padding: 2px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bubble-mine:hover .bubble-delete {
+    opacity: 0.85;
+}
+
+.bubble-delete:hover {
+    opacity: 1 !important;
+    color: var(--danger);
+}
+
+/* Dark mode */
+body.dark-mode .bubble-deleted .bubble-body {
+    color: var(--muted);
+}
+
+body.dark-mode .bubble-mine.bubble-deleted {
+    background: #3A322B !important;
+    border-color: #3A322B !important;
+}
+
+
+
+@media (max-width: 600px) {
+    .conversation-thread {
+        max-height: 55vh;
+        padding: var(--space-2) 0;
+    }
+    .bubble {
+        max-width: 85%;
+        font-size: 0.92rem;
+    }
+    .bubble-delete {
+        opacity: 0.5;   /* always visible on mobile — no hover */
+    }
+    .bubble-delete:hover {
+        opacity: 1;
+    }
+    .message-form textarea {
+        font-size: 0.95rem;
+    }
+}
+
+
+
+@media (max-width: 600px) {
+    .messages-item a {
+        padding: var(--space-2);
+        gap: var(--space-2);
+    }
+    .messages-meta strong {
+        font-size: 0.9rem;
+    }
+    .messages-preview {
+        font-size: 0.8rem;
+    }
+    .messages-item .badge {
+        font-size: 0.65rem;
+        padding: 1px 6px;
+    }
+}
+
+
+
+@media (max-width: 600px) {
+    .profile-actions {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+    .profile-actions form,
+    .profile-actions a,
+    .profile-actions button {
+        flex: 1 1 auto;
+        min-width: 100px;
+    }
+    .blocked-note {
+        font-size: 0.85rem;
+        padding: var(--space-3);
+    }
+    .actions {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+}
+
+
+
+@media (max-width: 600px) {
+    .suggestion-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-2);
+    }
+    .suggestion-row form {
+        width: 100%;
+    }
+    .suggestion-row form button {
+        width: 100%;
+    }
+    .card {
+        padding: var(--space-3);
+    }
+}
+
+
+@media (max-width: 600px) {
+    .nav-links .badge {
+        margin-left: var(--space-2);
+        margin-top: 0;
+        display: inline-block;
+        vertical-align: middle;
+    }
+}
+
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+}

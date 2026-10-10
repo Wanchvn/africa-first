@@ -4,6 +4,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
+require 'includes/blocks.php';   // block helpers
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -12,6 +13,9 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
+// -----------------------------------------------------------------------------
+// Feed: posts from people you follow
+// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
@@ -29,7 +33,19 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
 $feed = $stmt->fetchAll();
 
-// Record views
+// -----------------------------------------------------------------------------
+// Pre-compute block state per unique author (avoids N queries in the loop)
+// -----------------------------------------------------------------------------
+$blocked_authors = [];
+foreach ($feed as $p) {
+    $author = (int)$p['author_id'];
+    if ($author === $user_id || isset($blocked_authors[$author])) continue;
+    $blocked_authors[$author] = is_blocked_either($pdo, $user_id, $author);
+}
+
+// -----------------------------------------------------------------------------
+// Record views (skip own posts)
+// -----------------------------------------------------------------------------
 if (!empty($feed)) {
     $view_post_ids = [];
     foreach ($feed as $p) {
@@ -49,7 +65,9 @@ if (!empty($feed)) {
     }
 }
 
-// Who to follow
+// -----------------------------------------------------------------------------
+// Suggestions (only if user follows fewer than 5 people)
+// -----------------------------------------------------------------------------
 $suggestions = [];
 $my_location = '';
 $min_follows = 5;
@@ -61,29 +79,37 @@ if ($following_count < $min_follows) {
     $stmt = $pdo->prepare("SELECT location, languages FROM users WHERE id = :id");
     $stmt->execute([':id' => $user_id]);
     $me_info = $stmt->fetch();
-    $my_location = trim($me_info['location'] ?? '');
+    $my_location  = trim($me_info['location'] ?? '');
     $my_languages = trim($me_info['languages'] ?? '');
 
+    // Friends of friends
     $stmt = $pdo->prepare("
         SELECT u.id, u.username, u.display_name, u.avatar,
-            (SELECT u2.username FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id WHERE f2.following_id = u.id AND f2.follower_id IN (SELECT following_id FROM follows WHERE follower_id = :me) LIMIT 1) AS via_username,
-            (SELECT u2.display_name FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id WHERE f2.following_id = u.id AND f2.follower_id IN (SELECT following_id FROM follows WHERE follower_id = :me) LIMIT 1) AS via_display,
+            (SELECT u2.username FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id
+                WHERE f2.following_id = u.id AND f2.follower_id IN
+                (SELECT following_id FROM follows WHERE follower_id = :me) LIMIT 1) AS via_username,
+            (SELECT u2.display_name FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id
+                WHERE f2.following_id = u.id AND f2.follower_id IN
+                (SELECT following_id FROM follows WHERE follower_id = :me) LIMIT 1) AS via_display,
             'friends_of_friends' AS source
         FROM users u
         WHERE u.id != :me
           AND u.id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me)
-          AND u.id IN (SELECT following_id FROM follows WHERE follower_id IN (SELECT following_id FROM follows WHERE follower_id = :me))
+          AND u.id IN (SELECT following_id FROM follows WHERE follower_id IN
+                       (SELECT following_id FROM follows WHERE follower_id = :me))
         LIMIT 3
     ");
     $stmt->execute([':me' => $user_id]);
     $suggestions = array_merge($suggestions, $stmt->fetchAll());
 
+    // Same location
     if ($my_location !== '' && count($suggestions) < 4) {
         $stmt = $pdo->prepare("SELECT id, username, display_name, avatar, 'same_location' AS source FROM users WHERE id != :me AND id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me) AND location = :location LIMIT 3");
         $stmt->execute([':me' => $user_id, ':location' => $my_location]);
         $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
+    // Shared language
     if ($my_languages !== '' && count($suggestions) < 4) {
         $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages)));
         if (!empty($my_lang_tokens)) {
@@ -101,12 +127,14 @@ if ($following_count < $min_follows) {
         }
     }
 
+    // New users
     if (count($suggestions) < 4) {
         $stmt = $pdo->prepare("SELECT id, username, display_name, avatar, 'new_user' AS source FROM users WHERE id != :me AND id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me) ORDER BY created_at DESC LIMIT 4");
         $stmt->execute([':me' => $user_id]);
         $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
+    // Dedupe
     $seen = [];
     $unique = [];
     foreach ($suggestions as $s) {
@@ -118,11 +146,16 @@ if ($following_count < $min_follows) {
     $suggestions = $unique;
 }
 
-// Bookmarked post IDs
+// -----------------------------------------------------------------------------
+// Bookmarks
+// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
 $stmt->execute([':me' => $user_id]);
 $my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
+// -----------------------------------------------------------------------------
+// Comments for all posts in one query
+// -----------------------------------------------------------------------------
 $post_ids = array_column($feed, 'id');
 $comments_by_post = [];
 if (!empty($post_ids)) {
@@ -149,6 +182,7 @@ require 'includes/header.php';
 <h1><?= __('feed_title') ?></h1>
 
 <?php if (!empty($suggestions)): ?>
+    <!-- Who to follow suggestions -->
     <div class="card suggestions-card">
         <h2 style="margin-top:0;">Who to follow</h2>
         <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: var(--space-4);">
@@ -208,7 +242,10 @@ require 'includes/header.php';
     </div>
 <?php else: ?>
     <?php foreach ($feed as $post): ?>
-        <?php $author_name = $post['display_name'] ?: $post['username']; ?>
+        <?php
+        $author_name = $post['display_name'] ?: $post['username'];
+        $post_blocked = !empty($blocked_authors[(int)$post['author_id']]);
+        ?>
         <div class="card">
             <div class="post-header">
                 <?php if ($post['avatar']): ?>
@@ -236,39 +273,61 @@ require 'includes/header.php';
                 <?php endif; ?>
             </div>
 
-            <div class="actions">
-                <form method="POST" action="interact.php" class="like-form" style="display:inline;">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="like">
-                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="feed.php">
-                    <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
-                        <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
+            <?php if ($post_blocked): ?>
+                <!-- Blocked: read-only -->
+                <div class="actions">
+                    <span class="like-btn" style="opacity:0.5; cursor:not-allowed;" title="<?= __('block_cannot_interact') ?>">
+                        <span class="like-heart">♡</span>
                         <span class="like-count"><?= (int)$post['like_count'] ?></span>
-                    </button>
-                </form>
-                <span class="comment-count">
-                    <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
-                    <?= (int)$post['comment_count'] ?>
-                </span>
-                <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="bookmark">
-                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                    <input type="hidden" name="redirect" value="feed.php">
-                    <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                    </span>
+                    <span class="comment-count">
+                        <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                        <?= (int)$post['comment_count'] ?>
+                    </span>
+                    <span class="bookmark-btn" style="opacity:0.5; cursor:not-allowed;">
                         <i data-lucide="bookmark" class="bookmark-icon"></i>
-                    </button>
-                </form>
-                <?php if ((int)$post['author_id'] === $user_id): ?>
-                    <a href="edit_post.php?id=<?= $post['id'] ?>&from=feed.php" class="edit-link">
-                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
-                        Edit
-                    </a>
-                <?php else: ?>
+                    </span>
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
-                <?php endif; ?>
-            </div>
+                </div>
+                <p class="blocked-note" style="font-size: 0.85rem;">
+                    <?= __('block_cannot_interact') ?>
+                </p>
+            <?php else: ?>
+                <!-- Normal -->
+                <div class="actions">
+                    <form method="POST" action="interact.php" class="like-form" style="display:inline;">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="like">
+                        <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                        <input type="hidden" name="redirect" value="feed.php">
+                        <button type="submit" class="like-btn <?= $post['liked_by_me'] ? 'liked' : '' ?>">
+                            <span class="like-heart"><?= $post['liked_by_me'] ? '♥' : '♡' ?></span>
+                            <span class="like-count"><?= (int)$post['like_count'] ?></span>
+                        </button>
+                    </form>
+                    <span class="comment-count">
+                        <i data-lucide="message-circle" style="width:14px;height:14px;"></i>
+                        <?= (int)$post['comment_count'] ?>
+                    </span>
+                    <form method="POST" action="interact.php" class="bookmark-form" style="display:inline;">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="bookmark">
+                        <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                        <input type="hidden" name="redirect" value="feed.php">
+                        <button type="submit" class="bookmark-btn <?= in_array($post['id'], $my_bookmarks) ? 'bookmarked' : '' ?>">
+                            <i data-lucide="bookmark" class="bookmark-icon"></i>
+                        </button>
+                    </form>
+                    <?php if ((int)$post['author_id'] === $user_id): ?>
+                        <a href="edit_post.php?id=<?= $post['id'] ?>&from=feed.php" class="edit-link">
+                            <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                            Edit
+                        </a>
+                    <?php else: ?>
+                        <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
             <?php if (!empty($comments_by_post[$post['id']])): ?>
                 <div class="comments">
@@ -313,14 +372,16 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" action="interact.php" class="comment-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="comment">
-                <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
-                <input type="hidden" name="redirect" value="feed.php">
-                <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
-                <button type="submit"><?= __('post_send') ?></button>
-            </form>
+            <?php if (!$post_blocked): ?>
+                <form method="POST" action="interact.php" class="comment-form">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="comment">
+                    <input type="hidden" name="post_id" value="<?= $post['id'] ?>">
+                    <input type="hidden" name="redirect" value="feed.php">
+                    <input type="text" name="content" placeholder="<?= __('post_comment_placeholder') ?>" maxlength="500" required>
+                    <button type="submit"><?= __('post_send') ?></button>
+                </form>
+            <?php endif; ?>
         </div>
     <?php endforeach; ?>
 

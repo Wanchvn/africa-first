@@ -14,14 +14,17 @@ $user_id = (int)$_SESSION['user_id'];
 
 $stmt = $pdo->prepare("
     SELECT
-        n.id, n.type, n.post_id, n.is_read, n.created_at,
+        n.id, n.type, n.post_id, n.conversation_id, n.is_read, n.created_at,
         u.username AS actor_username,
         u.display_name AS actor_display_name,
         u.avatar AS actor_avatar,
         u.id AS actor_id,
         p.content AS post_content,
         t.name AS topic_name,
-        t.slug AS topic_slug
+        t.slug AS topic_slug,
+        (SELECT body FROM messages m
+            WHERE m.conversation_id = n.conversation_id
+            ORDER BY m.id DESC LIMIT 1) AS last_message_body
     FROM notifications n
     INNER JOIN users u ON n.actor_id = u.id
     LEFT JOIN posts p ON n.post_id = p.id
@@ -67,23 +70,37 @@ require 'includes/header.php';
                 <?php endif; ?>
 
                 <div class="notification-body">
-                   <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>" data-user-id="<?= $n['actor_id'] ?>">
-    <strong><?= htmlspecialchars($actor_name) ?></strong>
-</a>
+                    <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>" data-user-id="<?= $n['actor_id'] ?>">
+                        <strong><?= htmlspecialchars($actor_name) ?></strong>
+                    </a>
+
                     <?php if ($n['type'] === 'like'): ?>
                         <?= __('notif_liked') ?>
+
                     <?php elseif ($n['type'] === 'comment'): ?>
                         <?= __('notif_commented') ?>
+
                     <?php elseif ($n['type'] === 'follow'): ?>
                         <?= __('notif_followed') ?>
+
                     <?php elseif ($n['type'] === 'topic_posted'): ?>
                         posted in
                         <a href="topic.php?slug=<?= urlencode($n['topic_slug']) ?>" style="font-weight:600;">
                             #<?= htmlspecialchars($n['topic_name']) ?>
                         </a>
+
+                    <?php elseif ($n['type'] === 'message' && !empty($n['conversation_id'])): ?>
+                        <?= __('notif_messaged_short') ?>
+                        <a href="conversation.php?id=<?= (int)$n['conversation_id'] ?>" style="font-weight:600;">
+                            <?= __('messages_view_thread') ?>
+                        </a>
                     <?php endif; ?>
 
-                    <?php if ($n['post_content']): ?>
+                    <?php if ($n['type'] === 'message' && !empty($n['last_message_body'])): ?>
+                        <div class="notification-preview">
+                            "<?= htmlspecialchars(mb_substr($n['last_message_body'], 0, 80)) ?><?= mb_strlen($n['last_message_body']) > 80 ? '…' : '' ?>"
+                        </div>
+                    <?php elseif ($n['post_content']): ?>
                         <div class="notification-preview">
                             "<?= htmlspecialchars(mb_substr($n['post_content'], 0, 80)) ?><?= mb_strlen($n['post_content']) > 80 ? '…' : '' ?>"
                         </div>

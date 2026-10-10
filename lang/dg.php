@@ -148,4 +148,56 @@ return [
 'register_username_taken' => 'be naabu',
 'register_username_checking' => 'Ti lihira…',
 'register_error_terms' => 'Di tu ni a saɣi Yɛlimaŋli ni Asalichi zaligu.',
+
+// Messages
+'messages_title'           => 'Tibdahili',
+'messages_empty'           => 'Tibdahili n-kani. Pili niriba yɛlikpani zuɣu.',
+'messages_no_messages_yet' => 'Tibdahili n-kani',
+'messages_thread_empty'    => 'Tibdahili n-kani. Puhi ka a pahi!',
+'messages_placeholder'     => 'Sabmi tibdahili…',
+'messages_send'            => 'Zaŋ',
+'messages_back_to_inbox'   => 'Labi tibdahili ni',
+'messages_not_found'       => 'Ti bi nya tibdahili maa.',
+'messages_with'            => 'Yɛlimaŋli ne %s',
+'profile_message_button'   => 'Zaŋ tibdahili',
+'notif_messaged' => '%s zaŋ tibdahili na a sani',
+'notify_messages_label' => 'Tibdahili',
+'notify_messages_hint' => 'Saha shɛli nira ni zaŋ tibdahili na a sani.',
+
+'report_title'          => 'Sabmi',
+'report_reason'         => 'Sabu',
+'report_details'        => 'Yɛltɔɣa din pahira',
+'report_submit'         => 'Zaŋ sabu',
+'report_success'        => 'Ti paɣi a. Ti ni lihi a sabu maa.',
+'report_error_reason'   => 'Zaŋmi sabu din niŋ.',
+'report_error_length'   => 'Yɛltɔɣa bi gbɛri.',
+'report_error_duplicate'=> 'A mali sabu naabu.',
+'report_dm_title'       => 'Sabmi tibdahili zuɣu',
+'report_dm_intro'       => 'Admins n-ko ka yɛn nya tibdahili maa. Nira zaa ni nya kadama a sabmi ya, amaa ka bi nya tibdahili maa.',
+
+
+// Admin reports
+'admin_title'       => 'Sabu din be',
+'admin_no_reports'  => 'Sabu n-kani.',
+'admin_dismiss'     => 'Zaɣisi sabu',
+'admin_remove'      => 'Nimsi zaŋ',
+
+
+'block_button'           => 'Ŋma li',
+'block_unblock'          => 'Yooi li',
+'block_confirm'          => 'Ŋma nira ŋɔ li? O ku tooi zaŋ tibdahili na a sani bee dɔli a.',
+'block_you_blocked'      => 'A ŋmami nira ŋɔ li.',
+'block_they_blocked'     => 'A ku tooi labsi tibdahili ŋɔ.',
+'block_note_you_blocked' => 'A ŋmami nira ŋɔ li. Yooi li ka a zaŋ tibdahili.',
+'block_note_they_blocked'=> 'A ku tooi lahi zaŋ tibdahili na.',
+'block_error_cannot_message' => 'A ku tooi zaŋ tibdahili na nira ŋɔ sani.',
+'blocked_users_title'    => 'Niriba ban ŋma',
+'blocked_users_intro'    => 'Niriba ban be ŋɔ ku tooi zaŋ tibdahili na a sani, dɔli a, bee nya a yɛlikpani.',
+'blocked_users_empty'    => 'A ŋmami nira li.',
+
+
+'block_error_cannot_interact' => 'A ku tooi niŋ yɛlimaŋli ni nira ŋɔ lahabali.',
+'block_error_cannot_follow'   => 'A ku tooi dɔli nira ŋɔ.',
+'block_cannot_interact'       => 'A ku tooi niŋ yɛlimaŋli ni lahabali ŋɔ.',
+'block_cannot_comment'        => 'A ku tooi sabi yɛltɔɣa lahabali ŋɔ zuɣu.',
 ];
