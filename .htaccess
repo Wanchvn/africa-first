@@ -82,3 +82,15 @@ Options -Indexes
     RewriteEngine On
     RewriteRule ^uploads/.*\.(php|phtml|php3|php4|php5|php7|phps|pl|py|jsp|asp|aspx|sh|cgi)$ - [F,L]
 </IfModule>
+
+
+
+# Allow PWA files
+<Files "manifest.json">
+    Require all granted
+    Header set Content-Type "application/manifest+json"
+</Files>
+<Files "sw.js">
+    Require all granted
+    Header set Service-Worker-Allowed "/qarota/"
+</Files>

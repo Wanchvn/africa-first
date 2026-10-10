@@ -9,9 +9,10 @@ require_once __DIR__ . '/csrf.php';
 
 $logged_in = isset($_SESSION['user_id']);
 
-$unread_count = 0;
-$is_admin = false;
-$user_theme = 'light';
+$unread_count    = 0;
+$unread_messages = 0;
+$is_admin        = false;
+$user_theme      = 'light';
 
 if ($logged_in) {
     require_once __DIR__ . '/../config/db.php';
@@ -28,8 +29,8 @@ if ($logged_in) {
     // User info
     $stmt = $pdo->prepare("SELECT is_admin, theme FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
-    $user_row = $stmt->fetch();
-    $is_admin = (bool)($user_row['is_admin'] ?? false);
+    $user_row   = $stmt->fetch();
+    $is_admin   = (bool)($user_row['is_admin'] ?? false);
     $user_theme = $user_row['theme'] ?? 'light';
 }
 
@@ -37,20 +38,34 @@ if (!isset($page_title)) $page_title = 'Qarota';
 $og_description = "Africa's social network. Your data stays home.";
 ?>
 <!DOCTYPE html>
-<html lang="<?= htmlspecialchars($_SESSION['lang']) ?>">
+<html lang="<?= htmlspecialchars($_SESSION['lang'] ?? 'en') ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — Qarota</title>
+
     <link rel="stylesheet" href="assets/css/style.css">
+
+    <!-- Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
-    <link rel="apple-touch-icon" href="assets/img/favicon-512.png">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#C65D3B">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Qarota">
+    <link rel="apple-touch-icon" href="assets/img/icon-192.png">
+
+    <!-- Open Graph -->
     <meta property="og:title" content="<?= htmlspecialchars($page_title) ?> — Qarota">
     <meta property="og:description" content="<?= htmlspecialchars($og_description) ?>">
     <meta property="og:image" content="https://qarota.com/assets/img/social-preview.png">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
+
     <script src="assets/js/lucide.min.js"></script>
 </head>
 <body class="<?= $user_theme === 'dark' ? 'dark-mode' : '' ?>">
@@ -83,6 +98,13 @@ $og_description = "Africa's social network. Your data stays home.";
                     <span class="nav-label"><?= __('nav_notifications') ?></span>
                     <?php if ($unread_count > 0): ?>
                         <span class="badge"><?= $unread_count ?></span>
+                    <?php endif; ?>
+                </a>
+                <a href="messages.php" title="<?= __('messages_title') ?>">
+                    <i data-lucide="mail" class="nav-icon"></i>
+                    <span class="nav-label"><?= __('messages_title') ?></span>
+                    <?php if ($unread_messages > 0): ?>
+                        <span class="badge"><?= $unread_messages ?></span>
                     <?php endif; ?>
                 </a>
                 <a href="discover_feed.php" title="Explore">
@@ -138,10 +160,10 @@ $og_description = "Africa's social network. Your data stays home.";
         </div>
 
         <div class="lang-switcher">
-            <a href="?setlang=en" class="<?= $_SESSION['lang'] === 'en' ? 'active' : '' ?>">EN</a>
-            <a href="?setlang=tw" class="<?= $_SESSION['lang'] === 'tw' ? 'active' : '' ?>">TW</a>
-            <a href="?setlang=dg" class="<?= $_SESSION['lang'] === 'dg' ? 'active' : '' ?>">DG</a>
-            <a href="?setlang=fr" class="<?= $_SESSION['lang'] === 'fr' ? 'active' : '' ?>">FR</a>
+            <a href="?setlang=en" class="<?= ($_SESSION['lang'] ?? 'en') === 'en' ? 'active' : '' ?>">EN</a>
+            <a href="?setlang=tw" class="<?= ($_SESSION['lang'] ?? 'en') === 'tw' ? 'active' : '' ?>">TW</a>
+            <a href="?setlang=dg" class="<?= ($_SESSION['lang'] ?? 'en') === 'dg' ? 'active' : '' ?>">DG</a>
+            <a href="?setlang=fr" class="<?= ($_SESSION['lang'] ?? 'en') === 'fr' ? 'active' : '' ?>">FR</a>
         </div>
     </nav>
 </header>

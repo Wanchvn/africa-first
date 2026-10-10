@@ -1,0 +1,54 @@
+{
+  "name": "Qarota",
+  "short_name": "Qarota",
+  "description": "A social network built for Africa. Your data stays home, your voice can't be silenced, and every moderation action is public.",
+  "start_url": "/qarota/feed.php",
+  "scope": "/qarota/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5EFE6",
+  "theme_color": "#C65D3B",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["social", "communication"],
+  "icons": [
+    {
+      "src": "/qarota/assets/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/qarota/assets/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/qarota/assets/img/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "url": "/qarota/messages.php",
+      "icons": [{ "src": "/qarota/assets/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notifications",
+      "short_name": "Notifications",
+      "url": "/qarota/notifications.php",
+      "icons": [{ "src": "/qarota/assets/img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My profile",
+      "short_name": "Profile",
+      "url": "/qarota/profile.php",
+      "icons": [{ "src": "/qarota/assets/img/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

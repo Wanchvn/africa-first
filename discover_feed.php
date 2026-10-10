@@ -143,9 +143,9 @@ if (!empty($post_ids)) {
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
         SELECT comments.id, comments.post_id, comments.content, comments.created_at,
-       comments.user_id,
-       users.username, users.display_name, users.avatar
-FROM comments
+               comments.user_id,
+               users.username, users.display_name, users.avatar
+        FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
         ORDER BY comments.created_at ASC
@@ -201,7 +201,7 @@ require 'includes/header.php';
                 $reason_text = 'Because ' . $via . ' follows them';
                 break;
             case 'same_location':
-                $reason_text = 'Because you\'re in ' . htmlspecialchars($my_location) . ' too';
+                $reason_text = 'Because you\'re in ' . $my_location . ' too';
                 break;
             case 'shared_language':
                 $reason_text = 'Because you share a language';
@@ -228,9 +228,9 @@ require 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <div class="author">
-                    <a href="profile.php?u=<?= urlencode($n['actor_username']) ?>" data-user-id="<?= $n['actor_id'] ?>">
-    <strong><?= htmlspecialchars($actor_name) ?></strong>
-</a>
+                    <a href="profile.php?u=<?= urlencode($post['username']) ?>" data-user-id="<?= (int)$post['author_id'] ?>">
+                        <strong><?= htmlspecialchars($author_name) ?></strong>
+                    </a>
                 </div>
                 <?php if (!isset($following_map[$post['author_id']])): ?>
                     <form method="POST" action="follow.php" class="follow-form" style="margin-left: auto;">
