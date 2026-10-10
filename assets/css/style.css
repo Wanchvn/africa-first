@@ -3543,3 +3543,55 @@ body.dark-mode .bubble-mine .seen-pill {
         padding: var(--space-2);
     }
 }
+
+
+/* ========================================
+   DM IMAGES
+   ======================================== */
+
+.dm-image-link {
+    display: block;
+    max-width: 100%;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.dm-image {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    width: auto;
+    height: auto;
+    border-radius: var(--radius-md);
+    cursor: zoom-in;
+    transition: transform var(--transition);
+}
+
+.dm-image:hover {
+    transform: scale(1.01);
+}
+
+/* Voice bubble with image sits comfortably */
+.bubble-mine .dm-image {
+    background: #fff;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .dm-image {
+        max-height: 240px;
+    }
+}
+
+
+.dm-image {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    width: auto;
+    height: auto;
+    border-radius: var(--radius-md);
+    cursor: zoom-in;
+    transition: transform var(--transition);
+}

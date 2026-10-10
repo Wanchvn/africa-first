@@ -439,7 +439,7 @@ function escapeHtmlJs(text) {
 
 
 /* ========================================
-   MESSAGES — AJAX send + poll + typing + read receipts + voice
+   MESSAGES — AJAX send + poll + typing + read receipts + voice + images
    ======================================== */
 
 (function () {
@@ -497,6 +497,7 @@ function escapeHtmlJs(text) {
         bodyDiv.className = 'bubble-body';
 
         var isVoice = (m.message_type === 'voice') && m.voice_path;
+        var isImage = (m.message_type === 'image') && m.image_path;
 
         if (isDeleted) {
             var em = document.createElement('em');
@@ -523,6 +524,21 @@ function escapeHtmlJs(text) {
             wrap.appendChild(durEl);
 
             bodyDiv.appendChild(wrap);
+        } else if (isImage) {
+            var link = document.createElement('a');
+            link.className = 'dm-image-link';
+            link.href = m.image_path;
+            link.target = '_blank';
+            link.rel = 'noopener';
+
+            var img = document.createElement('img');
+            img.className = 'dm-image';
+            img.src = m.image_path;
+            img.alt = 'Image';
+            img.loading = 'lazy';
+
+            link.appendChild(img);
+            bodyDiv.appendChild(link);
         } else {
             var lines = String(m.body).split('\n');
             lines.forEach(function (line, i) {
@@ -715,6 +731,70 @@ function escapeHtmlJs(text) {
     var initialLastOwnSeen = card.dataset.lastOwnSeen === '1';
     updateSeenPill(initialLastOwnId, initialLastOwnSeen);
 
+
+    /* ============================================================
+       IMAGE ATTACHMENTS
+       ============================================================ */
+    var imageBtn   = document.getElementById('imageBtn');
+    var imageInput = document.getElementById('imageInput');
+
+    if (imageBtn && imageInput) {
+        imageBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', function () {
+            if (!imageInput.files || !imageInput.files.length) return;
+            uploadImageMessage(imageInput.files[0]);
+        });
+    }
+
+    function uploadImageMessage(file) {
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image must be smaller than 5 MB.');
+            if (imageInput) imageInput.value = '';
+            return;
+        }
+
+        var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+        var convId    = form.querySelector('input[name="conversation_id"]').value;
+
+        var fd = new FormData();
+        fd.append('conversation_id', convId);
+        fd.append('csrf_token', csrfToken);
+        fd.append('image', file, file.name);
+
+        if (imageBtn) imageBtn.disabled = true;
+
+        fetch('message_image_send.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success && data.message) {
+                if (empty) empty.style.display = 'none';
+                renderMessage(data.message);
+                var id = parseInt(data.message.id, 10);
+                if (!isNaN(id) && id > lastId) lastId = id;
+                scrollToBottom();
+            } else {
+                alert(data.error || 'Could not send image.');
+            }
+            if (imageBtn) imageBtn.disabled = false;
+            if (imageInput) imageInput.value = '';
+        })
+        .catch(function (err) {
+            console.error('Image upload error:', err);
+            alert('Could not send image.');
+            if (imageBtn) imageBtn.disabled = false;
+            if (imageInput) imageInput.value = '';
+        });
+    }
+
+
     /* ============================================================
        VOICE RECORDER — race-condition-safe
        ============================================================ */
@@ -731,15 +811,6 @@ function escapeHtmlJs(text) {
     var maxVoiceSeconds = parseInt(form.dataset.voiceMax || '60', 10);
     var isUploading     = false;
 
-    console.log('[voice] init:', {
-        micBtn: !!micBtn,
-        voiceRecorder: !!voiceRecorder,
-        voiceSendBtn: !!voiceSendBtn,
-        voiceCancelBtn: !!voiceCancelBtn,
-        voiceRecTime: !!voiceRecTime,
-        maxVoiceSeconds: maxVoiceSeconds
-    });
-
     function clearRecorderUI() {
         if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
         if (voiceRecorder) voiceRecorder.style.display = 'none';
@@ -749,7 +820,6 @@ function escapeHtmlJs(text) {
     }
 
     function startRecording() {
-        console.log('[voice] startRecording called');
         if (isUploading) return;
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -759,23 +829,17 @@ function escapeHtmlJs(text) {
 
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(function (stream) {
-                console.log('[voice] mic access granted');
                 recordedChunks = [];
                 mediaRecorder = new MediaRecorder(stream);
 
                 mediaRecorder.ondataavailable = function (e) {
-                    if (e.data && e.data.size > 0) {
-                        recordedChunks.push(e.data);
-                        console.log('[voice] chunk:', e.data.size, 'total:', recordedChunks.length);
-                    }
+                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
                 };
 
                 mediaRecorder.onstop = function () {
-                    console.log('[voice] recorder onstop, chunks:', recordedChunks.length);
                     stream.getTracks().forEach(function (t) { t.stop(); });
                 };
 
-                // Flush a chunk every second so we always have data on hand
                 mediaRecorder.start(1000);
 
                 recordStartTime = Date.now();
@@ -788,7 +852,6 @@ function escapeHtmlJs(text) {
                         voiceRecTime.textContent = Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
                     }
                     if (elapsed >= maxVoiceSeconds) {
-                        // Auto-stop → user still needs to click ➤ to send
                         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                             try { mediaRecorder.stop(); } catch (e) {}
                         }
@@ -797,14 +860,13 @@ function escapeHtmlJs(text) {
                 }, 250);
             })
             .catch(function (err) {
-                console.error('[voice] mic denied:', err);
+                console.error('Mic denied:', err);
                 alert('Microphone access is needed to record voice messages.');
                 clearRecorderUI();
             });
     }
 
     function cancelRecording() {
-        console.log('[voice] cancel');
         if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             try { mediaRecorder.stop(); } catch (e) {}
@@ -815,10 +877,8 @@ function escapeHtmlJs(text) {
     }
 
     function sendRecording() {
-        console.log('[voice] send clicked, chunks so far:', recordedChunks.length);
         if (isUploading) return;
 
-        // Case A: recorder still active — stop it, wait for onstop, then upload
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             var duration = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
             if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
@@ -826,29 +886,23 @@ function escapeHtmlJs(text) {
             var originalOnStop = mediaRecorder.onstop;
             mediaRecorder.onstop = function () {
                 if (originalOnStop) originalOnStop.call(mediaRecorder);
-                console.log('[voice] stopped, now uploading. chunks:', recordedChunks.length);
                 uploadVoiceRecording(duration);
             };
 
             try {
                 mediaRecorder.stop();
             } catch (e) {
-                console.error('[voice] stop failed:', e);
                 uploadVoiceRecording(duration);
             }
             return;
         }
 
-        // Case B: recorder already stopped (e.g. auto-stop at 60s) — upload directly
         var durationFallback = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
         uploadVoiceRecording(durationFallback);
     }
 
     function uploadVoiceRecording(duration) {
-        console.log('[voice] upload start, chunks:', recordedChunks.length);
-
         if (!recordedChunks.length) {
-            console.warn('[voice] no chunks to upload');
             mediaRecorder = null;
             clearRecorderUI();
             return;
@@ -863,7 +917,6 @@ function escapeHtmlJs(text) {
         } catch (e) { /* ignore */ }
 
         var blob = new Blob(recordedChunks, { type: mimeType });
-        console.log('[voice] blob size:', blob.size, 'type:', mimeType);
 
         var csrfToken = form.querySelector('input[name="csrf_token"]').value;
         var convId    = form.querySelector('input[name="conversation_id"]').value;
@@ -883,7 +936,6 @@ function escapeHtmlJs(text) {
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            console.log('[voice] response:', data);
             if (data.success && data.message) {
                 if (empty) empty.style.display = 'none';
                 renderMessage(data.message);
@@ -899,7 +951,7 @@ function escapeHtmlJs(text) {
             clearRecorderUI();
         })
         .catch(function (err) {
-            console.error('[voice] fetch error:', err);
+            console.error('Voice send error:', err);
             alert('Could not send voice message.');
             recordedChunks = [];
             mediaRecorder = null;

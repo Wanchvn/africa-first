@@ -61,7 +61,7 @@ mark_conversation_read($pdo, $conv, $me);
 // -----------------------------------------------------------------------------
 $mStmt = $pdo->prepare(
     "SELECT id, sender_id, body, message_type, voice_path, voice_duration,
-            created_at, deleted_at
+            image_path, created_at, deleted_at
      FROM messages
      WHERE conversation_id = :c
      ORDER BY id ASC
@@ -176,25 +176,34 @@ require 'includes/header.php';
             <div class="bubble <?= $mine ? 'bubble-mine' : 'bubble-theirs' ?> <?= $is_deleted ? 'bubble-deleted' : '' ?>"
                  data-id="<?= (int)$m['id'] ?>">
 
-                <div class="bubble-body">
-                    <?php if ($is_deleted): ?>
-                        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
+               <div class="bubble-body">
+    <?php if ($is_deleted): ?>
+        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
 
-                    <?php elseif ($is_voice): ?>
-                        <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
-                        <div class="voice-message">
-                            <audio controls preload="metadata" class="voice-player">
-                                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
-                            </audio>
-                            <div class="voice-duration">
-                                <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
-                            </div>
-                        </div>
+    <?php elseif (($m['message_type'] ?? 'text') === 'voice' && !empty($m['voice_path'])): ?>
+        <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
+        <div class="voice-message">
+            <audio controls preload="metadata" class="voice-player">
+                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
+            </audio>
+            <div class="voice-duration">
+                <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
+            </div>
+        </div>
 
-                    <?php else: ?>
-                        <?= nl2br(htmlspecialchars($m['body'])) ?>
-                    <?php endif; ?>
-                </div>
+    <?php elseif (($m['message_type'] ?? 'text') === 'image' && !empty($m['image_path'])): ?>
+        <a href="<?= htmlspecialchars($m['image_path']) ?>"
+           target="_blank" rel="noopener" class="dm-image-link">
+            <img class="dm-image"
+                 src="<?= htmlspecialchars($m['image_path']) ?>"
+                 alt="<?= __('image_alt') ?>"
+                 loading="lazy">
+        </a>
+
+    <?php else: ?>
+        <?= nl2br(htmlspecialchars($m['body'])) ?>
+    <?php endif; ?>
+</div>
 
                 <div class="bubble-time">
                     <?= htmlspecialchars($m['created_at']) ?>
@@ -263,14 +272,24 @@ require 'includes/header.php';
                 </button>
             </div>
 
-            <div class="message-actions">
-                <button type="button" id="micBtn" class="mic-btn"
-                        aria-label="<?= __('voice_record') ?>"
-                        title="<?= __('voice_record') ?>">
-                    <i data-lucide="mic" style="width:18px;height:18px;"></i>
-                </button>
-                <button type="submit" id="sendBtn"><?= __('messages_send') ?></button>
-            </div>
+          <div class="message-actions">
+    <button type="button" id="imageBtn" class="mic-btn"
+            aria-label="<?= __('image_attach') ?>"
+            title="<?= __('image_attach') ?>">
+        <i data-lucide="image" style="width:18px;height:18px;"></i>
+    </button>
+
+    <button type="button" id="micBtn" class="mic-btn"
+            aria-label="<?= __('voice_record') ?>"
+            title="<?= __('voice_record') ?>">
+        <i data-lucide="mic" style="width:18px;height:18px;"></i>
+    </button>
+
+    <button type="submit" id="sendBtn"><?= __('messages_send') ?></button>
+</div>
+
+<input type="file" id="imageInput" name="image" accept="image/jpeg,image/png,image/gif,image/webp"
+       style="display:none;">
         </form>
     <?php endif; ?>
 </div>

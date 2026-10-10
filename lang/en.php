@@ -209,4 +209,10 @@ return [
 
 'notify_messages_label' => 'Direct messages',
 'notify_messages_hint'  => 'When someone sends you a direct message.',
+
+
+'image_attach'   => 'Send a photo',
+'image_missing'  => 'No image was uploaded.',
+'image_too_many' => 'Too many images. Please wait a moment.',
+'image_alt'      => 'Shared image',
 ];
