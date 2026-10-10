@@ -10,7 +10,7 @@
     Header set Referrer-Policy "strict-origin-when-cross-origin"
 
     # Disable browser features we don't use (geolocation, mic, camera, etc.)
-    Header set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+    Header set Permissions-Policy "geolocation=(), microphone=(self), camera=(), payment=()"
 
     # Basic CSP — allows only what Qarota needs
     # NOTE: 'unsafe-inline' for style is needed because we use inline styles like <div style="...">

@@ -36,7 +36,8 @@ if ($conv <= 0 || !user_in_conversation($pdo, $conv, $me)) {
 
 // Fetch only new messages after the last-known id
 $stmt = $pdo->prepare(
-    "SELECT id, sender_id, body, created_at, deleted_at
+    "SELECT id, sender_id, body, message_type, voice_path, voice_duration,
+            created_at, deleted_at
      FROM messages
      WHERE conversation_id = :c AND id > :after
      ORDER BY id ASC

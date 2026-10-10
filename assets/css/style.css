@@ -3398,3 +3398,148 @@ body.dark-mode .bubble-mine .seen-pill {
         display: inline-block;
     }
 }
+
+
+
+/* ========================================
+   VOICE MESSAGES
+   ======================================== */
+
+/* ---- Composer: mic + send row ---- */
+.message-actions {
+    display: flex;
+    gap: var(--space-2);
+    align-items: stretch;
+}
+
+.message-actions .mic-btn {
+    background: transparent;
+    border: 1px solid var(--terracotta);
+    color: var(--terracotta);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    transition: background var(--transition), color var(--transition);
+}
+
+.message-actions .mic-btn:hover {
+    background: var(--terracotta);
+    color: #fff;
+}
+
+.message-actions .mic-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.message-actions button[type="submit"] {
+    flex: 1;
+}
+
+/* ---- Recording overlay ---- */
+.voice-recorder {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--sand);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.voice-rec-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--danger);
+    animation: voicePulse 1s infinite;
+}
+
+@keyframes voicePulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+}
+
+.voice-rec-time {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--charcoal);
+    flex: 1;
+}
+
+.voice-rec-cancel,
+.voice-rec-send {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 6px 10px;
+    cursor: pointer;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.voice-rec-cancel:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.voice-rec-send {
+    background: var(--terracotta);
+    color: #fff;
+    border-color: var(--terracotta);
+}
+
+.voice-rec-send:hover {
+    background: #B14E2F;
+}
+
+/* ---- Voice bubble ---- */
+.voice-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.voice-player {
+    width: 240px;
+    height: 36px;
+    max-width: 100%;
+}
+
+.voice-duration {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.bubble-mine .voice-duration {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.bubble-mine .voice-player {
+    /* browsers apply their own skin — leave default */
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .voice-player {
+        width: 180px;
+        height: 32px;
+    }
+
+    .message-actions {
+        gap: var(--space-1);
+    }
+
+    .message-actions .mic-btn {
+        min-width: 40px;
+        padding: var(--space-2);
+    }
+}

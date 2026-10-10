@@ -1,4 +1,7 @@
 <?php
+/**
+ * Qarota — soft-delete a message. Only the sender can delete their own.
+ */
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 

@@ -3,7 +3,6 @@
    ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Like buttons
     document.querySelectorAll('.like-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -11,7 +10,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Follow buttons
     document.querySelectorAll('.follow-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -19,7 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Bookmark buttons
     document.querySelectorAll('.bookmark-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -163,20 +160,17 @@ function handleBookmark(form) {
 
 /* ========================================
    HOVER CARDS
-   Show mini-profile on username hover
    ======================================== */
 
 (function() {
-    const cardCache = {};       // { user_id: cardData }
+    const cardCache = {};
     let hoverTimer = null;
     let hideTimer = null;
     let currentCard = null;
     let currentUserId = null;
 
-    // Create the floating card container once
     function getCardElement() {
         if (currentCard) return currentCard;
-
         const card = document.createElement('div');
         card.className = 'user-hover-card';
         card.style.display = 'none';
@@ -185,67 +179,44 @@ function handleBookmark(form) {
         return card;
     }
 
-    // Detect hover on any username link
     document.addEventListener('mouseover', function(e) {
         const link = e.target.closest('a[data-user-id]');
         if (!link) return;
-
         const userId = link.dataset.userId;
         if (!userId) return;
-
-        if (currentUserId === userId && currentCard && currentCard.style.display === 'block') {
-            return;
-        }
+        if (currentUserId === userId && currentCard && currentCard.style.display === 'block') return;
 
         clearTimeout(hideTimer);
         clearTimeout(hoverTimer);
-
-        hoverTimer = setTimeout(function() {
-            showCard(userId, link);
-        }, 300);
+        hoverTimer = setTimeout(function() { showCard(userId, link); }, 300);
     });
 
-    // Detect leaving the username
     document.addEventListener('mouseout', function(e) {
         const link = e.target.closest('a[data-user-id]');
         if (!link) return;
-
         clearTimeout(hoverTimer);
-
-        hideTimer = setTimeout(function() {
-            hideCard();
-        }, 200);
+        hideTimer = setTimeout(function() { hideCard(); }, 200);
     });
 
     document.addEventListener('mouseover', function(e) {
-        if (currentCard && currentCard.contains(e.target)) {
-            clearTimeout(hideTimer);
-        }
+        if (currentCard && currentCard.contains(e.target)) clearTimeout(hideTimer);
     });
 
     document.addEventListener('mouseout', function(e) {
         if (currentCard && currentCard.contains(e.target)) {
             const toElement = e.relatedTarget;
-            if (!currentCard.contains(toElement)) {
-                hideTimer = setTimeout(hideCard, 200);
-            }
+            if (!currentCard.contains(toElement)) hideTimer = setTimeout(hideCard, 200);
         }
     });
 
     function hideCard() {
-        if (currentCard) {
-            currentCard.style.display = 'none';
-        }
+        if (currentCard) currentCard.style.display = 'none';
         currentUserId = null;
     }
 
     function showCard(userId, anchorEl) {
         currentUserId = userId;
-
-        if (cardCache[userId]) {
-            renderCard(cardCache[userId], anchorEl);
-            return;
-        }
+        if (cardCache[userId]) { renderCard(cardCache[userId], anchorEl); return; }
 
         const card = getCardElement();
         card.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--muted);">Loading…</div>';
@@ -255,45 +226,59 @@ function handleBookmark(form) {
         fetch('user_card.php?id=' + userId)
             .then(r => r.json())
             .then(data => {
-                if (!data.success) {
-                    hideCard();
-                    return;
-                }
+                if (!data.success) { hideCard(); return; }
                 cardCache[userId] = data.user;
-                if (currentUserId === userId) {
-                    renderCard(data.user, anchorEl);
-                }
+                if (currentUserId === userId) renderCard(data.user, anchorEl);
             })
-            .catch(() => {
-                hideCard();
-            });
+            .catch(() => { hideCard(); });
     }
 
     function renderCard(user, anchorEl) {
         const card = getCardElement();
+
+        if (user.is_blocked) {
+            const avatarHtmlB = user.avatar
+                ? `<img src="${escapeHtml(user.avatar)}" alt="" class="user-hover-avatar">`
+                : `<div class="user-hover-avatar user-hover-avatar-placeholder">${escapeHtml(user.display_name[0].toUpperCase())}</div>`;
+
+            card.innerHTML = `
+                <div class="user-hover-header">
+                    ${avatarHtmlB}
+                    <div class="user-hover-info">
+                        <a href="profile.php?u=${encodeURIComponent(user.username)}" class="user-hover-name">
+                            ${escapeHtml(user.display_name)}
+                        </a>
+                        <div class="user-hover-handle">@${escapeHtml(user.username)}</div>
+                    </div>
+                </div>
+                <p class="user-hover-bio" style="font-style:italic;">
+                    You cannot interact with this user.
+                </p>
+            `;
+            positionCard(card, anchorEl);
+            card.style.display = 'block';
+            return;
+        }
+
         const avatarHtml = user.avatar
             ? `<img src="${escapeHtml(user.avatar)}" alt="" class="user-hover-avatar">`
             : `<div class="user-hover-avatar user-hover-avatar-placeholder">${escapeHtml(user.display_name[0].toUpperCase())}</div>`;
 
-        const bioHtml = user.bio
-            ? `<p class="user-hover-bio">${escapeHtml(user.bio)}</p>`
-            : '';
+        const bioHtml = user.bio ? `<p class="user-hover-bio">${escapeHtml(user.bio)}</p>` : '';
 
-        const buttonHtml = user.is_self
-            ? ''
-            : `
-                <form method="POST" action="follow.php" class="follow-form user-hover-follow-form">
-                    <input type="hidden" name="csrf_token" value="${getCsrfToken()}">
-                    <input type="hidden" name="target_id" value="${user.id}">
-                    <input type="hidden" name="redirect" value="${escapeHtml(window.location.pathname + window.location.search)}">
-                    <button type="submit"
-                            class="${user.is_following ? 'btn-secondary' : 'btn'} btn-small"
-                            data-follow-text="Follow"
-                            data-unfollow-text="Unfollow">
-                        ${user.is_following ? 'Unfollow' : 'Follow'}
-                    </button>
-                </form>
-            `;
+        const buttonHtml = user.is_self ? '' : `
+            <form method="POST" action="follow.php" class="follow-form user-hover-follow-form">
+                <input type="hidden" name="csrf_token" value="${getCsrfToken()}">
+                <input type="hidden" name="target_id" value="${user.id}">
+                <input type="hidden" name="redirect" value="${escapeHtml(window.location.pathname + window.location.search)}">
+                <button type="submit"
+                        class="${user.is_following ? 'btn-secondary' : 'btn'} btn-small"
+                        data-follow-text="Follow"
+                        data-unfollow-text="Unfollow">
+                    ${user.is_following ? 'Unfollow' : 'Follow'}
+                </button>
+            </form>
+        `;
 
         card.innerHTML = `
             <div class="user-hover-header">
@@ -325,17 +310,11 @@ function handleBookmark(form) {
                 setTimeout(function() {
                     const wasFollowing = btn.classList.contains('btn-secondary');
                     if (wasFollowing) {
-                        btn.classList.remove('btn-secondary');
-                        btn.classList.add('btn');
-                        btn.textContent = 'Follow';
+                        btn.classList.remove('btn-secondary'); btn.classList.add('btn'); btn.textContent = 'Follow';
                     } else {
-                        btn.classList.add('btn-secondary');
-                        btn.classList.remove('btn');
-                        btn.textContent = 'Unfollow';
+                        btn.classList.add('btn-secondary'); btn.classList.remove('btn'); btn.textContent = 'Unfollow';
                     }
-                    if (cardCache[user.id]) {
-                        cardCache[user.id].is_following = !wasFollowing;
-                    }
+                    if (cardCache[user.id]) cardCache[user.id].is_following = !wasFollowing;
                 }, 100);
             });
         }
@@ -344,17 +323,10 @@ function handleBookmark(form) {
     function positionCard(card, anchorEl) {
         const rect = anchorEl.getBoundingClientRect();
         const cardWidth = 300;
-
         let left = rect.left + window.scrollX;
         let top = rect.bottom + window.scrollY + 8;
-
-        if (left + cardWidth > window.scrollX + window.innerWidth - 16) {
-            left = window.scrollX + window.innerWidth - cardWidth - 16;
-        }
-        if (left < window.scrollX + 16) {
-            left = window.scrollX + 16;
-        }
-
+        if (left + cardWidth > window.scrollX + window.innerWidth - 16) left = window.scrollX + window.innerWidth - cardWidth - 16;
+        if (left < window.scrollX + 16) left = window.scrollX + 16;
         card.style.left = left + 'px';
         card.style.top = top + 'px';
         card.style.width = cardWidth + 'px';
@@ -376,7 +348,6 @@ function handleBookmark(form) {
 
 /* ========================================
    COMMENT EDITING
-   Inline edit of your own comments
    ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -394,8 +365,6 @@ function startEditComment(btn) {
 
     const commentId = btn.dataset.commentId;
     const bodyEl = comment.querySelector('.comment-body');
-    const metaEl = comment.querySelector('.comment-meta-actions');
-
     if (!bodyEl) return;
 
     const originalContent = bodyEl.textContent.trim();
@@ -421,14 +390,8 @@ function startEditComment(btn) {
 
     saveBtn.addEventListener('click', function() {
         const newContent = textarea.value.trim();
-        if (newContent === '') {
-            errorEl.textContent = 'Comment cannot be empty';
-            return;
-        }
-        if (newContent === originalContent) {
-            errorEl.textContent = 'No changes made';
-            return;
-        }
+        if (newContent === '') { errorEl.textContent = 'Comment cannot be empty'; return; }
+        if (newContent === originalContent) { errorEl.textContent = 'No changes made'; return; }
 
         saveBtn.disabled = true;
         errorEl.textContent = '';
@@ -438,21 +401,13 @@ function startEditComment(btn) {
 
         fetch('edit_comment.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: new URLSearchParams({
-                comment_id: commentId,
-                content: newContent,
-                csrf_token: csrfToken
-            })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ comment_id: commentId, content: newContent, csrf_token: csrfToken })
         })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
                 bodyEl.innerHTML = escapeHtmlJs(data.content);
-
                 const meta = comment.querySelector('.comment-meta');
                 if (meta && !meta.querySelector('.edited-label')) {
                     const editedSpan = document.createElement('span');
@@ -469,15 +424,10 @@ function startEditComment(btn) {
                 saveBtn.disabled = false;
             }
         })
-        .catch(function() {
-            errorEl.textContent = 'Network error';
-            saveBtn.disabled = false;
-        });
+        .catch(function() { errorEl.textContent = 'Network error'; saveBtn.disabled = false; });
     });
 
-    cancelBtn.addEventListener('click', function() {
-        bodyEl.innerHTML = escapeHtmlJs(originalContent);
-    });
+    cancelBtn.addEventListener('click', function() { bodyEl.innerHTML = escapeHtmlJs(originalContent); });
 }
 
 function escapeHtmlJs(text) {
@@ -487,8 +437,9 @@ function escapeHtmlJs(text) {
     return div.innerHTML;
 }
 
+
 /* ========================================
-   MESSAGES — AJAX send + poll + typing + read receipts
+   MESSAGES — AJAX send + poll + typing + read receipts + voice
    ======================================== */
 
 (function () {
@@ -505,7 +456,6 @@ function escapeHtmlJs(text) {
 
     if (!form || !thread) return;
 
-    // Label for the "Seen" pill — from data attribute so it respects i18n
     var seenLabel = card.dataset.seenLabel || 'Seen';
 
     var lastId = 0;
@@ -514,16 +464,11 @@ function escapeHtmlJs(text) {
         if (!isNaN(id) && id > lastId) lastId = id;
     });
 
-    function scrollToBottom() {
-        thread.scrollTop = thread.scrollHeight;
-    }
+    function scrollToBottom() { thread.scrollTop = thread.scrollHeight; }
 
-    // ---- Read receipt: place or remove the "Seen" pill ----
     function updateSeenPill(lastOwnId, lastOwnSeen) {
-        // Remove any existing pill first
         var existing = thread.querySelector('.seen-pill');
         if (existing) existing.remove();
-
         if (!lastOwnId || !lastOwnSeen) return;
 
         var bubble = thread.querySelector('.bubble[data-id="' + lastOwnId + '"]');
@@ -548,14 +493,36 @@ function escapeHtmlJs(text) {
                       + (isDeleted ? ' bubble-deleted' : '');
         if (m.id) div.dataset.id = m.id;
 
-        // Body
         var bodyDiv = document.createElement('div');
         bodyDiv.className = 'bubble-body';
+
+        var isVoice = (m.message_type === 'voice') && m.voice_path;
+
         if (isDeleted) {
             var em = document.createElement('em');
             em.className = 'bubble-deleted-text';
             em.textContent = 'Message deleted';
             bodyDiv.appendChild(em);
+        } else if (isVoice) {
+            var wrap = document.createElement('div');
+            wrap.className = 'voice-message';
+
+            var audio = document.createElement('audio');
+            audio.controls = true;
+            audio.preload = 'metadata';
+            audio.className = 'voice-player';
+            var src = document.createElement('source');
+            src.src = m.voice_path;
+            audio.appendChild(src);
+            wrap.appendChild(audio);
+
+            var dur = parseInt(m.voice_duration, 10) || 0;
+            var durEl = document.createElement('div');
+            durEl.className = 'voice-duration';
+            durEl.textContent = Math.floor(dur / 60) + ':' + ('0' + (dur % 60)).slice(-2);
+            wrap.appendChild(durEl);
+
+            bodyDiv.appendChild(wrap);
         } else {
             var lines = String(m.body).split('\n');
             lines.forEach(function (line, i) {
@@ -564,7 +531,6 @@ function escapeHtmlJs(text) {
             });
         }
 
-        // Time
         var timeDiv = document.createElement('div');
         timeDiv.className = 'bubble-time';
         timeDiv.textContent = m.created_at;
@@ -572,7 +538,6 @@ function escapeHtmlJs(text) {
         div.appendChild(bodyDiv);
         div.appendChild(timeDiv);
 
-        // Report link (incoming + not deleted)
         if (!mine && !isDeleted) {
             var rep = document.createElement('a');
             rep.className = 'bubble-report';
@@ -583,7 +548,6 @@ function escapeHtmlJs(text) {
             div.appendChild(rep);
         }
 
-        // Delete button (outgoing + not deleted)
         if (mine && !isDeleted) {
             var del = document.createElement('button');
             del.type = 'button';
@@ -607,13 +571,9 @@ function escapeHtmlJs(text) {
         .then(function (data) {
             if (!data) return;
 
-            // ---- Typing indicator ----
             var typingEl = document.getElementById('typingIndicator');
-            if (typingEl) {
-                typingEl.style.display = data.typing ? 'flex' : 'none';
-            }
+            if (typingEl) typingEl.style.display = data.typing ? 'flex' : 'none';
 
-            // ---- New messages ----
             if (data.messages && data.messages.length) {
                 if (empty) empty.style.display = 'none';
                 data.messages.forEach(function (m) {
@@ -622,16 +582,11 @@ function escapeHtmlJs(text) {
                     if (!isNaN(id) && id > lastId) lastId = id;
                 });
                 scrollToBottom();
-
-                // New incoming message → partner stopped typing
                 if (typingEl) typingEl.style.display = 'none';
-
-                // Clear nav badge
                 var badge = document.querySelector('a[href="messages.php"] .badge');
                 if (badge) badge.remove();
             }
 
-            // ---- Read receipt ----
             if (typeof data.last_own_id !== 'undefined') {
                 updateSeenPill(data.last_own_id, data.last_own_seen);
             }
@@ -641,7 +596,6 @@ function escapeHtmlJs(text) {
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
-
         var text = bodyEl.value.trim();
         if (!text) return;
 
@@ -652,36 +606,21 @@ function escapeHtmlJs(text) {
 
         fetch('message_send.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: new URLSearchParams({
-                conversation_id: convId,
-                body: text,
-                csrf_token: csrfToken
-            })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ conversation_id: convId, body: text, csrf_token: csrfToken })
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.success && data.message) {
                 bodyEl.value = '';
 
-                // Tell the server we've stopped typing
                 var csrfToken2 = form.querySelector('input[name="csrf_token"]').value;
                 var convId2    = form.querySelector('input[name="conversation_id"]').value;
                 fetch('typing_ping.php', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: new URLSearchParams({
-                        conversation_id: convId2,
-                        csrf_token: csrfToken2,
-                        clear: '1'
-                    })
-                }).catch(function () { /* silent */ });
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({ conversation_id: convId2, csrf_token: csrfToken2, clear: '1' })
+                }).catch(function () {});
 
                 if (empty) empty.style.display = 'none';
                 renderMessage(data.message);
@@ -689,7 +628,6 @@ function escapeHtmlJs(text) {
                 if (!isNaN(id) && id > lastId) lastId = id;
                 scrollToBottom();
 
-                // New message sent → previous "Seen" pill no longer applies
                 var stalePill = thread.querySelector('.seen-pill');
                 if (stalePill) stalePill.remove();
             } else {
@@ -700,40 +638,29 @@ function escapeHtmlJs(text) {
         .catch(function (err) {
             console.error('Send error:', err);
             btn.disabled = false;
-            if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
-                form.submit();
-            } else {
-                alert('Something went wrong sending your message. Check the console.');
-            }
+            if (err instanceof TypeError && /fetch|network/i.test(err.message)) form.submit();
+            else alert('Something went wrong sending your message. Check the console.');
         });
     });
 
-
-    // ---- Delete message handler (event delegation) ----
     thread.addEventListener('click', function (e) {
-        var btn = e.target.closest('.bubble-delete');
-        if (!btn) return;
+        var btn2 = e.target.closest('.bubble-delete');
+        if (!btn2) return;
         e.preventDefault();
 
-        var messageId = btn.dataset.messageId;
+        var messageId = btn2.dataset.messageId;
         if (!messageId) return;
         if (!confirm('Delete this message?')) return;
 
         var csrfInput = form.querySelector('input[name="csrf_token"]');
         var csrfToken = csrfInput ? csrfInput.value : '';
 
-        btn.disabled = true;
+        btn2.disabled = true;
 
         fetch('message_delete.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: new URLSearchParams({
-                message_id: messageId,
-                csrf_token: csrfToken
-            })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ message_id: messageId, csrf_token: csrfToken })
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -749,29 +676,22 @@ function escapeHtmlJs(text) {
                         em.textContent = 'Message deleted';
                         bodyEl2.appendChild(em);
                     }
-                    var db = bubble.querySelector('.bubble-delete');
-                    if (db) db.remove();
-                    var rb = bubble.querySelector('.bubble-report');
-                    if (rb) rb.remove();
-
-                    // If the deleted message was the "last own" one, drop the pill
-                    var pill = bubble.querySelector('.seen-pill');
-                    if (pill) pill.remove();
+                    var db = bubble.querySelector('.bubble-delete'); if (db) db.remove();
+                    var rb = bubble.querySelector('.bubble-report'); if (rb) rb.remove();
+                    var pill = bubble.querySelector('.seen-pill'); if (pill) pill.remove();
                 }
             } else {
                 alert(data.error || 'Could not delete message.');
-                btn.disabled = false;
+                btn2.disabled = false;
             }
         })
         .catch(function (err) {
             console.error('Delete error:', err);
             alert('Could not delete message.');
-            btn.disabled = false;
+            btn2.disabled = false;
         });
     });
 
-
-    // ---- Send typing pings while the user types (throttled to 1.5s) ----
     var lastPingAt = 0;
     if (bodyEl) {
         bodyEl.addEventListener('input', function () {
@@ -785,28 +705,226 @@ function escapeHtmlJs(text) {
 
             fetch('typing_ping.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: new URLSearchParams({
-                    conversation_id: convId,
-                    csrf_token: csrfToken
-                })
-            }).catch(function () { /* silent */ });
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ conversation_id: convId, csrf_token: csrfToken })
+            }).catch(function () {});
         });
     }
 
-    // ---- Initial state: render the "Seen" pill from server-side data ----
     var initialLastOwnId   = card.dataset.lastOwnId ? parseInt(card.dataset.lastOwnId, 10) : 0;
     var initialLastOwnSeen = card.dataset.lastOwnSeen === '1';
     updateSeenPill(initialLastOwnId, initialLastOwnSeen);
 
+    /* ============================================================
+       VOICE RECORDER — race-condition-safe
+       ============================================================ */
+    var micBtn         = document.getElementById('micBtn');
+    var voiceRecorder  = document.getElementById('voiceRecorder');
+    var voiceRecTime   = document.getElementById('voiceRecTime');
+    var voiceCancelBtn = document.getElementById('voiceCancelBtn');
+    var voiceSendBtn   = document.getElementById('voiceSendBtn');
+
+    var mediaRecorder   = null;
+    var recordedChunks  = [];
+    var recordStartTime = 0;
+    var recordTimerId   = null;
+    var maxVoiceSeconds = parseInt(form.dataset.voiceMax || '60', 10);
+    var isUploading     = false;
+
+    console.log('[voice] init:', {
+        micBtn: !!micBtn,
+        voiceRecorder: !!voiceRecorder,
+        voiceSendBtn: !!voiceSendBtn,
+        voiceCancelBtn: !!voiceCancelBtn,
+        voiceRecTime: !!voiceRecTime,
+        maxVoiceSeconds: maxVoiceSeconds
+    });
+
+    function clearRecorderUI() {
+        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+        if (voiceRecorder) voiceRecorder.style.display = 'none';
+        if (voiceRecTime)  voiceRecTime.textContent = '0:00';
+        if (micBtn)        micBtn.disabled = false;
+        if (voiceSendBtn)  voiceSendBtn.disabled = false;
+    }
+
+    function startRecording() {
+        console.log('[voice] startRecording called');
+        if (isUploading) return;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Voice recording is not supported in this browser.');
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function (stream) {
+                console.log('[voice] mic access granted');
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = function (e) {
+                    if (e.data && e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                        console.log('[voice] chunk:', e.data.size, 'total:', recordedChunks.length);
+                    }
+                };
+
+                mediaRecorder.onstop = function () {
+                    console.log('[voice] recorder onstop, chunks:', recordedChunks.length);
+                    stream.getTracks().forEach(function (t) { t.stop(); });
+                };
+
+                // Flush a chunk every second so we always have data on hand
+                mediaRecorder.start(1000);
+
+                recordStartTime = Date.now();
+                if (voiceRecorder) voiceRecorder.style.display = 'flex';
+                if (micBtn) micBtn.disabled = true;
+
+                recordTimerId = setInterval(function () {
+                    var elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+                    if (voiceRecTime) {
+                        voiceRecTime.textContent = Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
+                    }
+                    if (elapsed >= maxVoiceSeconds) {
+                        // Auto-stop → user still needs to click ➤ to send
+                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                            try { mediaRecorder.stop(); } catch (e) {}
+                        }
+                        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+                    }
+                }, 250);
+            })
+            .catch(function (err) {
+                console.error('[voice] mic denied:', err);
+                alert('Microphone access is needed to record voice messages.');
+                clearRecorderUI();
+            });
+    }
+
+    function cancelRecording() {
+        console.log('[voice] cancel');
+        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            try { mediaRecorder.stop(); } catch (e) {}
+        }
+        recordedChunks = [];
+        mediaRecorder = null;
+        clearRecorderUI();
+    }
+
+    function sendRecording() {
+        console.log('[voice] send clicked, chunks so far:', recordedChunks.length);
+        if (isUploading) return;
+
+        // Case A: recorder still active — stop it, wait for onstop, then upload
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            var duration = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
+            if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+
+            var originalOnStop = mediaRecorder.onstop;
+            mediaRecorder.onstop = function () {
+                if (originalOnStop) originalOnStop.call(mediaRecorder);
+                console.log('[voice] stopped, now uploading. chunks:', recordedChunks.length);
+                uploadVoiceRecording(duration);
+            };
+
+            try {
+                mediaRecorder.stop();
+            } catch (e) {
+                console.error('[voice] stop failed:', e);
+                uploadVoiceRecording(duration);
+            }
+            return;
+        }
+
+        // Case B: recorder already stopped (e.g. auto-stop at 60s) — upload directly
+        var durationFallback = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
+        uploadVoiceRecording(durationFallback);
+    }
+
+    function uploadVoiceRecording(duration) {
+        console.log('[voice] upload start, chunks:', recordedChunks.length);
+
+        if (!recordedChunks.length) {
+            console.warn('[voice] no chunks to upload');
+            mediaRecorder = null;
+            clearRecorderUI();
+            return;
+        }
+
+        isUploading = true;
+        duration = Math.max(1, duration || 1);
+
+        var mimeType = 'audio/webm';
+        try {
+            mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
+        } catch (e) { /* ignore */ }
+
+        var blob = new Blob(recordedChunks, { type: mimeType });
+        console.log('[voice] blob size:', blob.size, 'type:', mimeType);
+
+        var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+        var convId    = form.querySelector('input[name="conversation_id"]').value;
+
+        var fd = new FormData();
+        fd.append('conversation_id', convId);
+        fd.append('csrf_token', csrfToken);
+        fd.append('duration', duration);
+        fd.append('voice', blob, 'voice.webm');
+
+        if (voiceSendBtn) voiceSendBtn.disabled = true;
+
+        fetch('message_voice_send.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            console.log('[voice] response:', data);
+            if (data.success && data.message) {
+                if (empty) empty.style.display = 'none';
+                renderMessage(data.message);
+                var id = parseInt(data.message.id, 10);
+                if (!isNaN(id) && id > lastId) lastId = id;
+                scrollToBottom();
+            } else {
+                alert(data.error || 'Could not send voice message.');
+            }
+            recordedChunks = [];
+            mediaRecorder = null;
+            isUploading = false;
+            clearRecorderUI();
+        })
+        .catch(function (err) {
+            console.error('[voice] fetch error:', err);
+            alert('Could not send voice message.');
+            recordedChunks = [];
+            mediaRecorder = null;
+            isUploading = false;
+            clearRecorderUI();
+        });
+    }
+
+    if (micBtn) {
+        micBtn.addEventListener('click', function (e) { e.preventDefault(); startRecording(); });
+    }
+    if (voiceCancelBtn) {
+        voiceCancelBtn.addEventListener('click', function (e) { e.preventDefault(); cancelRecording(); });
+    }
+    if (voiceSendBtn) {
+        voiceSendBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            sendRecording();
+        });
+    }
+
     scrollToBottom();
     setInterval(poll, 4000);
 })();
-
-
 
 
 /* ========================================
@@ -834,25 +952,16 @@ function handleBlock(form) {
 
     fetch('block.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
         body: new URLSearchParams({
-            target_id: targetId,
-            block_action: action,
-            csrf_token: csrfToken,
-            redirect: redirect
+            target_id: targetId, block_action: action,
+            csrf_token: csrfToken, redirect: redirect
         })
     })
     .then(r => r.json())
     .then(data => {
-        if (data.success) {
-            window.location.href = redirect;
-        } else {
-            alert(data.error || 'Something went wrong');
-            button.disabled = false;
-        }
+        if (data.success) window.location.href = redirect;
+        else { alert(data.error || 'Something went wrong'); button.disabled = false; }
     })
     .catch(error => {
         console.error('Block error:', error);

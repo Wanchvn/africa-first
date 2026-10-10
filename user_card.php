@@ -1,8 +1,13 @@
 <?php
+/**
+ * Qarota — returns JSON for the user hover card.
+ * Called by interact.js when a username is hovered.
+ */
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
+require 'includes/blocks.php';
 
 header('Content-Type: application/json');
 
@@ -11,7 +16,7 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$my_id = (int)$_SESSION['user_id'];
+$my_id   = (int)$_SESSION['user_id'];
 $user_id = (int)($_GET['id'] ?? 0);
 
 if ($user_id <= 0) {
@@ -37,10 +42,39 @@ if (!$user) {
 }
 
 $display_name = $user['display_name'] ?: $user['username'];
+$is_self = ((int)$user['id'] === $my_id);
+
+// -----------------------------------------------------------------------------
+// Block check — if a block exists in EITHER direction, return a reduced card.
+// We still return success (so JS renders SOMETHING), but hide most fields and
+// disable the follow button.
+// -----------------------------------------------------------------------------
+$blocked = false;
+if (!$is_self) {
+    $blocked = is_blocked_either($pdo, $my_id, (int)$user['id']);
+}
+
+if ($blocked) {
+    echo json_encode([
+        'success' => true,
+        'user' => [
+            'id'              => (int)$user['id'],
+            'username'        => $user['username'],
+            'display_name'    => $display_name,
+            'avatar'          => $user['avatar'],
+            'bio'             => '',
+            'follower_count'  => 0,
+            'following_count' => 0,
+            'is_following'    => false,
+            'is_self'         => false,
+            'is_blocked'      => true,
+        ],
+    ]);
+    exit;
+}
 
 // Check follow status (only if not viewing own card)
 $is_following = false;
-$is_self = ((int)$user['id'] === $my_id);
 if (!$is_self) {
     $stmt = $pdo->prepare("SELECT 1 FROM follows WHERE follower_id = :me AND following_id = :them");
     $stmt->execute([':me' => $my_id, ':them' => $user_id]);
@@ -65,5 +99,6 @@ echo json_encode([
         'following_count' => (int)$user['following_count'],
         'is_following'    => $is_following,
         'is_self'         => $is_self,
+        'is_blocked'      => false,
     ],
 ]);
