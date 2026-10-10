@@ -5,6 +5,7 @@ start_secure_session();
 require 'config/db.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require 'lang/init.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
