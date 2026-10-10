@@ -56,9 +56,12 @@ mark_conversation_read($pdo, $conv, $me);
 
 // -----------------------------------------------------------------------------
 // Load messages (oldest first)
+// IMPORTANT: must include message_type, voice_path, voice_duration so that
+// voice bubbles render correctly on page load.
 // -----------------------------------------------------------------------------
 $mStmt = $pdo->prepare(
-    "SELECT id, sender_id, body, created_at, deleted_at
+    "SELECT id, sender_id, body, message_type, voice_path, voice_duration,
+            created_at, deleted_at
      FROM messages
      WHERE conversation_id = :c
      ORDER BY id ASC
@@ -95,7 +98,12 @@ $page_title = $partner ? sprintf(__('messages_with'), $partner_name) : __('messa
 require 'includes/header.php';
 ?>
 
-<div class="card" id="conversationCard" data-conv="<?= $conv ?>" data-me="<?= $me ?>">
+<div class="card" id="conversationCard"
+     data-conv="<?= $conv ?>"
+     data-me="<?= $me ?>"
+     data-seen-label="<?= htmlspecialchars(__('seen')) ?>"
+     data-last-own-id="<?= $lastOwnId ?: '' ?>"
+     data-last-own-seen="<?= $lastOwnSeen ? '1' : '0' ?>">
     <p style="margin-top:0;">
         <a href="messages.php">← <?= __('messages_back_to_inbox') ?></a>
     </p>
@@ -120,7 +128,6 @@ require 'includes/header.php';
             </div>
 
             <div style="display:flex; gap: var(--space-2); align-items:center;">
-                <!-- Block / Unblock toggle (works regardless of current state) -->
                 <form method="POST" action="block.php" class="block-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="target_id" value="<?= (int)$partner['id'] ?>">
@@ -161,37 +168,40 @@ require 'includes/header.php';
             <?= __('messages_thread_empty') ?>
         </p>
         <?php foreach ($messages as $m): ?>
-            <?php $mine = ((int)$m['sender_id'] === $me); ?>
-            <?php $is_deleted = !empty($m['deleted_at']); ?>
+            <?php
+            $mine       = ((int)$m['sender_id'] === $me);
+            $is_deleted = !empty($m['deleted_at']);
+            $is_voice   = (($m['message_type'] ?? 'text') === 'voice') && !empty($m['voice_path']);
+            ?>
             <div class="bubble <?= $mine ? 'bubble-mine' : 'bubble-theirs' ?> <?= $is_deleted ? 'bubble-deleted' : '' ?>"
                  data-id="<?= (int)$m['id'] ?>">
 
                 <div class="bubble-body">
-    <?php if ($is_deleted): ?>
-        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
+                    <?php if ($is_deleted): ?>
+                        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
 
-    <?php elseif (($m['message_type'] ?? 'text') === 'voice' && !empty($m['voice_path'])): ?>
-        <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
-        <div class="voice-message">
-            <audio controls preload="metadata" class="voice-player">
-                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
-            </audio>
-            <div class="voice-duration">
-                <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
-            </div>
-        </div>
+                    <?php elseif ($is_voice): ?>
+                        <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
+                        <div class="voice-message">
+                            <audio controls preload="metadata" class="voice-player">
+                                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
+                            </audio>
+                            <div class="voice-duration">
+                                <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
+                            </div>
+                        </div>
 
-    <?php else: ?>
-        <?= nl2br(htmlspecialchars($m['body'])) ?>
-    <?php endif; ?>
-</div>
+                    <?php else: ?>
+                        <?= nl2br(htmlspecialchars($m['body'])) ?>
+                    <?php endif; ?>
+                </div>
 
                 <div class="bubble-time">
-    <?= htmlspecialchars($m['created_at']) ?>
-    <?php if ($mine && !$is_deleted && $lastOwnId === (int)$m['id'] && $lastOwnSeen): ?>
-        <span class="seen-pill">· <?= __('seen') ?></span>
-    <?php endif; ?>
-</div>
+                    <?= htmlspecialchars($m['created_at']) ?>
+                    <?php if ($mine && !$is_deleted && $lastOwnId === (int)$m['id'] && $lastOwnSeen): ?>
+                        <span class="seen-pill">· <?= __('seen') ?></span>
+                    <?php endif; ?>
+                </div>
 
                 <?php if (!$mine && !$is_deleted): ?>
                     <a class="bubble-report"
@@ -215,10 +225,7 @@ require 'includes/header.php';
         <?php endforeach; ?>
     </div>
 
-    <!-- =============================================================
-         Typing indicator — hidden by default; the JS poll loop shows
-         it when the partner has pinged `typing_ping.php` recently.
-         ============================================================= -->
+    <!-- Typing indicator -->
     <div class="typing-indicator" id="typingIndicator" style="display:none;" aria-live="polite">
         <span class="typing-dots">
             <span></span><span></span><span></span>
@@ -227,7 +234,7 @@ require 'includes/header.php';
         <span class="typing-text"><?= __('typing_indicator') ?></span>
     </div>
 
-    <!-- Composer: hidden if either party has blocked the other -->
+    <!-- Composer -->
     <?php if ($blocked_either): ?>
         <p class="blocked-note">
             <?= $i_blocked_them
@@ -235,37 +242,36 @@ require 'includes/header.php';
                 : __('block_note_they_blocked') ?>
         </p>
     <?php else: ?>
-       <form method="POST" action="message_send.php" class="stack message-form"
-      id="messageForm" style="margin-top: var(--space-4);"
-      data-voice-max="60">
-    <?= csrf_field() ?>
-    <input type="hidden" name="conversation_id" value="<?= $conv ?>">
-    <textarea name="body" id="messageBody" rows="3" maxlength="5000"
-              placeholder="<?= __('messages_placeholder') ?>"></textarea>
+        <form method="POST" action="message_send.php" class="stack message-form"
+              id="messageForm" style="margin-top: var(--space-4);"
+              data-voice-max="60">
+            <?= csrf_field() ?>
+            <input type="hidden" name="conversation_id" value="<?= $conv ?>">
+            <textarea name="body" id="messageBody" rows="3" maxlength="5000"
+                      placeholder="<?= __('messages_placeholder') ?>"></textarea>
 
-    <!-- Voice recorder UI (hidden by default) -->
-    <div class="voice-recorder" id="voiceRecorder" style="display:none;">
-        <span class="voice-rec-dot"></span>
-        <span class="voice-rec-time" id="voiceRecTime">0:00</span>
-        <button type="button" class="voice-rec-cancel" id="voiceCancelBtn"
-                aria-label="<?= __('voice_cancel') ?>">
-            <i data-lucide="x" style="width:16px;height:16px;"></i>
-        </button>
-        <button type="button" class="voice-rec-send" id="voiceSendBtn"
-                aria-label="<?= __('voice_send') ?>">
-            <i data-lucide="send" style="width:16px;height:16px;"></i>
-        </button>
-    </div>
+            <div class="voice-recorder" id="voiceRecorder" style="display:none;">
+                <span class="voice-rec-dot"></span>
+                <span class="voice-rec-time" id="voiceRecTime">0:00</span>
+                <button type="button" class="voice-rec-cancel" id="voiceCancelBtn"
+                        aria-label="<?= __('voice_cancel') ?>">
+                    <i data-lucide="x" style="width:16px;height:16px;"></i>
+                </button>
+                <button type="button" class="voice-rec-send" id="voiceSendBtn"
+                        aria-label="<?= __('voice_send') ?>">
+                    <i data-lucide="send" style="width:16px;height:16px;"></i>
+                </button>
+            </div>
 
-    <div class="message-actions">
-        <button type="button" id="micBtn" class="mic-btn"
-                aria-label="<?= __('voice_record') ?>"
-                title="<?= __('voice_record') ?>">
-            <i data-lucide="mic" style="width:18px;height:18px;"></i>
-        </button>
-        <button type="submit" id="sendBtn"><?= __('messages_send') ?></button>
-    </div>
-</form>
+            <div class="message-actions">
+                <button type="button" id="micBtn" class="mic-btn"
+                        aria-label="<?= __('voice_record') ?>"
+                        title="<?= __('voice_record') ?>">
+                    <i data-lucide="mic" style="width:18px;height:18px;"></i>
+                </button>
+                <button type="submit" id="sendBtn"><?= __('messages_send') ?></button>
+            </div>
+        </form>
     <?php endif; ?>
 </div>
 
