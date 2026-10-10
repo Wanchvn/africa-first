@@ -67,6 +67,26 @@ $mStmt = $pdo->prepare(
 $mStmt->execute([':c' => $conv]);
 $messages = $mStmt->fetchAll();
 
+
+// ---- Read receipt for initial render ----
+$lastOwnId   = null;
+$lastOwnSeen = false;
+
+$lastMsgQ = $pdo->prepare(
+    "SELECT id, sender_id, is_read
+     FROM messages
+     WHERE conversation_id = :c
+     ORDER BY id DESC
+     LIMIT 1"
+);
+$lastMsgQ->execute([':c' => $conv]);
+$lm = $lastMsgQ->fetch();
+
+if ($lm && (int)$lm['sender_id'] === $me) {
+    $lastOwnId   = (int)$lm['id'];
+    $lastOwnSeen = ((int)$lm['is_read'] === 1);
+}
+
 $partner_name = $partner
     ? ($partner['display_name'] ?: $partner['username'])
     : '';
@@ -154,7 +174,12 @@ require 'includes/header.php';
                     <?php endif; ?>
                 </div>
 
-                <div class="bubble-time"><?= htmlspecialchars($m['created_at']) ?></div>
+                <div class="bubble-time">
+    <?= htmlspecialchars($m['created_at']) ?>
+    <?php if ($mine && !$is_deleted && $lastOwnId === (int)$m['id'] && $lastOwnSeen): ?>
+        <span class="seen-pill">· <?= __('seen') ?></span>
+    <?php endif; ?>
+</div>
 
                 <?php if (!$mine && !$is_deleted): ?>
                     <a class="bubble-report"

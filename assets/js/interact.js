@@ -193,7 +193,6 @@ function handleBookmark(form) {
         const userId = link.dataset.userId;
         if (!userId) return;
 
-        // If we're already showing this user, do nothing
         if (currentUserId === userId && currentCard && currentCard.style.display === 'block') {
             return;
         }
@@ -213,13 +212,11 @@ function handleBookmark(form) {
 
         clearTimeout(hoverTimer);
 
-        // Schedule hide (unless mouse enters the card itself)
         hideTimer = setTimeout(function() {
             hideCard();
         }, 200);
     });
 
-    // Keep the card open when hovering it
     document.addEventListener('mouseover', function(e) {
         if (currentCard && currentCard.contains(e.target)) {
             clearTimeout(hideTimer);
@@ -245,19 +242,16 @@ function handleBookmark(form) {
     function showCard(userId, anchorEl) {
         currentUserId = userId;
 
-        // Check cache first
         if (cardCache[userId]) {
             renderCard(cardCache[userId], anchorEl);
             return;
         }
 
-        // Show loading state
         const card = getCardElement();
         card.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--muted);">Loading…</div>';
         positionCard(card, anchorEl);
         card.style.display = 'block';
 
-        // Fetch user data
         fetch('user_card.php?id=' + userId)
             .then(r => r.json())
             .then(data => {
@@ -322,13 +316,11 @@ function handleBookmark(form) {
         positionCard(card, anchorEl);
         card.style.display = 'block';
 
-        // Re-attach follow handler since the card is new HTML
         const form = card.querySelector('.follow-form');
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 handleFollow(form);
-                // Update button state inline
                 const btn = form.querySelector('button');
                 setTimeout(function() {
                     const wasFollowing = btn.classList.contains('btn-secondary');
@@ -341,7 +333,6 @@ function handleBookmark(form) {
                         btn.classList.remove('btn');
                         btn.textContent = 'Unfollow';
                     }
-                    // Update cache
                     if (cardCache[user.id]) {
                         cardCache[user.id].is_following = !wasFollowing;
                     }
@@ -357,7 +348,6 @@ function handleBookmark(form) {
         let left = rect.left + window.scrollX;
         let top = rect.bottom + window.scrollY + 8;
 
-        // Keep within viewport
         if (left + cardWidth > window.scrollX + window.innerWidth - 16) {
             left = window.scrollX + window.innerWidth - cardWidth - 16;
         }
@@ -378,7 +368,6 @@ function handleBookmark(form) {
     }
 
     function getCsrfToken() {
-        // Grab the CSRF token from any existing form on the page
         const input = document.querySelector('input[name="csrf_token"]');
         return input ? input.value : '';
     }
@@ -411,7 +400,6 @@ function startEditComment(btn) {
 
     const originalContent = bodyEl.textContent.trim();
 
-    // Replace body with textarea + buttons
     bodyEl.innerHTML = `
         <form class="comment-edit-form" onsubmit="return false;">
             <textarea maxlength="500" required>${escapeHtmlJs(originalContent)}</textarea>
@@ -445,7 +433,6 @@ function startEditComment(btn) {
         saveBtn.disabled = true;
         errorEl.textContent = '';
 
-        // Find CSRF token from any form on the page
         const csrfInput = document.querySelector('input[name="csrf_token"]');
         const csrfToken = csrfInput ? csrfInput.value : '';
 
@@ -464,10 +451,8 @@ function startEditComment(btn) {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                // Replace body with the new content
                 bodyEl.innerHTML = escapeHtmlJs(data.content);
 
-                // Add or update the "Edited" label in the meta
                 const meta = comment.querySelector('.comment-meta');
                 if (meta && !meta.querySelector('.edited-label')) {
                     const editedSpan = document.createElement('span');
@@ -503,7 +488,7 @@ function escapeHtmlJs(text) {
 }
 
 /* ========================================
-   MESSAGES — AJAX send + poll
+   MESSAGES — AJAX send + poll + typing + read receipts
    ======================================== */
 
 (function () {
@@ -520,6 +505,9 @@ function escapeHtmlJs(text) {
 
     if (!form || !thread) return;
 
+    // Label for the "Seen" pill — from data attribute so it respects i18n
+    var seenLabel = card.dataset.seenLabel || 'Seen';
+
     var lastId = 0;
     thread.querySelectorAll('.bubble').forEach(function (el) {
         var id = parseInt(el.dataset.id, 10);
@@ -530,66 +518,87 @@ function escapeHtmlJs(text) {
         thread.scrollTop = thread.scrollHeight;
     }
 
- function renderMessage(m) {
-    var mine = (parseInt(m.sender_id, 10) === me);
-    var isDeleted = !!m.deleted_at;
+    // ---- Read receipt: place or remove the "Seen" pill ----
+    function updateSeenPill(lastOwnId, lastOwnSeen) {
+        // Remove any existing pill first
+        var existing = thread.querySelector('.seen-pill');
+        if (existing) existing.remove();
 
-    var div = document.createElement('div');
-    div.className = 'bubble ' + (mine ? 'bubble-mine' : 'bubble-theirs')
-                  + (isDeleted ? ' bubble-deleted' : '');
-    if (m.id) div.dataset.id = m.id;
+        if (!lastOwnId || !lastOwnSeen) return;
 
-    // Body
-    var bodyDiv = document.createElement('div');
-    bodyDiv.className = 'bubble-body';
-    if (isDeleted) {
-        var em = document.createElement('em');
-        em.className = 'bubble-deleted-text';
-        em.textContent = 'Message deleted';
-        bodyDiv.appendChild(em);
-    } else {
-        var lines = String(m.body).split('\n');
-        lines.forEach(function (line, i) {
-            if (i > 0) bodyDiv.appendChild(document.createElement('br'));
-            bodyDiv.appendChild(document.createTextNode(line));
-        });
+        var bubble = thread.querySelector('.bubble[data-id="' + lastOwnId + '"]');
+        if (!bubble) return;
+        if (bubble.classList.contains('bubble-deleted')) return;
+
+        var timeEl = bubble.querySelector('.bubble-time');
+        if (!timeEl) return;
+
+        var pill = document.createElement('span');
+        pill.className = 'seen-pill';
+        pill.textContent = ' · ' + seenLabel;
+        timeEl.appendChild(pill);
     }
 
-    // Time
-    var timeDiv = document.createElement('div');
-    timeDiv.className = 'bubble-time';
-    timeDiv.textContent = m.created_at;
+    function renderMessage(m) {
+        var mine = (parseInt(m.sender_id, 10) === me);
+        var isDeleted = !!m.deleted_at;
 
-    div.appendChild(bodyDiv);
-    div.appendChild(timeDiv);
+        var div = document.createElement('div');
+        div.className = 'bubble ' + (mine ? 'bubble-mine' : 'bubble-theirs')
+                      + (isDeleted ? ' bubble-deleted' : '');
+        if (m.id) div.dataset.id = m.id;
 
-    // Report link (incoming + not deleted)
-    if (!mine && !isDeleted) {
-        var rep = document.createElement('a');
-        rep.className = 'bubble-report';
-        rep.href = 'report_message.php?conversation_id=' + encodeURIComponent(conv)
-                 + '&message_id=' + encodeURIComponent(m.id);
-        rep.title = 'Report';
-        rep.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
-        div.appendChild(rep);
+        // Body
+        var bodyDiv = document.createElement('div');
+        bodyDiv.className = 'bubble-body';
+        if (isDeleted) {
+            var em = document.createElement('em');
+            em.className = 'bubble-deleted-text';
+            em.textContent = 'Message deleted';
+            bodyDiv.appendChild(em);
+        } else {
+            var lines = String(m.body).split('\n');
+            lines.forEach(function (line, i) {
+                if (i > 0) bodyDiv.appendChild(document.createElement('br'));
+                bodyDiv.appendChild(document.createTextNode(line));
+            });
+        }
+
+        // Time
+        var timeDiv = document.createElement('div');
+        timeDiv.className = 'bubble-time';
+        timeDiv.textContent = m.created_at;
+
+        div.appendChild(bodyDiv);
+        div.appendChild(timeDiv);
+
+        // Report link (incoming + not deleted)
+        if (!mine && !isDeleted) {
+            var rep = document.createElement('a');
+            rep.className = 'bubble-report';
+            rep.href = 'report_message.php?conversation_id=' + encodeURIComponent(conv)
+                     + '&message_id=' + encodeURIComponent(m.id);
+            rep.title = 'Report';
+            rep.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
+            div.appendChild(rep);
+        }
+
+        // Delete button (outgoing + not deleted)
+        if (mine && !isDeleted) {
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'bubble-delete';
+            del.dataset.messageId = m.id;
+            del.title = 'Delete';
+            del.setAttribute('aria-label', 'Delete message');
+            del.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+            div.appendChild(del);
+        }
+
+        thread.appendChild(div);
     }
 
-    // Delete button (outgoing + not deleted)
-    if (mine && !isDeleted) {
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'bubble-delete';
-        del.dataset.messageId = m.id;
-        del.title = 'Delete';
-        del.setAttribute('aria-label', 'Delete message');
-        del.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
-        div.appendChild(del);
-    }
-
-    thread.appendChild(div);
-}
-
-       function poll() {
+    function poll() {
         fetch('messages_fetch.php?id=' + encodeURIComponent(conv)
               + '&after=' + encodeURIComponent(lastId), {
             credentials: 'same-origin'
@@ -620,6 +629,11 @@ function escapeHtmlJs(text) {
                 // Clear nav badge
                 var badge = document.querySelector('a[href="messages.php"] .badge');
                 if (badge) badge.remove();
+            }
+
+            // ---- Read receipt ----
+            if (typeof data.last_own_id !== 'undefined') {
+                updateSeenPill(data.last_own_id, data.last_own_seen);
             }
         })
         .catch(function () { /* silent */ });
@@ -653,7 +667,7 @@ function escapeHtmlJs(text) {
             if (data.success && data.message) {
                 bodyEl.value = '';
 
-                                // Tell the server we've stopped typing
+                // Tell the server we've stopped typing
                 var csrfToken2 = form.querySelector('input[name="csrf_token"]').value;
                 var convId2    = form.querySelector('input[name="conversation_id"]').value;
                 fetch('typing_ping.php', {
@@ -668,91 +682,93 @@ function escapeHtmlJs(text) {
                         clear: '1'
                     })
                 }).catch(function () { /* silent */ });
-                
 
                 if (empty) empty.style.display = 'none';
                 renderMessage(data.message);
                 var id = parseInt(data.message.id, 10);
                 if (!isNaN(id) && id > lastId) lastId = id;
                 scrollToBottom();
+
+                // New message sent → previous "Seen" pill no longer applies
+                var stalePill = thread.querySelector('.seen-pill');
+                if (stalePill) stalePill.remove();
             } else {
                 alert(data.error || 'Something went wrong');
             }
             btn.disabled = false;
         })
         .catch(function (err) {
-    console.error('Send error:', err);
-    btn.disabled = false;
-    // Only fall back if the network request truly failed.
-    // If a downstream render threw, don't hijack the page.
-    if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
-        form.submit();
-    } else {
-        alert('Something went wrong sending your message. Check the console.');
-    }
-});
+            console.error('Send error:', err);
+            btn.disabled = false;
+            if (err instanceof TypeError && /fetch|network/i.test(err.message)) {
+                form.submit();
+            } else {
+                alert('Something went wrong sending your message. Check the console.');
+            }
+        });
     });
-
 
 
     // ---- Delete message handler (event delegation) ----
-thread.addEventListener('click', function (e) {
-    var btn = e.target.closest('.bubble-delete');
-    if (!btn) return;
-    e.preventDefault();
+    thread.addEventListener('click', function (e) {
+        var btn = e.target.closest('.bubble-delete');
+        if (!btn) return;
+        e.preventDefault();
 
-    var messageId = btn.dataset.messageId;
-    if (!messageId) return;
-    if (!confirm('Delete this message?')) return;
+        var messageId = btn.dataset.messageId;
+        if (!messageId) return;
+        if (!confirm('Delete this message?')) return;
 
-    var csrfInput = form.querySelector('input[name="csrf_token"]');
-    var csrfToken = csrfInput ? csrfInput.value : '';
+        var csrfInput = form.querySelector('input[name="csrf_token"]');
+        var csrfToken = csrfInput ? csrfInput.value : '';
 
-    btn.disabled = true;
+        btn.disabled = true;
 
-    fetch('message_delete.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: new URLSearchParams({
-            message_id: messageId,
-            csrf_token: csrfToken
+        fetch('message_delete.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                message_id: messageId,
+                csrf_token: csrfToken
+            })
         })
-    })
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-        if (data.success) {
-            var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
-            if (bubble) {
-                bubble.classList.add('bubble-deleted');
-                var bodyEl = bubble.querySelector('.bubble-body');
-                if (bodyEl) {
-                    bodyEl.innerHTML = '';
-                    var em = document.createElement('em');
-                    em.className = 'bubble-deleted-text';
-                    em.textContent = 'Message deleted';
-                    bodyEl.appendChild(em);
-                }
-                // Remove delete button + report link
-                var db = bubble.querySelector('.bubble-delete');
-                if (db) db.remove();
-                var rb = bubble.querySelector('.bubble-report');
-                if (rb) rb.remove();
-            }
-        } else {
-            alert(data.error || 'Could not delete message.');
-            btn.disabled = false;
-        }
-    })
-    .catch(function (err) {
-        console.error('Delete error:', err);
-        alert('Could not delete message.');
-        btn.disabled = false;
-    });
-});
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
+                if (bubble) {
+                    bubble.classList.add('bubble-deleted');
+                    var bodyEl2 = bubble.querySelector('.bubble-body');
+                    if (bodyEl2) {
+                        bodyEl2.innerHTML = '';
+                        var em = document.createElement('em');
+                        em.className = 'bubble-deleted-text';
+                        em.textContent = 'Message deleted';
+                        bodyEl2.appendChild(em);
+                    }
+                    var db = bubble.querySelector('.bubble-delete');
+                    if (db) db.remove();
+                    var rb = bubble.querySelector('.bubble-report');
+                    if (rb) rb.remove();
 
+                    // If the deleted message was the "last own" one, drop the pill
+                    var pill = bubble.querySelector('.seen-pill');
+                    if (pill) pill.remove();
+                }
+            } else {
+                alert(data.error || 'Could not delete message.');
+                btn.disabled = false;
+            }
+        })
+        .catch(function (err) {
+            console.error('Delete error:', err);
+            alert('Could not delete message.');
+            btn.disabled = false;
+        });
+    });
 
 
     // ---- Send typing pings while the user types (throttled to 1.5s) ----
@@ -781,6 +797,11 @@ thread.addEventListener('click', function (e) {
         });
     }
 
+    // ---- Initial state: render the "Seen" pill from server-side data ----
+    var initialLastOwnId   = card.dataset.lastOwnId ? parseInt(card.dataset.lastOwnId, 10) : 0;
+    var initialLastOwnSeen = card.dataset.lastOwnSeen === '1';
+    updateSeenPill(initialLastOwnId, initialLastOwnSeen);
+
     scrollToBottom();
     setInterval(poll, 4000);
 })();
@@ -795,12 +816,6 @@ thread.addEventListener('click', function (e) {
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.block-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
-            // If the form has a confirm() attribute, let the inline handler run first
-            var btn = form.querySelector('button[type="submit"]');
-            if (btn && btn.getAttribute('onclick')) {
-                // The onclick already ran; if it returned false, we shouldn't submit
-                // (inline onclick returning false stops submit before this handler fires anyway)
-            }
             e.preventDefault();
             handleBlock(form);
         });
@@ -833,7 +848,6 @@ function handleBlock(form) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            // Simplest UX: reload so all state (buttons, banners) reflects the new block status
             window.location.href = redirect;
         } else {
             alert(data.error || 'Something went wrong');

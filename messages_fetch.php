@@ -52,8 +52,32 @@ mark_conversation_read($pdo, $conv, $me);
 $partnerId = conversation_partner($pdo, $conv, $me);
 $partnerIsTyping = $partnerId ? is_typing($pdo, $conv, $partnerId) : false;
 
+
+// ---- Read receipt: has the partner read my LAST outgoing message? ----
+// We look at the very last message in the conversation. If it's mine
+// and is_read is set, the partner has "seen" up to and including it.
+$readInfo = ['last_own_id' => null, 'last_own_seen' => false];
+
+$lastMsg = $pdo->prepare(
+    "SELECT id, sender_id, is_read
+     FROM messages
+     WHERE conversation_id = :c
+     ORDER BY id DESC
+     LIMIT 1"
+);
+$lastMsg->execute([':c' => $conv]);
+$lm = $lastMsg->fetch();
+
+if ($lm && (int)$lm['sender_id'] === $me) {
+    // The last message in the thread is mine — is it read?
+    $readInfo['last_own_id']   = (int)$lm['id'];
+    $readInfo['last_own_seen'] = ((int)$lm['is_read'] === 1);
+}
+
 echo json_encode([
-    'success'  => true,
-    'messages' => $messages,
-    'typing'   => $partnerIsTyping,
+    'success'        => true,
+    'messages'       => $messages,
+    'typing'         => $partnerIsTyping,
+    'last_own_id'    => $readInfo['last_own_id'],
+    'last_own_seen'  => $readInfo['last_own_seen'],
 ]);

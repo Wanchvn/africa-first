@@ -3176,3 +3176,26 @@ body.dark-mode .bubble-mine.bubble-deleted {
 body.dark-mode .typing-name {
     color: var(--charcoal);
 }
+
+
+/* ========================================
+   READ RECEIPTS — "Seen" pill
+   ======================================== */
+
+.seen-pill {
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-left: 2px;
+    white-space: nowrap;
+    opacity: 0.85;
+}
+
+/* On your own (terracotta) bubbles, "Seen" should be light */
+.bubble-mine .seen-pill {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Dark mode */
+body.dark-mode .bubble-mine .seen-pill {
+    color: rgba(255, 255, 255, 0.85);
+}
