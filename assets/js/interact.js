@@ -589,26 +589,40 @@ function escapeHtmlJs(text) {
     thread.appendChild(div);
 }
 
-    function poll() {
+       function poll() {
         fetch('messages_fetch.php?id=' + encodeURIComponent(conv)
               + '&after=' + encodeURIComponent(lastId), {
             credentials: 'same-origin'
         })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
-            if (!data || !data.messages || !data.messages.length) return;
-            if (empty) empty.style.display = 'none';
-            data.messages.forEach(function (m) {
-                renderMessage(m);
-                var id = parseInt(m.id, 10);
-                if (!isNaN(id) && id > lastId) lastId = id;
-            });
-            scrollToBottom();
+            if (!data) return;
 
-            var badge = document.querySelector('a[href="messages.php"] .badge');
-            if (badge) badge.remove();
+            // ---- Typing indicator ----
+            var typingEl = document.getElementById('typingIndicator');
+            if (typingEl) {
+                typingEl.style.display = data.typing ? 'flex' : 'none';
+            }
+
+            // ---- New messages ----
+            if (data.messages && data.messages.length) {
+                if (empty) empty.style.display = 'none';
+                data.messages.forEach(function (m) {
+                    renderMessage(m);
+                    var id = parseInt(m.id, 10);
+                    if (!isNaN(id) && id > lastId) lastId = id;
+                });
+                scrollToBottom();
+
+                // New incoming message → partner stopped typing
+                if (typingEl) typingEl.style.display = 'none';
+
+                // Clear nav badge
+                var badge = document.querySelector('a[href="messages.php"] .badge');
+                if (badge) badge.remove();
+            }
         })
-        .catch(function () {});
+        .catch(function () { /* silent */ });
     }
 
     form.addEventListener('submit', function (e) {
@@ -638,6 +652,24 @@ function escapeHtmlJs(text) {
         .then(function (data) {
             if (data.success && data.message) {
                 bodyEl.value = '';
+
+                                // Tell the server we've stopped typing
+                var csrfToken2 = form.querySelector('input[name="csrf_token"]').value;
+                var convId2    = form.querySelector('input[name="conversation_id"]').value;
+                fetch('typing_ping.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: new URLSearchParams({
+                        conversation_id: convId2,
+                        csrf_token: csrfToken2,
+                        clear: '1'
+                    })
+                }).catch(function () { /* silent */ });
+                
+
                 if (empty) empty.style.display = 'none';
                 renderMessage(data.message);
                 var id = parseInt(data.message.id, 10);
@@ -720,6 +752,34 @@ thread.addEventListener('click', function (e) {
         btn.disabled = false;
     });
 });
+
+
+
+    // ---- Send typing pings while the user types (throttled to 1.5s) ----
+    var lastPingAt = 0;
+    if (bodyEl) {
+        bodyEl.addEventListener('input', function () {
+            if (bodyEl.value.trim().length === 0) return;
+            var now = Date.now();
+            if (now - lastPingAt < 1500) return;
+            lastPingAt = now;
+
+            var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+            var convId    = form.querySelector('input[name="conversation_id"]').value;
+
+            fetch('typing_ping.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    conversation_id: convId,
+                    csrf_token: csrfToken
+                })
+            }).catch(function () { /* silent */ });
+        });
+    }
 
     scrollToBottom();
     setInterval(poll, 4000);

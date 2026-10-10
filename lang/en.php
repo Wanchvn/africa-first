@@ -204,4 +204,6 @@ return [
 'message_delete'               => 'Delete',
 'message_delete_confirm'       => 'Delete this message?',
 'message_delete_not_allowed'   => 'You cannot delete this message.',
+
+'typing_indicator' => 'is typing…',
 ];

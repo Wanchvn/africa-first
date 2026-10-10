@@ -200,4 +200,6 @@ return [
 'block_error_cannot_follow'   => 'A ku tooi dɔli nira ŋɔ.',
 'block_cannot_interact'       => 'A ku tooi niŋ yɛlimaŋli ni lahabali ŋɔ.',
 'block_cannot_comment'        => 'A ku tooi sabi yɛltɔɣa lahabali ŋɔ zuɣu.',
+
+'typing_indicator' => 'sabira…',
 ];

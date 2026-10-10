@@ -64,7 +64,6 @@ $mStmt = $pdo->prepare(
      ORDER BY id ASC
      LIMIT 500"
 );
-
 $mStmt->execute([':c' => $conv]);
 $messages = $mStmt->fetchAll();
 
@@ -144,39 +143,51 @@ require 'includes/header.php';
         <?php foreach ($messages as $m): ?>
             <?php $mine = ((int)$m['sender_id'] === $me); ?>
             <?php $is_deleted = !empty($m['deleted_at']); ?>
-<div class="bubble <?= $mine ? 'bubble-mine' : 'bubble-theirs' ?> <?= $is_deleted ? 'bubble-deleted' : '' ?>"
-     data-id="<?= (int)$m['id'] ?>">
+            <div class="bubble <?= $mine ? 'bubble-mine' : 'bubble-theirs' ?> <?= $is_deleted ? 'bubble-deleted' : '' ?>"
+                 data-id="<?= (int)$m['id'] ?>">
 
-    <div class="bubble-body">
-        <?php if ($is_deleted): ?>
-            <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
-        <?php else: ?>
-            <?= nl2br(htmlspecialchars($m['body'])) ?>
-        <?php endif; ?>
+                <div class="bubble-body">
+                    <?php if ($is_deleted): ?>
+                        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
+                    <?php else: ?>
+                        <?= nl2br(htmlspecialchars($m['body'])) ?>
+                    <?php endif; ?>
+                </div>
+
+                <div class="bubble-time"><?= htmlspecialchars($m['created_at']) ?></div>
+
+                <?php if (!$mine && !$is_deleted): ?>
+                    <a class="bubble-report"
+                       href="report_message.php?conversation_id=<?= $conv ?>&message_id=<?= (int)$m['id'] ?>"
+                       aria-label="<?= __('report_title') ?>"
+                       title="<?= __('report_title') ?>">
+                        <i data-lucide="flag" style="width:12px;height:12px;"></i>
+                    </a>
+                <?php endif; ?>
+
+                <?php if ($mine && !$is_deleted): ?>
+                    <button type="button"
+                            class="bubble-delete"
+                            data-message-id="<?= (int)$m['id'] ?>"
+                            aria-label="<?= __('message_delete') ?>"
+                            title="<?= __('message_delete') ?>">
+                        <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                    </button>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
     </div>
 
-    <div class="bubble-time"><?= htmlspecialchars($m['created_at']) ?></div>
-
-    <?php if (!$mine && !$is_deleted): ?>
-        <a class="bubble-report"
-           href="report_message.php?conversation_id=<?= $conv ?>&message_id=<?= (int)$m['id'] ?>"
-           aria-label="<?= __('report_title') ?>"
-           title="<?= __('report_title') ?>">
-            <i data-lucide="flag" style="width:12px;height:12px;"></i>
-        </a>
-    <?php endif; ?>
-
-    <?php if ($mine && !$is_deleted): ?>
-        <button type="button"
-                class="bubble-delete"
-                data-message-id="<?= (int)$m['id'] ?>"
-                aria-label="<?= __('message_delete') ?>"
-                title="<?= __('message_delete') ?>">
-            <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
-        </button>
-    <?php endif; ?>
-</div>
-        <?php endforeach; ?>
+    <!-- =============================================================
+         Typing indicator — hidden by default; the JS poll loop shows
+         it when the partner has pinged `typing_ping.php` recently.
+         ============================================================= -->
+    <div class="typing-indicator" id="typingIndicator" style="display:none;" aria-live="polite">
+        <span class="typing-dots">
+            <span></span><span></span><span></span>
+        </span>
+        <span class="typing-name"><?= htmlspecialchars($partner_name) ?></span>
+        <span class="typing-text"><?= __('typing_indicator') ?></span>
     </div>
 
     <!-- Composer: hidden if either party has blocked the other -->

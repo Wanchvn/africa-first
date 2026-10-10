@@ -48,4 +48,12 @@ $messages = $stmt->fetchAll();
 // Mark incoming as read (clears the bell badge while the thread is open)
 mark_conversation_read($pdo, $conv, $me);
 
-echo json_encode(['success' => true, 'messages' => $messages]);
+// Is the partner currently typing?
+$partnerId = conversation_partner($pdo, $conv, $me);
+$partnerIsTyping = $partnerId ? is_typing($pdo, $conv, $partnerId) : false;
+
+echo json_encode([
+    'success'  => true,
+    'messages' => $messages,
+    'typing'   => $partnerIsTyping,
+]);

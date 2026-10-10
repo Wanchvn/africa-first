@@ -190,6 +190,64 @@ function unread_message_count(PDO $pdo, int $userId): int
 }
 
 
+
+/* ============================================================
+   Typing indicator helpers
+   ============================================================ */
+
+/**
+ * Record that $userId is typing in $convId right now.
+ * Idempotent — UPSERT on the composite primary key.
+ */
+function set_typing(PDO $pdo, int $convId, int $userId): void
+{
+    if ($convId <= 0 || $userId <= 0) return;
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO typing_indicators (conversation_id, user_id, updated_at)
+         VALUES (:c, :u, NOW())
+         ON DUPLICATE KEY UPDATE updated_at = NOW()"
+    );
+    $stmt->execute([':c' => $convId, ':u' => $userId]);
+}
+
+/**
+ * Has $userId pinged as "typing" in $convId within the last 4 seconds?
+ * 4s is long enough to bridge the polling interval without lag, short
+ * enough that a user who stops typing disappears quickly.
+ */
+function is_typing(PDO $pdo, int $convId, int $userId): bool
+{
+    if ($convId <= 0 || $userId <= 0) return false;
+
+    $stmt = $pdo->prepare(
+        "SELECT 1 FROM typing_indicators
+         WHERE conversation_id = :c
+           AND user_id = :u
+           AND updated_at > (NOW() - INTERVAL 4 SECOND)
+         LIMIT 1"
+    );
+    $stmt->execute([':c' => $convId, ':u' => $userId]);
+    return (bool)$stmt->fetchColumn();
+}
+
+/**
+ * Clear typing state — called when the user sends a message,
+ * so the other side's indicator hides immediately.
+ */
+function clear_typing(PDO $pdo, int $convId, int $userId): void
+{
+    if ($convId <= 0 || $userId <= 0) return;
+
+    $stmt = $pdo->prepare(
+        "DELETE FROM typing_indicators
+         WHERE conversation_id = :c AND user_id = :u"
+    );
+    $stmt->execute([':c' => $convId, ':u' => $userId]);
+}
+
+
+
 /**
  * Soft-delete a message. Only the sender can delete their own message.
  * Returns true on success, false if not allowed / not found.

@@ -165,4 +165,6 @@ return [
 'block_error_cannot_follow'   => 'Vous ne pouvez pas suivre cet utilisateur.',
 'block_cannot_interact'       => 'Vous ne pouvez pas interagir avec cette publication.',
 'block_cannot_comment'        => 'Vous ne pouvez pas commenter cette publication.',
+
+'typing_indicator' => 'est en train d\'écrire…',
 ];

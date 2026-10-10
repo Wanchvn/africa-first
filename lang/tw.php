@@ -164,4 +164,6 @@ return [
 'block_error_cannot_follow'   => 'Wontumi di saa nnipa no akyi.',
 'block_cannot_interact'       => 'Wontumi nyɛ biribi wɔ saa nhoma yi ho.',
 'block_cannot_comment'        => 'Wontumi nkyerɛw asɛm wɔ saa nhoma yi ho.',
+
+'typing_indicator' => 'rekyerɛw…',
 ];
