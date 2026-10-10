@@ -166,4 +166,7 @@ return [
 'block_cannot_comment'        => 'Wontumi nkyerɛw asɛm wɔ saa nhoma yi ho.',
 
 'typing_indicator' => 'rekyerɛw…',
+
+'notify_messages_label' => 'Nkra',
+'notify_messages_hint'  => 'Sɛ obi soma wo nkra tẽẽ.',
 ];

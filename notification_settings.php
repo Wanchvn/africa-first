@@ -14,27 +14,30 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = (int)$_SESSION['user_id'];
 $message = '';
 
-// Fetch current preferences
+// ---- Fetch current preferences ----
 $stmt = $pdo->prepare("
-    SELECT notify_likes, notify_comments, notify_follows, notify_topic_posts, notify_paused
+    SELECT notify_messages, notify_likes, notify_comments,
+           notify_follows, notify_topic_posts, notify_paused
     FROM users WHERE id = :id
 ");
 $stmt->execute([':id' => $user_id]);
 $prefs = $stmt->fetch();
 
-// Handle save
+// ---- Handle save ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
 
-    $notify_likes        = !empty($_POST['notify_likes']) ? 1 : 0;
-    $notify_comments     = !empty($_POST['notify_comments']) ? 1 : 0;
-    $notify_follows      = !empty($_POST['notify_follows']) ? 1 : 0;
-    $notify_topic_posts  = !empty($_POST['notify_topic_posts']) ? 1 : 0;
-    $notify_paused       = !empty($_POST['notify_paused']) ? 1 : 0;
+    $notify_messages     = !empty($_POST['notify_messages'])     ? 1 : 0;
+    $notify_likes        = !empty($_POST['notify_likes'])        ? 1 : 0;
+    $notify_comments     = !empty($_POST['notify_comments'])     ? 1 : 0;
+    $notify_follows      = !empty($_POST['notify_follows'])      ? 1 : 0;
+    $notify_topic_posts  = !empty($_POST['notify_topic_posts'])  ? 1 : 0;
+    $notify_paused       = !empty($_POST['notify_paused'])       ? 1 : 0;
 
     $stmt = $pdo->prepare("
         UPDATE users
-        SET notify_likes = :likes,
+        SET notify_messages = :messages,
+            notify_likes = :likes,
             notify_comments = :comments,
             notify_follows = :follows,
             notify_topic_posts = :topic_posts,
@@ -42,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         WHERE id = :id
     ");
     $stmt->execute([
+        ':messages'    => $notify_messages,
         ':likes'       => $notify_likes,
         ':comments'    => $notify_comments,
         ':follows'     => $notify_follows,
@@ -50,9 +54,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ':id'          => $user_id,
     ]);
 
-    // Refresh
+    // ---- Refresh ----
     $stmt = $pdo->prepare("
-        SELECT notify_likes, notify_comments, notify_follows, notify_topic_posts, notify_paused
+        SELECT notify_messages, notify_likes, notify_comments,
+               notify_follows, notify_topic_posts, notify_paused
         FROM users WHERE id = :id
     ");
     $stmt->execute([':id' => $user_id]);
@@ -80,6 +85,9 @@ require 'includes/header.php';
 <form method="POST" class="stack">
     <?= csrf_field() ?>
 
+    <!-- ============================================================
+         PAUSE EVERYTHING
+         ============================================================ -->
     <div class="card" style="border-left: 4px solid var(--terracotta);">
         <h2 style="margin-top:0;">Pause everything</h2>
         <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: var(--space-3);">
@@ -96,8 +104,23 @@ require 'includes/header.php';
         </label>
     </div>
 
+    <!-- ============================================================
+         ACTIVITY
+         ============================================================ -->
     <div class="card">
         <h2 style="margin-top:0;">Activity</h2>
+
+        <!-- Messages — most important, so it comes first -->
+        <label class="toggle-row">
+            <input type="checkbox"
+                   name="notify_messages"
+                   value="1"
+                   <?= $prefs['notify_messages'] ? 'checked' : '' ?>>
+            <span class="toggle-label">
+                <strong><?= __('notify_messages_label') ?></strong>
+                <span class="toggle-hint"><?= __('notify_messages_hint') ?></span>
+            </span>
+        </label>
 
         <label class="toggle-row">
             <input type="checkbox"

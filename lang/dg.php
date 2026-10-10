@@ -202,4 +202,7 @@ return [
 'block_cannot_comment'        => 'A ku tooi sabi yɛltɔɣa lahabali ŋɔ zuɣu.',
 
 'typing_indicator' => 'sabira…',
+
+'notify_messages_label' => 'Tibdahili',
+'notify_messages_hint'  => 'Saha shɛli nira ni zaŋ tibdahili na a sani.',
 ];

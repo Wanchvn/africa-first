@@ -206,4 +206,7 @@ return [
 'message_delete_not_allowed'   => 'You cannot delete this message.',
 
 'typing_indicator' => 'is typing…',
+
+'notify_messages_label' => 'Direct messages',
+'notify_messages_hint'  => 'When someone sends you a direct message.',
 ];

@@ -167,4 +167,7 @@ return [
 'block_cannot_comment'        => 'Vous ne pouvez pas commenter cette publication.',
 
 'typing_indicator' => 'est en train d\'écrire…',
+
+'notify_messages_label' => 'Messages',
+'notify_messages_hint'  => 'Quand quelqu\'un vous envoie un message privé.',
 ];
