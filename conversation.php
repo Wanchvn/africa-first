@@ -6,8 +6,8 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
-require 'includes/messages.php';   // messaging helpers
-require 'includes/blocks.php';     // block helpers
+require 'includes/messages.php';
+require 'includes/blocks.php';
 
 // -----------------------------------------------------------------------------
 // Auth
@@ -45,23 +45,21 @@ $pStmt->execute([':id' => $partnerId]);
 $partner = $pStmt->fetch();
 
 // -----------------------------------------------------------------------------
-// Block state (either direction disables the composer)
+// Block state
 // -----------------------------------------------------------------------------
 $i_blocked_them  = $partner ? is_blocked($pdo, $me, (int)$partner['id']) : false;
 $they_blocked_me = $partner ? is_blocked($pdo, (int)$partner['id'], $me) : false;
 $blocked_either  = $i_blocked_them || $they_blocked_me;
 
-// Opening the thread marks all incoming messages as read
 mark_conversation_read($pdo, $conv, $me);
 
 // -----------------------------------------------------------------------------
-// Load messages (oldest first)
-// IMPORTANT: must include message_type, voice_path, voice_duration so that
-// voice bubbles render correctly on page load.
+// Load messages
 // -----------------------------------------------------------------------------
 $mStmt = $pdo->prepare(
     "SELECT id, sender_id, body, message_type, voice_path, voice_duration,
-            image_path, created_at, deleted_at
+            image_path, video_path, video_duration, video_thumb,
+            created_at, deleted_at
      FROM messages
      WHERE conversation_id = :c
      ORDER BY id ASC
@@ -69,7 +67,6 @@ $mStmt = $pdo->prepare(
 );
 $mStmt->execute([':c' => $conv]);
 $messages = $mStmt->fetchAll();
-
 
 // ---- Read receipt for initial render ----
 $lastOwnId   = null;
@@ -172,38 +169,57 @@ require 'includes/header.php';
             $mine       = ((int)$m['sender_id'] === $me);
             $is_deleted = !empty($m['deleted_at']);
             $is_voice   = (($m['message_type'] ?? 'text') === 'voice') && !empty($m['voice_path']);
+            $is_image   = (($m['message_type'] ?? 'text') === 'image') && !empty($m['image_path']);
+            $is_video   = (($m['message_type'] ?? 'text') === 'video') && !empty($m['video_path']);
             ?>
             <div class="bubble <?= $mine ? 'bubble-mine' : 'bubble-theirs' ?> <?= $is_deleted ? 'bubble-deleted' : '' ?>"
                  data-id="<?= (int)$m['id'] ?>">
 
-               <div class="bubble-body">
-    <?php if ($is_deleted): ?>
-        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
+                <div class="bubble-body">
+                    <?php if ($is_deleted): ?>
+                        <em class="bubble-deleted-text"><?= __('message_deleted') ?></em>
 
-    <?php elseif (($m['message_type'] ?? 'text') === 'voice' && !empty($m['voice_path'])): ?>
-        <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
-        <div class="voice-message">
-            <audio controls preload="metadata" class="voice-player">
-                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
-            </audio>
-            <div class="voice-duration">
-                <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
-            </div>
-        </div>
+                    <?php elseif ($is_voice): ?>
+                        <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
+                        <div class="voice-message">
+                            <audio controls preload="metadata" class="voice-player">
+                                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
+                            </audio>
+                            <div class="voice-duration">
+                                <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
+                            </div>
+                        </div>
 
-    <?php elseif (($m['message_type'] ?? 'text') === 'image' && !empty($m['image_path'])): ?>
-        <a href="<?= htmlspecialchars($m['image_path']) ?>"
-           target="_blank" rel="noopener" class="dm-image-link">
-            <img class="dm-image"
-                 src="<?= htmlspecialchars($m['image_path']) ?>"
-                 alt="<?= __('image_alt') ?>"
-                 loading="lazy">
-        </a>
+                    <?php elseif ($is_image): ?>
+                        <a href="<?= htmlspecialchars($m['image_path']) ?>"
+                           target="_blank" rel="noopener" class="dm-image-link">
+                            <img class="dm-image"
+                                 src="<?= htmlspecialchars($m['image_path']) ?>"
+                                 alt="<?= __('image_alt') ?>"
+                                 loading="lazy">
+                        </a>
 
-    <?php else: ?>
-        <?= nl2br(htmlspecialchars($m['body'])) ?>
-    <?php endif; ?>
-</div>
+                    <?php elseif ($is_video): ?>
+                        <div class="video-message">
+                            <video controls preload="metadata" class="dm-video"
+                                   <?php if (!empty($m['video_thumb'])): ?>
+                                       poster="<?= htmlspecialchars($m['video_thumb']) ?>"
+                                   <?php endif; ?>>
+                                <source src="<?= htmlspecialchars($m['video_path']) ?>">
+                                Your browser does not support video.
+                            </video>
+                            <?php $vdur = (int)($m['video_duration'] ?? 0); ?>
+                            <?php if ($vdur > 0): ?>
+                                <div class="video-duration">
+                                    <?= sprintf('%d:%02d', intdiv($vdur, 60), $vdur % 60) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                    <?php else: ?>
+                        <?= nl2br(htmlspecialchars($m['body'])) ?>
+                    <?php endif; ?>
+                </div>
 
                 <div class="bubble-time">
                     <?= htmlspecialchars($m['created_at']) ?>
@@ -272,24 +288,35 @@ require 'includes/header.php';
                 </button>
             </div>
 
-          <div class="message-actions">
-    <button type="button" id="imageBtn" class="mic-btn"
-            aria-label="<?= __('image_attach') ?>"
-            title="<?= __('image_attach') ?>">
-        <i data-lucide="image" style="width:18px;height:18px;"></i>
-    </button>
+            <div class="message-actions">
+                <button type="button" id="imageBtn" class="mic-btn"
+                        aria-label="<?= __('image_attach') ?>"
+                        title="<?= __('image_attach') ?>">
+                    <i data-lucide="image" style="width:18px;height:18px;"></i>
+                </button>
 
-    <button type="button" id="micBtn" class="mic-btn"
-            aria-label="<?= __('voice_record') ?>"
-            title="<?= __('voice_record') ?>">
-        <i data-lucide="mic" style="width:18px;height:18px;"></i>
-    </button>
+                <button type="button" id="videoBtn" class="mic-btn"
+                        aria-label="<?= __('video_record') ?>"
+                        title="<?= __('video_record') ?>">
+                    <i data-lucide="video" style="width:18px;height:18px;"></i>
+                </button>
 
-    <button type="submit" id="sendBtn"><?= __('messages_send') ?></button>
-</div>
+                <button type="button" id="micBtn" class="mic-btn"
+                        aria-label="<?= __('voice_record') ?>"
+                        title="<?= __('voice_record') ?>">
+                    <i data-lucide="mic" style="width:18px;height:18px;"></i>
+                </button>
 
-<input type="file" id="imageInput" name="image" accept="image/jpeg,image/png,image/gif,image/webp"
-       style="display:none;">
+                <button type="submit" id="sendBtn"><?= __('messages_send') ?></button>
+            </div>
+
+            <input type="file" id="imageInput" name="image"
+                   accept="image/jpeg,image/png,image/gif,image/webp"
+                   style="display:none;">
+
+            <input type="file" id="videoInput" name="video"
+                   accept="video/mp4,video/webm,video/quicktime"
+                   style="display:none;">
         </form>
     <?php endif; ?>
 </div>

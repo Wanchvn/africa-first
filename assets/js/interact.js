@@ -439,7 +439,7 @@ function escapeHtmlJs(text) {
 
 
 /* ========================================
-   MESSAGES — AJAX send + poll + typing + read receipts + voice + images
+   MESSAGES — AJAX send + poll + typing + read receipts + voice + images + video
    ======================================== */
 
 (function () {
@@ -498,6 +498,7 @@ function escapeHtmlJs(text) {
 
         var isVoice = (m.message_type === 'voice') && m.voice_path;
         var isImage = (m.message_type === 'image') && m.image_path;
+        var isVideo = (m.message_type === 'video') && m.video_path;
 
         if (isDeleted) {
             var em = document.createElement('em');
@@ -539,6 +540,30 @@ function escapeHtmlJs(text) {
 
             link.appendChild(img);
             bodyDiv.appendChild(link);
+        } else if (isVideo) {
+            var vwrap = document.createElement('div');
+            vwrap.className = 'video-message';
+
+            var vid = document.createElement('video');
+            vid.controls = true;
+            vid.preload = 'metadata';
+            vid.className = 'dm-video';
+            if (m.video_thumb) vid.poster = m.video_thumb;
+
+            var vsrc = document.createElement('source');
+            vsrc.src = m.video_path;
+            vid.appendChild(vsrc);
+            vwrap.appendChild(vid);
+
+            var vdur = parseInt(m.video_duration, 10) || 0;
+            if (vdur > 0) {
+                var vdurEl = document.createElement('div');
+                vdurEl.className = 'video-duration';
+                vdurEl.textContent = Math.floor(vdur / 60) + ':' + ('0' + (vdur % 60)).slice(-2);
+                vwrap.appendChild(vdurEl);
+            }
+
+            bodyDiv.appendChild(vwrap);
         } else {
             var lines = String(m.body).split('\n');
             lines.forEach(function (line, i) {
@@ -791,6 +816,84 @@ function escapeHtmlJs(text) {
             alert('Could not send image.');
             if (imageBtn) imageBtn.disabled = false;
             if (imageInput) imageInput.value = '';
+        });
+    }
+
+
+    /* ============================================================
+       VIDEO ATTACHMENTS
+       ============================================================ */
+    var videoBtn   = document.getElementById('videoBtn');
+    var videoInput = document.getElementById('videoInput');
+
+    if (videoBtn && videoInput) {
+        videoBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            videoInput.click();
+        });
+
+        videoInput.addEventListener('change', function () {
+            if (!videoInput.files || !videoInput.files.length) return;
+            uploadVideoMessage(videoInput.files[0]);
+        });
+    }
+
+    function uploadVideoMessage(file) {
+        if (file.size > 25 * 1024 * 1024) {
+            alert('Video must be smaller than 25 MB.');
+            if (videoInput) videoInput.value = '';
+            return;
+        }
+
+        var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+        var convId    = form.querySelector('input[name="conversation_id"]').value;
+
+        // Probe duration from metadata
+        var probe = document.createElement('video');
+        probe.preload = 'metadata';
+        probe.onloadedmetadata = function () {
+            window.URL.revokeObjectURL(probe.src);
+            doVideoUpload(file, csrfToken, convId, Math.round(probe.duration) || 0);
+        };
+        probe.onerror = function () {
+            doVideoUpload(file, csrfToken, convId, 0);
+        };
+        probe.src = URL.createObjectURL(file);
+    }
+
+    function doVideoUpload(file, csrfToken, convId, duration) {
+        var fd = new FormData();
+        fd.append('conversation_id', convId);
+        fd.append('csrf_token', csrfToken);
+        fd.append('duration', duration);
+        fd.append('video', file, file.name);
+
+        if (videoBtn) videoBtn.disabled = true;
+
+        fetch('message_video_send.php', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success && data.message) {
+                if (empty) empty.style.display = 'none';
+                renderMessage(data.message);
+                var id = parseInt(data.message.id, 10);
+                if (!isNaN(id) && id > lastId) lastId = id;
+                scrollToBottom();
+            } else {
+                alert(data.error || 'Could not send video.');
+            }
+            if (videoBtn) videoBtn.disabled = false;
+            if (videoInput) videoInput.value = '';
+        })
+        .catch(function (err) {
+            console.error('Video upload error:', err);
+            alert('Could not send video.');
+            if (videoBtn) videoBtn.disabled = false;
+            if (videoInput) videoInput.value = '';
         });
     }
 
