@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 /**
  * Polling endpoint: returns new messages since `after` in a conversation.
  * Called by interact.js every ~4 seconds while the user views the thread.

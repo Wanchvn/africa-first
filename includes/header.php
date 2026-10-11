@@ -145,10 +145,13 @@ $og_description = "Africa's social network. Your data stays home.";
                     <i data-lucide="key" class="nav-icon"></i>
                     <span class="nav-label">Password</span>
                 </a>
-                <a href="logout.php" class="nav-logout" title="<?= __('nav_logout') ?>">
-                    <i data-lucide="log-out" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_logout') ?></span>
-                </a>
+                <form method="POST" action="logout.php" class="logout-form">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="nav-logout" title="<?= __('nav_logout') ?>">
+                        <i data-lucide="log-out" class="nav-icon"></i>
+                        <span class="nav-label"><?= __('nav_logout') ?></span>
+                    </button>
+                </form>
             <?php else: ?>
                 <a href="login.php" class="nav-logout">
                     <span class="nav-label"><?= __('nav_login') ?></span>

@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 csrf_verify();
-rate_limit_enforce($pdo, client_ip(), 'bookmark_folder', 20, 300);
+rate_limit_enforce($pdo, client_ip(), 'bookmark_folder', 20, 3600);
 
 $user_id = (int)$_SESSION['user_id'];
 $action = $_POST['action'] ?? '';

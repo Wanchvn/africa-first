@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 /**
  * Qarota — upload + send a voice message.
  * POST multipart/form-data:

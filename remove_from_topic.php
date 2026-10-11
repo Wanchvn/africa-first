@@ -4,6 +4,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 require 'includes/topics.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -17,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 csrf_verify();
+rate_limit_enforce($pdo, client_ip(), 'remove_from_topic', 30, 3600);
 
 $user_id = (int)$_SESSION['user_id'];
 $post_id = (int)($_POST['post_id'] ?? 0);

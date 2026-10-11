@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 require 'includes/username.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -36,6 +38,7 @@ $interests    = $user['interests'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'edit_profile', 20, 3600);
 
     // ---- Handle username change ----
     $new_username = trim($_POST['new_username'] ?? '');

@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -26,6 +28,7 @@ $prefs = $stmt->fetch();
 // ---- Handle save ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'notification_settings', 10, 3600);
 
     $notify_messages     = !empty($_POST['notify_messages'])     ? 1 : 0;
     $notify_likes        = !empty($_POST['notify_likes'])        ? 1 : 0;

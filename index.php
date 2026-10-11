@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 /**
  * Qarota — Landing page.
  * Shown to non-logged-in visitors. Logged-in users are redirected to the feed.

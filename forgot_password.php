@@ -19,7 +19,7 @@ $submitted_email = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    rate_limit_enforce($pdo, client_ip(), 'forgot_password', 3, 900);
+    rate_limit_enforce($pdo, client_ip(), 'forgot_password', 3, 3600);
 
     $submitted_email = trim($_POST['email'] ?? '');
 

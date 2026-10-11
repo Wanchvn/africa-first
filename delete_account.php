@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -17,6 +19,7 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'delete_account', 3, 3600);
 
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm'] ?? '';

@@ -110,7 +110,32 @@ header.site-header nav a:hover { color: #fff; text-decoration: none; }
     font-size: 0.95rem;
 }
 .nav-links a:hover { color: #fff; text-decoration: none; }
-.nav-links .nav-logout { margin-left: auto; }
+.nav-links a.nav-logout,
+.nav-links .logout-form { margin-left: auto; }
+.nav-links .logout-form .nav-logout {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--sand);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 400;
+    line-height: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: color var(--transition);
+}
+.nav-links .logout-form .nav-logout:hover {
+    background: transparent;
+    color: #fff;
+    text-decoration: none;
+}
+.nav-links .logout-form .nav-logout:active { transform: none; }
 
 .nav-toggle {
     display: none;
@@ -631,11 +656,18 @@ select:focus {
         font-size: 0.95rem;
         border-bottom: 1px solid rgba(255,255,255,0.05);
     }
-    .nav-links .nav-logout {
+    .nav-links a.nav-logout,
+    .nav-links .logout-form {
         margin-left: 0;
-        margin-top: var(--space-2);
-        border-bottom: none;
-        color: var(--terracotta);
+    }
+    .nav-links .logout-form { width: 100%; }
+    .nav-links .logout-form .nav-logout {
+        width: 100%;
+        padding: var(--space-3) 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .nav-links .logout-form .nav-logout:hover {
+        color: #fff;
     }
 
     .lang-switcher {
@@ -3635,4 +3667,3 @@ body.dark-mode .bubble-mine .seen-pill {
         max-height: 300px;
     }
 }
-

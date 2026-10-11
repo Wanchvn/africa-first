@@ -1,10 +1,12 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 require 'includes/messages.php';   // messaging helpers
 require 'includes/blocks.php';     // block helpers
 
@@ -92,6 +94,7 @@ unset($_SESSION['avatar_message']);
 // -----------------------------------------------------------------------------
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'profile_post', 30, 3600);
     $content = trim($_POST['content']);
     $media_path = null;
 

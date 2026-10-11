@@ -5,6 +5,7 @@ start_secure_session();
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require 'includes/rate_limit.php';
 require 'includes/topics.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -38,6 +39,7 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     csrf_verify();
+    rate_limit_enforce($pdo, client_ip(), 'topic_action', 20, 3600);
     $action = $_POST['action'];
 
     if ($action === 'join' && !$is_member) {

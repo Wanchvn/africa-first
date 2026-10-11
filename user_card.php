@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 /**
  * Qarota — returns JSON for the user hover card.
  * Called by interact.js when a username is hovered.

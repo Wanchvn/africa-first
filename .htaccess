@@ -2,56 +2,52 @@
 # QAROTA — Project Root .htaccess
 # ============================================================
 
+# ---- Force HTTPS (uncomment on production) ----
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteCond %{HTTP:X-Forwarded-Proto} !https
+#     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
 # ---- Security Headers ----
 <IfModule mod_headers.c>
-
-    # Clickjacking protection
-    Header set X-Frame-Options "SAMEORIGIN"
-
-    # Prevent MIME sniffing — always trust Content-Type
-    Header set X-Content-Type-Options "nosniff"
-
-    # Referrer policy
-    Header set Referrer-Policy "strict-origin-when-cross-origin"
-
-    # Feature policy — allow mic for self (voice messages), deny the rest
-    Header set Permissions-Policy "geolocation=(), microphone=(self), camera=(), payment=()"
-
-    # Content Security Policy
-    # - 'unsafe-inline' for style is needed (inline style="..."" attributes)
-    # - 'unsafe-inline' for script is needed (inline JS in header.php)
-    # - media-src 'self' allows the <audio> and <video> elements to load local files
-    # - img-src 'self' data: allows local images and data: URIs
-    Header set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; form-action 'self'"
-
-    # Don't advertise PHP version
-    Header unset X-Powered-By
-
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(self), camera=(), payment=()"
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'; form-action 'self'"
+    Header always unset X-Powered-By
 </IfModule>
 
 # ============================================================
 # BLOCK SENSITIVE FOLDERS
 # ============================================================
-# These folders must never be directly accessible from the browser.
-
-# config/ — contains DB credentials
 RedirectMatch 404 (?i)^.*/config/.*$
-
-# includes/ — contains PHP helpers
 RedirectMatch 404 (?i)^.*/includes/.*$
-
-# lang/ — contains translation files
 RedirectMatch 404 (?i)^.*/lang/.*$
-
-# sql/ — if you ever add a schema folder
 RedirectMatch 404 (?i)^.*/sql/.*$
+
+# ============================================================
+# BLOCK DEV / VCS FOLDERS
+# ============================================================
+RedirectMatch 404 (?i)^.*/\.git(/.*)?$
+RedirectMatch 404 (?i)^.*/\.gitignore$
+RedirectMatch 404 (?i)^.*/\.gitattributes$
+RedirectMatch 404 (?i)^.*/\.htaccess$
+RedirectMatch 404 (?i)^.*/\.htpasswd$
+RedirectMatch 404 (?i)^.*/composer\.(json|lock)$
+RedirectMatch 404 (?i)^.*/package(-lock)?\.json$
+RedirectMatch 404 (?i)^.*/node_modules(/.*)?$
+RedirectMatch 404 (?i)^.*/vendor(/.*)?$
+RedirectMatch 404 (?i)^.*/\.vscode(/.*)?$
+RedirectMatch 404 (?i)^.*/\.idea(/.*)?$
+RedirectMatch 404 (?i)^.*/\.DS_Store$
 
 # ============================================================
 # ALLOW PUBLIC UPLOADS
 # ============================================================
-# Uploads are user files. They must be servable.
-# We explicitly allow them AFTER the block rules so they win.
-<FilesMatch "\.(jpg|jpeg|png|gif|webp|webm|ogg|m4a|mp3|wav|svg)$">
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|webm|ogg|m4a|mp3|wav|svg|mp4|mov)$">
     Require all granted
 </FilesMatch>
 
@@ -77,15 +73,14 @@ Options -Indexes
 # ============================================================
 # BLOCK EXECUTION IN UPLOADS
 # ============================================================
-# Belt-and-braces: even if a .php file lands in /uploads/, don't run it.
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule ^uploads/.*\.(php|phtml|php3|php4|php5|php7|phps|pl|py|jsp|asp|aspx|sh|cgi)$ - [F,L]
 </IfModule>
 
-
-
-# Allow PWA files
+# ============================================================
+# PWA FILES
+# ============================================================
 <Files "manifest.json">
     Require all granted
     Header set Content-Type "application/manifest+json"

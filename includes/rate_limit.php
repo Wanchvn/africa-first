@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/proxy.php';
 
 /**
  * Check if an action is allowed for the current identifier.
@@ -62,20 +63,4 @@ function rate_limit_enforce($pdo, $identifier, $action, $limit, $window_sec) {
         header('Retry-After: ' . $window_sec);
         die('Too many requests. Please slow down and try again later.');
     }
-}
-
-/**
- * Get the client's IP address.
- * Handles proxies (HostAfrica's Caddy may forward via X-Forwarded-For).
- */
-function client_ip() {
-    // If behind a trusted proxy, use the forwarded IP
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-        return trim($ips[0]);
-    }
-    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-        return $_SERVER['HTTP_X_REAL_IP'];
-    }
-    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }

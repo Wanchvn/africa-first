@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
@@ -46,7 +47,7 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
-    rate_limit_enforce($pdo, client_ip(), 'report', 10, 3600);
+    rate_limit_enforce($pdo, client_ip(), 'report_post', 5, 3600);
 
     $reason = $_POST['reason'] ?? '';
     $details = trim($_POST['details'] ?? '');

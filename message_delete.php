@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/includes/bootstrap.php';
 /**
  * Qarota — soft-delete a message. Only the sender can delete their own.
  */
