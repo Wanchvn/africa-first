@@ -1124,3 +1124,83 @@ function handleBlock(form) {
         form.submit();
     });
 }
+
+
+
+/* ========================================
+   HEADER — mobile nav toggle + profile menu
+   ======================================== */
+
+(function () {
+    'use strict';
+
+    /* ---- Mobile hamburger ---- */
+    window.toggleNav = function () {
+        var nav = document.getElementById('navLinks');
+        var overlay = document.getElementById('navOverlay');
+        if (!nav || !overlay) return;
+        var isOpen = nav.classList.toggle('open');
+        overlay.classList.toggle('open', isOpen);
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+        /* ---- Close nav on link click (mobile) ---- */
+        var navLinks = document.getElementById('navLinks');
+        if (navLinks) {
+            navLinks.querySelectorAll('a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    navLinks.classList.remove('open');
+                    var ov = document.getElementById('navOverlay');
+                    if (ov) ov.classList.remove('open');
+                });
+            });
+        }
+
+        /* ---- Profile dropdown ---- */
+        var btn         = document.getElementById('profileMenuBtn');
+        var dropdown    = document.getElementById('profileMenuDropdown');
+        var settingsBtn = document.getElementById('settingsToggle');
+        var settingsSub = document.getElementById('settingsSubmenu');
+
+        if (!btn || !dropdown) return;
+
+        function closeAll() {
+            dropdown.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+            if (settingsSub) settingsSub.hidden = true;
+            if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = !dropdown.hidden;
+            if (isOpen) {
+                closeAll();
+            } else {
+                dropdown.hidden = false;
+                btn.setAttribute('aria-expanded', 'true');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        });
+
+        if (settingsBtn && settingsSub) {
+            settingsBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var isOpen = !settingsSub.hidden;
+                settingsSub.hidden = isOpen;
+                settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+            });
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+                closeAll();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeAll();
+        });
+    });
+})();

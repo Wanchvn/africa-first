@@ -7,6 +7,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require_once __DIR__ . '/includes/crypto.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -73,6 +74,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("SELECT body FROM messages WHERE id = :id");
                 $stmt->execute([':id' => $report['message_id']]);
                 $msg_body = $stmt->fetchColumn();
+                if ($msg_body !== false) {
+                    $msg_body = crypto_decrypt($msg_body);
+                }
 
                 $excerpt = ($msg_body && in_array($report_reason, $safe_categories, true))
                     ? mb_substr($msg_body, 0, 200)
@@ -171,6 +175,13 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute();
 $dm_reports = $stmt->fetchAll();
+
+foreach ($dm_reports as &$r) {
+    if (!empty($r['message_body'])) {
+        $r['message_body'] = crypto_decrypt($r['message_body']);
+    }
+}
+unset($r);
 
 $page_title = __('admin_title');
 require 'includes/header.php';

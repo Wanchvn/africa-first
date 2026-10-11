@@ -13,6 +13,8 @@ $unread_count    = 0;
 $unread_messages = 0;
 $is_admin        = false;
 $user_theme      = 'light';
+$nav_user_avatar = null;
+$nav_user_name   = '';
 
 if ($logged_in) {
     require_once __DIR__ . '/../config/db.php';
@@ -26,12 +28,14 @@ if ($logged_in) {
     // Messages
     $unread_messages = unread_message_count($pdo, (int)$_SESSION['user_id']);
 
-    // User info
-    $stmt = $pdo->prepare("SELECT is_admin, theme FROM users WHERE id = :id");
+    // User info (also used by the profile dropdown)
+    $stmt = $pdo->prepare("SELECT is_admin, theme, avatar, display_name, username FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $user_row   = $stmt->fetch();
     $is_admin   = (bool)($user_row['is_admin'] ?? false);
     $user_theme = $user_row['theme'] ?? 'light';
+    $nav_user_avatar = $user_row['avatar'] ?? null;
+    $nav_user_name   = $user_row['display_name'] ?? $user_row['username'] ?? '';
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
@@ -87,10 +91,9 @@ $og_description = "Africa's social network. Your data stays home.";
             </form>
         <?php endif; ?>
 
-        <div class="nav-links" id="navLinks">
-            <?php if ($logged_in): ?>
+        <?php if ($logged_in): ?>
 
-                <!-- ============ PRIMARY ============ -->
+            <div class="nav-links" id="navLinks">
                 <a href="feed.php" class="nav-link" title="<?= __('nav_feed') ?>">
                     <i data-lucide="home" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_feed') ?></span>
@@ -114,7 +117,6 @@ $og_description = "Africa's social network. Your data stays home.";
 
                 <span class="nav-divider" aria-hidden="true"></span>
 
-                <!-- ============ DISCOVERY ============ -->
                 <a href="discover_feed.php" class="nav-link" title="Explore">
                     <i data-lucide="sparkles" class="nav-icon"></i>
                     <span class="nav-label">Explore</span>
@@ -129,90 +131,193 @@ $og_description = "Africa's social network. Your data stays home.";
                     <i data-lucide="compass" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_discover') ?></span>
                 </a>
+            </div>
 
-                <span class="nav-divider" aria-hidden="true"></span>
+            <div class="lang-switcher">
+                <a href="?setlang=en" class="<?= ($_SESSION['lang'] ?? 'en') === 'en' ? 'active' : '' ?>">EN</a>
+                <a href="?setlang=tw" class="<?= ($_SESSION['lang'] ?? 'en') === 'tw' ? 'active' : '' ?>">TW</a>
+                <a href="?setlang=dg" class="<?= ($_SESSION['lang'] ?? 'en') === 'dg' ? 'active' : '' ?>">DG</a>
+                <a href="?setlang=fr" class="<?= ($_SESSION['lang'] ?? 'en') === 'fr' ? 'active' : '' ?>">FR</a>
+            </div>
 
-                <!-- ============ ACCOUNT ============ -->
-                <a href="profile.php" class="nav-link" title="<?= __('nav_profile') ?>">
-                    <i data-lucide="user" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_profile') ?></span>
-                </a>
+            <!-- ============ PROFILE DROPDOWN ============ -->
+            <div class="profile-menu">
+                <button type="button" class="profile-menu-btn" id="profileMenuBtn"
+                        aria-expanded="false" aria-haspopup="true"
+                        title="<?= htmlspecialchars($nav_user_name) ?>">
+                    <?php if (!empty($nav_user_avatar)): ?>
+                        <img src="<?= htmlspecialchars($nav_user_avatar) ?>" alt="" class="profile-menu-avatar">
+                    <?php else: ?>
+                        <span class="profile-menu-avatar profile-menu-avatar-placeholder">
+                            <?= htmlspecialchars(mb_strtoupper(mb_substr($nav_user_name, 0, 1))) ?>
+                        </span>
+                    <?php endif; ?>
+                </button>
 
-                <a href="saved.php" class="nav-link" title="Saved posts">
-                    <i data-lucide="bookmark" class="nav-icon"></i>
-                    <span class="nav-label">Saved</span>
-                </a>
+                <div class="profile-menu-dropdown" id="profileMenuDropdown" hidden>
 
-                <a href="privacy.php" class="nav-link" title="<?= __('nav_privacy') ?>">
-                    <i data-lucide="lock" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_privacy') ?></span>
-                </a>
-
-                <a href="moderation.php" class="nav-link" title="<?= __('nav_moderation') ?>">
-                    <i data-lucide="book-open" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_moderation') ?></span>
-                </a>
-
-                <a href="change_password.php" class="nav-link" title="Change password">
-                    <i data-lucide="key" class="nav-icon"></i>
-                    <span class="nav-label">Password</span>
-                </a>
-
-                <?php if ($is_admin): ?>
-                    <a href="admin_reports.php" class="nav-link" title="<?= __('nav_admin') ?>">
-                        <i data-lucide="settings" class="nav-icon"></i>
-                        <span class="nav-label"><?= __('nav_admin') ?></span>
+                    <a href="profile.php" class="profile-menu-header">
+                        <?php if (!empty($nav_user_avatar)): ?>
+                            <img src="<?= htmlspecialchars($nav_user_avatar) ?>" alt="" class="profile-menu-avatar-lg">
+                        <?php else: ?>
+                            <span class="profile-menu-avatar-lg profile-menu-avatar-placeholder">
+                                <?= htmlspecialchars(mb_strtoupper(mb_substr($nav_user_name, 0, 1))) ?>
+                            </span>
+                        <?php endif; ?>
+                        <span class="profile-menu-header-text">
+                            <strong><?= htmlspecialchars($nav_user_name) ?></strong>
+                            <small>View your profile</small>
+                        </span>
                     </a>
-                <?php endif; ?>
 
-                <span class="nav-divider" aria-hidden="true"></span>
+                    <div class="profile-menu-sep"></div>
 
-                <!-- ============ LOGOUT ============ -->
-                <form method="POST" action="logout.php" class="logout-form">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="nav-link nav-logout" title="<?= __('nav_logout') ?>">
-                        <i data-lucide="log-out" class="nav-icon"></i>
-                        <span class="nav-label"><?= __('nav_logout') ?></span>
+                    <a href="profile.php" class="profile-menu-item">
+                        <i data-lucide="user"></i>
+                        <span><?= __('nav_profile') ?></span>
+                    </a>
+
+                    <!-- Settings submenu -->
+                    <button type="button" class="profile-menu-item profile-menu-toggle"
+                            id="settingsToggle" aria-expanded="false">
+                        <i data-lucide="settings"></i>
+                        <span>Settings</span>
+                        <i data-lucide="chevron-down" class="profile-menu-caret-icon"></i>
                     </button>
-                </form>
 
-            <?php else: ?>
+                    <div class="profile-menu-submenu" id="settingsSubmenu" hidden>
+                        <a href="change_password.php" class="profile-menu-item">
+                            <i data-lucide="key"></i>
+                            <span>Password</span>
+                        </a>
+
+                        <a href="saved.php" class="profile-menu-item">
+                            <i data-lucide="bookmark"></i>
+                            <span>Saved posts</span>
+                        </a>
+
+                        <a href="moderation.php" class="profile-menu-item">
+                            <i data-lucide="book-open"></i>
+                            <span><?= __('nav_moderation') ?></span>
+                        </a>
+
+                        <?php if ($is_admin): ?>
+                            <a href="admin_reports.php" class="profile-menu-item">
+                                <i data-lucide="shield"></i>
+                                <span><?= __('nav_admin') ?></span>
+                            </a>
+                        <?php endif; ?>
+
+                        <a href="privacy.php" class="profile-menu-item">
+                            <i data-lucide="lock"></i>
+                            <span><?= __('nav_privacy') ?></span>
+                        </a>
+                    </div>
+
+                    <div class="profile-menu-sep"></div>
+
+                    <form method="POST" action="logout.php" class="profile-menu-logout-form">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="profile-menu-item profile-menu-logout">
+                            <i data-lucide="log-out"></i>
+                            <span><?= __('nav_logout') ?></span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        <?php else: ?>
+
+            <div class="nav-links">
                 <a href="login.php" class="nav-link">
                     <span class="nav-label"><?= __('nav_login') ?></span>
                 </a>
                 <a href="register.php" class="nav-link">
                     <span class="nav-label"><?= __('nav_register') ?></span>
                 </a>
-            <?php endif; ?>
-        </div>
+            </div>
 
-        <div class="lang-switcher">
-            <a href="?setlang=en" class="<?= ($_SESSION['lang'] ?? 'en') === 'en' ? 'active' : '' ?>">EN</a>
-            <a href="?setlang=tw" class="<?= ($_SESSION['lang'] ?? 'en') === 'tw' ? 'active' : '' ?>">TW</a>
-            <a href="?setlang=dg" class="<?= ($_SESSION['lang'] ?? 'en') === 'dg' ? 'active' : '' ?>">DG</a>
-            <a href="?setlang=fr" class="<?= ($_SESSION['lang'] ?? 'en') === 'fr' ? 'active' : '' ?>">FR</a>
-        </div>
+            <div class="lang-switcher">
+                <a href="?setlang=en" class="<?= ($_SESSION['lang'] ?? 'en') === 'en' ? 'active' : '' ?>">EN</a>
+                <a href="?setlang=tw" class="<?= ($_SESSION['lang'] ?? 'en') === 'tw' ? 'active' : '' ?>">TW</a>
+                <a href="?setlang=dg" class="<?= ($_SESSION['lang'] ?? 'en') === 'dg' ? 'active' : '' ?>">DG</a>
+                <a href="?setlang=fr" class="<?= ($_SESSION['lang'] ?? 'en') === 'fr' ? 'active' : '' ?>">FR</a>
+            </div>
+
+        <?php endif; ?>
     </nav>
 </header>
 
 <div id="navOverlay" onclick="toggleNav()"></div>
 
 <script>
+/* ---- Mobile hamburger menu ---- */
 function toggleNav() {
     var nav = document.getElementById('navLinks');
     var overlay = document.getElementById('navOverlay');
+    if (!nav || !overlay) return;
     var isOpen = nav.classList.toggle('open');
     overlay.classList.toggle('open', isOpen);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('#navLinks a').forEach(function(link) {
+    var navLinks = document.getElementById('navLinks');
+    if (!navLinks) return;
+    navLinks.querySelectorAll('a').forEach(function(link) {
         link.addEventListener('click', function() {
-            document.getElementById('navLinks').classList.remove('open');
+            navLinks.classList.remove('open');
             document.getElementById('navOverlay').classList.remove('open');
         });
     });
 });
+
+/* ---- Profile dropdown ---- */
+(function () {
+    var btn          = document.getElementById('profileMenuBtn');
+    var dropdown     = document.getElementById('profileMenuDropdown');
+    var settingsBtn  = document.getElementById('settingsToggle');
+    var settingsSub  = document.getElementById('settingsSubmenu');
+
+    if (!btn || !dropdown) return;
+
+    function closeAll() {
+        dropdown.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        if (settingsSub) settingsSub.hidden = true;
+        if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = !dropdown.hidden;
+        if (isOpen) {
+            closeAll();
+        } else {
+            dropdown.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    });
+
+    if (settingsBtn && settingsSub) {
+        settingsBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = !settingsSub.hidden;
+            settingsSub.hidden = isOpen;
+            settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+            closeAll();
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAll();
+    });
+})();
 </script>
 
 <main class="container">

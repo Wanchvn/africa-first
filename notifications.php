@@ -37,6 +37,14 @@ $stmt = $pdo->prepare("
 $stmt->execute([':me' => $user_id]);
 $notifications = $stmt->fetchAll();
 
+require_once __DIR__ . '/includes/crypto.php';
+foreach ($notifications as &$n) {
+    if (isset($n['last_message_body'])) {
+        $n['last_message_body'] = crypto_decrypt($n['last_message_body']);
+    }
+}
+unset($n);
+
 $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = :me AND is_read = 0");
 $stmt->execute([':me' => $user_id]);
 

@@ -34,6 +34,10 @@ if ($messageId > 0) {
     );
     $stmt->execute([':id' => $messageId, ':c' => $conversationId]);
     $targetMessage = $stmt->fetch();
+    if ($targetMessage) {
+        require_once __DIR__ . '/includes/crypto.php';
+        $targetMessage['body'] = crypto_decrypt($targetMessage['body']);
+    }
 
     if (!$targetMessage || (int)$targetMessage['sender_id'] === $me) {
         header('Location: conversation.php?id=' . $conversationId);

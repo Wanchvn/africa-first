@@ -69,6 +69,12 @@ $mStmt = $pdo->prepare(
 $mStmt->execute([':c' => $conv]);
 $messages = $mStmt->fetchAll();
 
+require_once __DIR__ . '/includes/crypto.php';
+foreach ($messages as &$m) {
+    $m['body'] = crypto_decrypt($m['body']);
+}
+unset($m);
+
 // ---- Read receipt for initial render ----
 $lastOwnId   = null;
 $lastOwnSeen = false;

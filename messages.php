@@ -40,6 +40,14 @@ $stmt = $pdo->prepare(
 $stmt->execute([':me' => $me]);
 $conversations = $stmt->fetchAll();
 
+require_once __DIR__ . '/includes/crypto.php';
+foreach ($conversations as &$c) {
+    if (isset($c['last_body'])) {
+        $c['last_body'] = crypto_decrypt($c['last_body']);
+    }
+}
+unset($c);
+
 $page_title = __('messages_title');
 require 'includes/header.php';
 ?>

@@ -48,6 +48,12 @@ $stmt = $pdo->prepare(
 $stmt->execute([':c' => $conv, ':after' => $after]);
 $messages = $stmt->fetchAll();
 
+require_once __DIR__ . '/includes/crypto.php';
+foreach ($messages as &$m) {
+    $m['body'] = crypto_decrypt($m['body']);
+}
+unset($m);
+
 // Mark incoming as read (clears the bell badge while the thread is open)
 mark_conversation_read($pdo, $conv, $me);
 

@@ -61,5 +61,57 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 
+
+
+<script>
+(function () {
+    var btn      = document.getElementById('profileMenuBtn');
+    var dropdown = document.getElementById('profileMenuDropdown');
+    var settingsBtn = document.getElementById('settingsToggle');
+    var settingsSub = document.getElementById('settingsSubmenu');
+
+    if (!btn || !dropdown) return;
+
+    function closeAll() {
+        dropdown.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        if (settingsSub) settingsSub.hidden = true;
+        if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = !dropdown.hidden;
+        if (isOpen) {
+            closeAll();
+        } else {
+            dropdown.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+        }
+    });
+
+    if (settingsBtn && settingsSub) {
+        settingsBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = !settingsSub.hidden;
+            settingsSub.hidden = isOpen;
+            settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        });
+    }
+
+    // Close on outside click
+    document.addEventListener('click', function (e) {
+        if (!dropdown.contains(e.target) && e.target !== btn) {
+            closeAll();
+        }
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAll();
+    });
+})();
+</script>
+
 </body>
 </html>

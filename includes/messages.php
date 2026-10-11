@@ -128,11 +128,14 @@ function send_message(PDO $pdo, int $convId, int $senderId, string $body): int
 
     $pdo->beginTransaction();
     try {
+        require_once __DIR__ . '/crypto.php';
+        $encrypted_body = crypto_encrypt($body);
+
         $ins = $pdo->prepare(
             "INSERT INTO messages (conversation_id, sender_id, body)
              VALUES (:c, :s, :b)"
         );
-        $ins->execute([':c' => $convId, ':s' => $senderId, ':b' => $body]);
+        $ins->execute([':c' => $convId, ':s' => $senderId, ':b' => $encrypted_body]);
         $id = (int) $pdo->lastInsertId();
 
         $upd = $pdo->prepare(

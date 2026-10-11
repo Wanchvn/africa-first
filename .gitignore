@@ -1,5 +1,6 @@
 uploads/
 config/db.php
+config/encryption.php
 *.log
 *.zip
 logs/*.log

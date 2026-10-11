@@ -52,6 +52,11 @@ try {
     $s->execute([':id' => $id]);
     $msg = $s->fetch();
 
+    require_once __DIR__ . '/includes/crypto.php';
+    if ($msg) {
+        $msg['body'] = crypto_decrypt($msg['body']);
+    }
+
     echo json_encode(['success' => true, 'message' => $msg]);
 } catch (InvalidArgumentException $e) {
     http_response_code(400);
