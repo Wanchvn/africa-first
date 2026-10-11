@@ -44,7 +44,7 @@ $og_description = "Africa's social network. Your data stays home.";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — Qarota</title>
 
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/../assets/css/style.css') ?>">
 
     <!-- Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
@@ -53,7 +53,7 @@ $og_description = "Africa's social network. Your data stays home.";
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#C65D3B">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Qarota">
@@ -89,74 +89,98 @@ $og_description = "Africa's social network. Your data stays home.";
 
         <div class="nav-links" id="navLinks">
             <?php if ($logged_in): ?>
-                <a href="feed.php" title="<?= __('nav_feed') ?>">
+
+                <!-- ============ PRIMARY ============ -->
+                <a href="feed.php" class="nav-link" title="<?= __('nav_feed') ?>">
                     <i data-lucide="home" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_feed') ?></span>
                 </a>
-                <a href="notifications.php" title="<?= __('nav_notifications') ?>">
+
+                <a href="notifications.php" class="nav-link" title="<?= __('nav_notifications') ?>">
                     <i data-lucide="bell" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_notifications') ?></span>
                     <?php if ($unread_count > 0): ?>
                         <span class="badge"><?= $unread_count ?></span>
                     <?php endif; ?>
                 </a>
-                <a href="messages.php" title="<?= __('messages_title') ?>">
+
+                <a href="messages.php" class="nav-link" title="<?= __('messages_title') ?>">
                     <i data-lucide="mail" class="nav-icon"></i>
                     <span class="nav-label"><?= __('messages_title') ?></span>
                     <?php if ($unread_messages > 0): ?>
                         <span class="badge"><?= $unread_messages ?></span>
                     <?php endif; ?>
                 </a>
-                <a href="discover_feed.php" title="Explore">
+
+                <span class="nav-divider" aria-hidden="true"></span>
+
+                <!-- ============ DISCOVERY ============ -->
+                <a href="discover_feed.php" class="nav-link" title="Explore">
                     <i data-lucide="sparkles" class="nav-icon"></i>
                     <span class="nav-label">Explore</span>
                 </a>
-                <a href="topics.php" title="Topics">
+
+                <a href="topics.php" class="nav-link" title="Topics">
                     <i data-lucide="hash" class="nav-icon"></i>
                     <span class="nav-label">Topics</span>
                 </a>
-                <a href="discover.php" title="<?= __('nav_discover') ?>">
+
+                <a href="discover.php" class="nav-link" title="<?= __('nav_discover') ?>">
                     <i data-lucide="compass" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_discover') ?></span>
                 </a>
+
+                <span class="nav-divider" aria-hidden="true"></span>
+
+                <!-- ============ ACCOUNT ============ -->
+                <a href="profile.php" class="nav-link" title="<?= __('nav_profile') ?>">
+                    <i data-lucide="user" class="nav-icon"></i>
+                    <span class="nav-label"><?= __('nav_profile') ?></span>
+                </a>
+
+                <a href="saved.php" class="nav-link" title="Saved posts">
+                    <i data-lucide="bookmark" class="nav-icon"></i>
+                    <span class="nav-label">Saved</span>
+                </a>
+
+                <a href="privacy.php" class="nav-link" title="<?= __('nav_privacy') ?>">
+                    <i data-lucide="lock" class="nav-icon"></i>
+                    <span class="nav-label"><?= __('nav_privacy') ?></span>
+                </a>
+
+                <a href="moderation.php" class="nav-link" title="<?= __('nav_moderation') ?>">
+                    <i data-lucide="book-open" class="nav-icon"></i>
+                    <span class="nav-label"><?= __('nav_moderation') ?></span>
+                </a>
+
+                <a href="change_password.php" class="nav-link" title="Change password">
+                    <i data-lucide="key" class="nav-icon"></i>
+                    <span class="nav-label">Password</span>
+                </a>
+
                 <?php if ($is_admin): ?>
-                    <a href="admin_reports.php" title="<?= __('nav_admin') ?>">
+                    <a href="admin_reports.php" class="nav-link" title="<?= __('nav_admin') ?>">
                         <i data-lucide="settings" class="nav-icon"></i>
                         <span class="nav-label"><?= __('nav_admin') ?></span>
                     </a>
                 <?php endif; ?>
-                <a href="privacy.php" title="<?= __('nav_privacy') ?>">
-                    <i data-lucide="lock" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_privacy') ?></span>
-                </a>
-                <a href="moderation.php" title="<?= __('nav_moderation') ?>">
-                    <i data-lucide="book-open" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_moderation') ?></span>
-                </a>
-                <a href="profile.php" title="<?= __('nav_profile') ?>">
-                    <i data-lucide="user" class="nav-icon"></i>
-                    <span class="nav-label"><?= __('nav_profile') ?></span>
-                </a>
-                <a href="saved.php" title="Saved posts">
-                    <i data-lucide="bookmark" class="nav-icon"></i>
-                    <span class="nav-label">Saved</span>
-                </a>
-                <a href="change_password.php" title="Change password">
-                    <i data-lucide="key" class="nav-icon"></i>
-                    <span class="nav-label">Password</span>
-                </a>
+
+                <span class="nav-divider" aria-hidden="true"></span>
+
+                <!-- ============ LOGOUT ============ -->
                 <form method="POST" action="logout.php" class="logout-form">
                     <?= csrf_field() ?>
-                    <button type="submit" class="nav-logout" title="<?= __('nav_logout') ?>">
+                    <button type="submit" class="nav-link nav-logout" title="<?= __('nav_logout') ?>">
                         <i data-lucide="log-out" class="nav-icon"></i>
                         <span class="nav-label"><?= __('nav_logout') ?></span>
                     </button>
                 </form>
+
             <?php else: ?>
-                <a href="login.php" class="nav-logout">
+                <a href="login.php" class="nav-link">
                     <span class="nav-label"><?= __('nav_login') ?></span>
                 </a>
-                <a href="register.php">
+                <a href="register.php" class="nav-link">
                     <span class="nav-label"><?= __('nav_register') ?></span>
                 </a>
             <?php endif; ?>

@@ -169,4 +169,12 @@ return [
 
 'notify_messages_label' => 'Nkra',
 'notify_messages_hint'  => 'Sɛ obi soma wo nkra tẽẽ.',
+
+
+'notif_liked'            => 'pɛɛ wo nhoma',
+'notif_commented'        => 'kyerɛw wo nhoma so',
+'notif_followed'         => 'di wo akyi',
+'notif_messaged'         => 'soma wo nkra',
+'notif_messaged_short'   => 'soma wo nkra',
+'messages_view_thread'   => 'Hwɛ nkra no →',
 ];

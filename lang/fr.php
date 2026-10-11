@@ -170,4 +170,12 @@ return [
 
 'notify_messages_label' => 'Messages',
 'notify_messages_hint'  => 'Quand quelqu\'un vous envoie un message privé.',
+
+
+'notif_liked'            => 'a aimé votre publication',
+'notif_commented'        => 'a commenté votre publication',
+'notif_followed'         => 'vous suit',
+'notif_messaged'         => 'vous a envoyé un message',
+'notif_messaged_short'   => 'vous a envoyé un message',
+'messages_view_thread'   => 'Voir la conversation →',
 ];

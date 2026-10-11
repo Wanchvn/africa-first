@@ -215,4 +215,13 @@ return [
 'image_missing'  => 'No image was uploaded.',
 'image_too_many' => 'Too many images. Please wait a moment.',
 'image_alt'      => 'Shared image',
+
+
+
+'notif_liked'            => 'liked your post',
+'notif_commented'        => 'commented on your post',
+'notif_followed'         => 'followed you',
+'notif_messaged'         => 'sent you a message',
+'notif_messaged_short'   => 'sent you a message',
+'messages_view_thread'   => 'View thread →',
 ];

@@ -205,4 +205,12 @@ return [
 
 'notify_messages_label' => 'Tibdahili',
 'notify_messages_hint'  => 'Saha shɛli nira ni zaŋ tibdahili na a sani.',
+
+
+'notif_liked'            => 'suhu ni a zaŋ',
+'notif_commented'        => 'sabmi a zaŋ zuɣu',
+'notif_followed'         => 'dɔli a',
+'notif_messaged'         => 'zaŋ tibdahili na a sani',
+'notif_messaged_short'   => 'zaŋ tibdahili na a sani',
+'messages_view_thread'   => 'Nya tibdahili maa →',
 ];
