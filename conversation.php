@@ -190,7 +190,7 @@ require 'includes/header.php';
                         <?php $dur = (int)($m['voice_duration'] ?? 0); ?>
                         <div class="voice-message">
                             <audio controls preload="metadata" class="voice-player">
-                                <source src="<?= htmlspecialchars($m['voice_path']) ?>">
+                                <source src="voice_serve.php?id=<?= (int)$m['id'] ?>">
                             </audio>
                             <div class="voice-duration">
                                 <?= sprintf('%d:%02d', intdiv($dur, 60), $dur % 60) ?>
@@ -198,10 +198,10 @@ require 'includes/header.php';
                         </div>
 
                     <?php elseif ($is_image): ?>
-                        <a href="<?= htmlspecialchars($m['image_path']) ?>"
+                        <a href="image_serve.php?id=<?= (int)$m['id'] ?>"
                            target="_blank" rel="noopener" class="dm-image-link">
                             <img class="dm-image"
-                                 src="<?= htmlspecialchars($m['image_path']) ?>"
+                                 src="image_serve.php?id=<?= (int)$m['id'] ?>"
                                  alt="<?= __('image_alt') ?>"
                                  loading="lazy">
                         </a>
@@ -212,7 +212,7 @@ require 'includes/header.php';
                                    <?php if (!empty($m['video_thumb'])): ?>
                                        poster="<?= htmlspecialchars($m['video_thumb']) ?>"
                                    <?php endif; ?>>
-                                <source src="<?= htmlspecialchars($m['video_path']) ?>">
+                                <source src="video_serve.php?id=<?= (int)$m['id'] ?>">
                                 Your browser does not support video.
                             </video>
                             <?php $vdur = (int)($m['video_duration'] ?? 0); ?>

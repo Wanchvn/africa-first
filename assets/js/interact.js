@@ -514,7 +514,7 @@ function escapeHtmlJs(text) {
             audio.preload = 'metadata';
             audio.className = 'voice-player';
             var src = document.createElement('source');
-            src.src = m.voice_path;
+            src.src = 'voice_serve.php?id=' + encodeURIComponent(m.id);
             audio.appendChild(src);
             wrap.appendChild(audio);
 
@@ -528,13 +528,13 @@ function escapeHtmlJs(text) {
         } else if (isImage) {
             var link = document.createElement('a');
             link.className = 'dm-image-link';
-            link.href = m.image_path;
+            link.href = 'image_serve.php?id=' + encodeURIComponent(m.id);
             link.target = '_blank';
             link.rel = 'noopener';
 
             var img = document.createElement('img');
             img.className = 'dm-image';
-            img.src = m.image_path;
+            img.src = 'image_serve.php?id=' + encodeURIComponent(m.id);
             img.alt = 'Image';
             img.loading = 'lazy';
 
@@ -551,7 +551,7 @@ function escapeHtmlJs(text) {
             if (m.video_thumb) vid.poster = m.video_thumb;
 
             var vsrc = document.createElement('source');
-            vsrc.src = m.video_path;
+            vsrc.src = 'video_serve.php?id=' + encodeURIComponent(m.id);
             vid.appendChild(vsrc);
             vwrap.appendChild(vid);
 
@@ -1202,5 +1202,85 @@ function handleBlock(form) {
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') closeAll();
         });
+    });
+})();
+
+
+/* ========================================
+   NAV BADGE POLLING — notifications + messages
+   ======================================== */
+
+(function () {
+    var notifBadge = document.getElementById('notifBadge');
+    var msgBadge   = document.getElementById('msgBadge');
+
+    if (!notifBadge && !msgBadge) return;
+
+    var notifCount = notifBadge && !notifBadge.hidden
+        ? parseInt(notifBadge.textContent, 10) || 0
+        : 0;
+
+    function renderBadge(el, count) {
+        if (!el) return;
+        if (count > 0) {
+            el.textContent = count;
+            el.hidden = false;
+        } else {
+            el.hidden = true;
+        }
+    }
+
+    function pollNotifications() {
+        if (!notifBadge) return;
+        fetch('notifications_count.php', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.success) return;
+                if (data.count !== notifCount) {
+                    renderBadge(notifBadge, data.count);
+                    notifCount = data.count;
+
+                    // If count increased while user is on another page,
+                    // flash the badge briefly for attention
+                    if (data.count > 0) {
+                        notifBadge.animate(
+                            [
+                                { transform: 'scale(1)' },
+                                { transform: 'scale(1.25)' },
+                                { transform: 'scale(1)' }
+                            ],
+                            { duration: 400, easing: 'ease-in-out' }
+                        );
+                    }
+                }
+            })
+            .catch(function () { /* silent */ });
+    }
+
+    function pollMessages() {
+        if (!msgBadge) return;
+        fetch('messages_count.php', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.success) return;
+                renderBadge(msgBadge, data.count);
+            })
+            .catch(function () { /* silent */ });
+    }
+
+    // Initial load — sync everything on page open
+    pollNotifications();
+    pollMessages();
+
+    // Poll every 15 seconds
+    setInterval(pollNotifications, 15000);
+    setInterval(pollMessages, 15000);
+
+    // Also refetch when the tab becomes visible again (user switches back)
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+            pollNotifications();
+            pollMessages();
+        }
     });
 })();

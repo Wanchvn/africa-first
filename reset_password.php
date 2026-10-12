@@ -35,13 +35,16 @@ if ($raw_token === '') {
         $errors[] = 'This reset link is invalid or has already been used.';
     } elseif ($reset['used']) {
         $errors[] = 'This reset link has already been used. Request a new one.';
-    } elseif (strtotime($reset['expires_at']) < time()) {
+    } elseif (strtotime($reset['expires_at']) <= time()) {
         $errors[] = 'This reset link has expired. Request a new one.';
     } else {
         $valid_token = true;
         $user_id = (int)$reset['user_id'];
     }
 }
+
+// Remove expired tokens opportunistically while preserving the specific expiry message above.
+$pdo->exec("DELETE FROM password_resets WHERE expires_at <= CURRENT_TIMESTAMP");
 
 if ($valid_token && $_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
@@ -62,15 +65,51 @@ if ($valid_token && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $hash = password_hash($new, PASSWORD_DEFAULT);
 
-        $stmt = $pdo->prepare("UPDATE users SET password = :p WHERE id = :id");
-        $stmt->execute([':p' => $hash, ':id' => $user_id]);
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("
+                SELECT id, user_id, expires_at, used
+                FROM password_resets
+                WHERE token_hash = :h
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $stmt->execute([':h' => $token_hash]);
+            $reset = $stmt->fetch();
 
-        $stmt = $pdo->prepare("UPDATE password_resets SET used = 1 WHERE user_id = :id");
-        $stmt->execute([':id' => $user_id]);
+            if (
+                !$reset
+                || (int)$reset['user_id'] !== $user_id
+                || !empty($reset['used'])
+                || strtotime($reset['expires_at']) <= time()
+            ) {
+                $pdo->rollBack();
+                $valid_token = false;
+                $errors[] = 'This reset link is invalid, expired, or has already been used. Request a new one.';
+            } else {
+                $stmt = $pdo->prepare("UPDATE users SET password = :p WHERE id = :id");
+                $stmt->execute([':p' => $hash, ':id' => $user_id]);
 
-        $_SESSION['login_message'] = 'Password updated. You can now log in with your new password.';
-        header('Location: login.php');
-        exit;
+                $stmt = $pdo->prepare("DELETE FROM password_resets WHERE id = :id");
+                $stmt->execute([':id' => $reset['id']]);
+                if ($stmt->rowCount() !== 1) {
+                    throw new RuntimeException('Password reset token could not be consumed');
+                }
+
+                $pdo->commit();
+            }
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        if ($valid_token) {
+            $_SESSION['login_message'] = 'Password updated. You can now log in with your new password.';
+            header('Location: login.php');
+            exit;
+        }
     }
 }
 

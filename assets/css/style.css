@@ -4270,3 +4270,12 @@ body.dark-mode .profile-menu-item svg {
     color: var(--charcoal);
     opacity: 0.9;
 }
+
+/* ============================================================
+   NAV BADGE — hide cleanly when count is 0
+   ============================================================ */
+
+.nav-link .badge[hidden],
+.badge[hidden] {
+    display: none !important;
+}

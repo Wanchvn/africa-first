@@ -28,7 +28,7 @@ if ($logged_in) {
     // Messages
     $unread_messages = unread_message_count($pdo, (int)$_SESSION['user_id']);
 
-    // User info (also used by the profile dropdown)
+    // User info
     $stmt = $pdo->prepare("SELECT is_admin, theme, avatar, display_name, username FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $user_row   = $stmt->fetch();
@@ -99,20 +99,20 @@ $og_description = "Africa's social network. Your data stays home.";
                     <span class="nav-label"><?= __('nav_feed') ?></span>
                 </a>
 
-                <a href="notifications.php" class="nav-link" title="<?= __('nav_notifications') ?>">
+                <a href="notifications.php" class="nav-link" title="<?= __('nav_notifications') ?>" id="notifNavLink">
                     <i data-lucide="bell" class="nav-icon"></i>
                     <span class="nav-label"><?= __('nav_notifications') ?></span>
-                    <?php if ($unread_count > 0): ?>
-                        <span class="badge"><?= $unread_count ?></span>
-                    <?php endif; ?>
+                    <span class="badge" id="notifBadge" <?= $unread_count > 0 ? '' : 'hidden' ?>>
+                        <?= $unread_count ?>
+                    </span>
                 </a>
 
-                <a href="messages.php" class="nav-link" title="<?= __('messages_title') ?>">
+                <a href="messages.php" class="nav-link" title="<?= __('messages_title') ?>" id="msgNavLink">
                     <i data-lucide="mail" class="nav-icon"></i>
                     <span class="nav-label"><?= __('messages_title') ?></span>
-                    <?php if ($unread_messages > 0): ?>
-                        <span class="badge"><?= $unread_messages ?></span>
-                    <?php endif; ?>
+                    <span class="badge" id="msgBadge" <?= $unread_messages > 0 ? '' : 'hidden' ?>>
+                        <?= $unread_messages ?>
+                    </span>
                 </a>
 
                 <span class="nav-divider" aria-hidden="true"></span>
@@ -140,7 +140,6 @@ $og_description = "Africa's social network. Your data stays home.";
                 <a href="?setlang=fr" class="<?= ($_SESSION['lang'] ?? 'en') === 'fr' ? 'active' : '' ?>">FR</a>
             </div>
 
-            <!-- ============ PROFILE DROPDOWN ============ -->
             <div class="profile-menu">
                 <button type="button" class="profile-menu-btn" id="profileMenuBtn"
                         aria-expanded="false" aria-haspopup="true"
@@ -177,7 +176,6 @@ $og_description = "Africa's social network. Your data stays home.";
                         <span><?= __('nav_profile') ?></span>
                     </a>
 
-                    <!-- Settings submenu -->
                     <button type="button" class="profile-menu-item profile-menu-toggle"
                             id="settingsToggle" aria-expanded="false">
                         <i data-lucide="settings"></i>

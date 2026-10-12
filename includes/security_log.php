@@ -9,21 +9,21 @@ function security_log($action, $details = '') {
 
     $log_file = $log_dir . '/security.log';
 
-    $ip = client_ip();
+    $ip_hash = privacy_hash_identifier(client_ip());
 
     $user_id = $_SESSION['user_id'] ?? 0;
     $username = $_SESSION['username'] ?? 'guest';
     $time = date('Y-m-d H:i:s');
 
     $line = sprintf(
-        "[%s] [%s] [user:%s/%d] [%s] %s\n",
+        "[%s] [ip_hash:%s] [user:%s/%d] [%s] %s\n",
         $time,
-        $ip,
+        $ip_hash,
         $username,
         $user_id,
         $action,
         $details
     );
 
-    @file_put_contents($log_file, $line, FILE_APPEND);
+    @file_put_contents($log_file, $line, FILE_APPEND | LOCK_EX);
 }

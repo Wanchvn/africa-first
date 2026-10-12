@@ -83,3 +83,62 @@ function crypto_decrypt(string $stored): string {
 function crypto_is_encrypted(string $stored): bool {
     return strpos($stored, 'enc:v1:') === 0;
 }
+
+/**
+ * Encrypt an arbitrary binary string for file storage.
+ * The server holds the key; this is encryption at rest, not end-to-end encryption.
+ */
+function crypto_encrypt_blob(string $plaintext): string {
+    if ($plaintext === '') return '';
+
+    $key   = crypto_key();
+    $nonce = random_bytes(12);
+    $tag   = '';
+    $ciphertext = openssl_encrypt(
+        $plaintext,
+        'aes-256-gcm',
+        $key,
+        OPENSSL_RAW_DATA,
+        $nonce,
+        $tag,
+        '',
+        16
+    );
+
+    if ($ciphertext === false) {
+        throw new RuntimeException('Blob encryption failed');
+    }
+
+    return 'enc:v1:' . $nonce . $ciphertext . $tag;
+}
+
+/**
+ * Decrypt an encrypted file blob, passing legacy plaintext files through.
+ */
+function crypto_decrypt_blob(string $blob): string {
+    if ($blob === '') return '';
+    if (strpos($blob, 'enc:v1:') !== 0) {
+        return $blob;
+    }
+
+    $encrypted = substr($blob, 7);
+    if (strlen($encrypted) < 12 + 16) {
+        return '';
+    }
+
+    $key        = crypto_key();
+    $nonce      = substr($encrypted, 0, 12);
+    $tag        = substr($encrypted, -16);
+    $ciphertext = substr($encrypted, 12, -16);
+
+    $plaintext = openssl_decrypt(
+        $ciphertext,
+        'aes-256-gcm',
+        $key,
+        OPENSSL_RAW_DATA,
+        $nonce,
+        $tag
+    );
+
+    return $plaintext === false ? '' : $plaintext;
+}

@@ -13,6 +13,8 @@ if (isset($_SESSION['user_id'])) {
     exit;
 }
 
+$pdo->exec("DELETE FROM password_resets WHERE expires_at <= CURRENT_TIMESTAMP");
+
 $message = '';
 $errors = [];
 $submitted_email = '';

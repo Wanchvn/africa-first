@@ -1,6 +1,14 @@
 # Block PHP execution in the uploads folder
 php_flag engine off
 
+<FilesMatch "\.enc$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(mp4|webm|mov|mkv)$">
+    Require all denied
+</FilesMatch>
+
 <FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|pl|py|jsp|asp|aspx|sh|cgi|htaccess)$">
     Order allow,deny
     Deny from all

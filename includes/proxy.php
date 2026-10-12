@@ -98,3 +98,25 @@ function client_ip() {
 
     return $remote_ip;
 }
+
+/**
+ * Return a keyed, deterministic hash for IPs and other stored identifiers.
+ */
+function privacy_hash_identifier($identifier) {
+    if (!is_string($identifier) || $identifier === '') {
+        throw new InvalidArgumentException('Identifier must be a non-empty string');
+    }
+
+    static $hash_key = null;
+    if ($hash_key === null) {
+        require_once __DIR__ . '/crypto.php';
+        $hash_key = hash_hmac('sha256', 'qarota:identifier-hash:v1', crypto_key(), true);
+    }
+
+    $packed_ip = inet_pton($identifier);
+    $value = $packed_ip === false
+        ? "identifier\0" . $identifier
+        : "ip\0" . $packed_ip;
+
+    return hash_hmac('sha256', $value, $hash_key);
+}

@@ -13,6 +13,8 @@ require_once __DIR__ . '/proxy.php';
  * @return bool
  */
 function rate_limit_check($pdo, $identifier, $action, $limit, $window_sec) {
+    $identifier = privacy_hash_identifier($identifier);
+
     // Prune old entries for this identifier+action (older than window)
     $stmt = $pdo->prepare("
         DELETE FROM rate_limits

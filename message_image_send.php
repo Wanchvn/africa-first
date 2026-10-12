@@ -14,6 +14,7 @@ require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require 'includes/messages.php';
 require 'includes/blocks.php';
+require_once __DIR__ . '/includes/crypto.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -108,17 +109,41 @@ if ($_FILES['image']['size'] > $max_size) {
 }
 
 $ext = $allowed[$final_mime];
-$filename = bin2hex(random_bytes(16)) . '.' . $ext;
+$filename = bin2hex(random_bytes(16)) . '.' . $ext . '.enc';
 $uploadDir = __DIR__ . '/uploads/dm_images/';
 
 if (!is_dir($uploadDir)) {
-    @mkdir($uploadDir, 0775, true);
+    if (!mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Save failed.']);
+        exit;
+    }
 }
 
 $destination = $uploadDir . $filename;
 $relPath     = 'uploads/dm_images/' . $filename;
 
-if (!move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
+$uploadedBlob = file_get_contents($_FILES['image']['tmp_name']);
+if ($uploadedBlob === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Save failed.']);
+    exit;
+}
+
+try {
+    $encryptedBlob = crypto_encrypt_blob($uploadedBlob);
+} catch (RuntimeException $e) {
+    error_log('Image upload encryption failed: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Encryption failed.']);
+    exit;
+}
+
+$written = file_put_contents($destination, $encryptedBlob, LOCK_EX);
+if ($written !== strlen($encryptedBlob)) {
+    if (file_exists($destination)) {
+        unlink($destination);
+    }
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Save failed.']);
     exit;
