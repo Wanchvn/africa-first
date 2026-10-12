@@ -54,6 +54,22 @@ foreach ($messages as &$m) {
 }
 unset($m);
 
+$reactionStates = fetch_message_reaction_states($pdo, $conv, $me);
+foreach ($messages as &$m) {
+    $m['reactions'] = empty($m['deleted_at'])
+        ? ($reactionStates[(int)$m['id']] ?? [])
+        : [];
+}
+unset($m);
+
+$reactionUpdates = [];
+foreach ($reactionStates as $messageId => $reactions) {
+    $reactionUpdates[] = [
+        'message_id' => $messageId,
+        'reactions' => $reactions,
+    ];
+}
+
 // Mark incoming as read (clears the bell badge while the thread is open)
 mark_conversation_read($pdo, $conv, $me);
 
@@ -86,6 +102,7 @@ if ($lm && (int)$lm['sender_id'] === $me) {
 echo json_encode([
     'success'        => true,
     'messages'       => $messages,
+    'reaction_states' => $reactionUpdates,
     'typing'         => $partnerIsTyping,
     'last_own_id'    => $readInfo['last_own_id'],
     'last_own_seen'  => $readInfo['last_own_seen'],

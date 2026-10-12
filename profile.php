@@ -7,6 +7,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require_once __DIR__ . '/includes/posts.php';
 require 'includes/messages.php';   // messaging helpers
 require 'includes/blocks.php';     // block helpers
 
@@ -34,6 +35,8 @@ if (isset($_GET['id']) && !isset($_GET['u'])) {
 }
 
 $profile_username = $_GET['u'] ?? $_SESSION['username'];
+$viewer_id = (int)$_SESSION['user_id'];
+$profile_count_visibility_sql = post_visibility_filter('counted_posts', 'profile_count');
 
 // -----------------------------------------------------------------------------
 // Load profile being viewed
@@ -44,11 +47,16 @@ $stmt = $pdo->prepare("
         display_name, location, occupation, education, languages, interests,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
         (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
-        (SELECT COUNT(*) FROM posts WHERE user_id = users.id) AS post_count
+        (SELECT COUNT(*) FROM posts counted_posts
+         WHERE counted_posts.user_id = users.id
+           AND $profile_count_visibility_sql) AS post_count
     FROM users
     WHERE username = :username
 ");
-$stmt->execute([':username' => $profile_username]);
+$stmt->execute(array_merge(
+    [':username' => $profile_username],
+    post_visibility_params($viewer_id, 'profile_count')
+));
 $profile_user = $stmt->fetch();
 
 if (!$profile_user) {
@@ -57,7 +65,7 @@ if (!$profile_user) {
 }
 
 $profile_id     = (int)$profile_user['id'];
-$is_own_profile = ($profile_id === (int)$_SESSION['user_id']);
+$is_own_profile = ($profile_id === $viewer_id);
 $display_name   = $profile_user['display_name'] ?: $profile_user['username'];
 
 // -----------------------------------------------------------------------------
@@ -96,9 +104,13 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
     csrf_verify();
     rate_limit_enforce($pdo, client_ip(), 'profile_post', 30, 3600);
     $content = trim($_POST['content']);
+    $visibility = $_POST['visibility'] ?? 'public';
+    if (!in_array($visibility, ['public', 'followers', 'private'], true)) {
+        $visibility = 'public';
+    }
     $media_path = null;
 
-    if (!empty($_FILES['image']['name'])) {
+    if (empty($message) && !empty($_FILES['image']['name'])) {
         $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $max_size = 5 * 1024 * 1024;
 
@@ -120,10 +132,13 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
                 'image/webp' => 'webp',
             };
             $filename = bin2hex(random_bytes(16)) . '.' . $ext;
-            $destination = __DIR__ . '/uploads/' . $filename;
+            $media_directory = $visibility !== 'public'
+                ? 'uploads/private_posts/'
+                : 'uploads/';
+            $destination = __DIR__ . '/' . $media_directory . $filename;
 
             if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
-                $media_path = 'uploads/' . $filename;
+                $media_path = $media_directory . $filename;
             } else {
                 $message = __('upload_save_error');
             }
@@ -131,11 +146,15 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
     }
 
     if (empty($message)) {
-        $stmt = $pdo->prepare("INSERT INTO posts (user_id, content, media_path) VALUES (:user_id, :content, :media)");
+        $stmt = $pdo->prepare(
+            "INSERT INTO posts (user_id, content, media_path, visibility)
+             VALUES (:user_id, :content, :media, :visibility)"
+        );
         $stmt->execute([
             ':user_id' => $_SESSION['user_id'],
             ':content' => $content,
             ':media'   => $media_path,
+            ':visibility' => $visibility,
         ]);
         $new_post_id = (int)$pdo->lastInsertId();
 
@@ -151,16 +170,40 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_PO
                 // Notify topic members respecting their prefs
                 $stmt = $pdo->prepare("
                     INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
-                    SELECT tm.user_id, :actor, 'topic_posted', :post_id, :topic_id
+                    SELECT tm.user_id, :actor_insert, 'topic_posted', :post_id, :topic_id
                     FROM topic_members tm
                     INNER JOIN users u ON u.id = tm.user_id
                     WHERE tm.topic_id = :topic_id
-                      AND tm.user_id != :actor
+                      AND tm.user_id != :actor_exclude
                       AND u.notify_topic_posts = 1
                       AND u.notify_paused = 0
+                      AND (
+                          :topic_visibility_public = 'public'
+                          OR (
+                              :topic_visibility_followers = 'followers'
+                              AND EXISTS (
+                                  SELECT 1 FROM follows topic_follow
+                                  WHERE topic_follow.follower_id = tm.user_id
+                                    AND topic_follow.following_id = :topic_author
+                              )
+                          )
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM user_blocks topic_block
+                          WHERE (topic_block.blocker_id = tm.user_id
+                                 AND topic_block.blocked_id = :topic_author_blocked)
+                             OR (topic_block.blocker_id = :topic_blocker
+                                 AND topic_block.blocked_id = tm.user_id)
+                      )
                 ");
                 $stmt->execute([
-                    ':actor'    => $_SESSION['user_id'],
+                    ':actor_insert' => $_SESSION['user_id'],
+                    ':actor_exclude' => $_SESSION['user_id'],
+                    ':topic_author' => $_SESSION['user_id'],
+                    ':topic_author_blocked' => $_SESSION['user_id'],
+                    ':topic_blocker' => $_SESSION['user_id'],
+                    ':topic_visibility_public' => $visibility,
+                    ':topic_visibility_followers' => $visibility,
                     ':post_id'  => $new_post_id,
                     ':topic_id' => $topic_id,
                 ]);
@@ -190,9 +233,11 @@ if ($is_own_profile) {
 // -----------------------------------------------------------------------------
 // Posts
 // -----------------------------------------------------------------------------
+$profile_visibility_sql = post_visibility_filter('posts', 'profile_posts');
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+        posts.visibility,
         users.avatar,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -201,9 +246,13 @@ $stmt = $pdo->prepare("
     FROM posts
     INNER JOIN users ON posts.user_id = users.id
     WHERE posts.user_id = :user_id
+      AND $profile_visibility_sql
     ORDER BY posts.created_at DESC
 ");
-$stmt->execute([':user_id' => $profile_id, ':me_like' => $_SESSION['user_id']]);
+$stmt->execute(array_merge(
+    [':user_id' => $profile_id, ':me_like' => $viewer_id],
+    post_visibility_params($viewer_id, 'profile_posts')
+));
 $posts = $stmt->fetchAll();
 
 // Record views (skip own profile)
@@ -442,7 +491,39 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <input type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp">
+            <div class="form-field">
+                <label><?= __('post_visibility_label') ?></label>
+                <label class="visibility-option">
+                    <input type="radio" name="visibility" value="public"
+                           <?= ($visibility ?? 'public') === 'public' ? 'checked' : '' ?>>
+                    <i data-lucide="globe" class="visibility-icon"></i>
+                    <span><?= __('post_visibility_public') ?></span>
+                </label>
+                <label class="visibility-option">
+                    <input type="radio" name="visibility" value="followers"
+                           <?= ($visibility ?? 'public') === 'followers' ? 'checked' : '' ?>>
+                    <i data-lucide="users" class="visibility-icon"></i>
+                    <span><?= __('post_visibility_followers') ?></span>
+                </label>
+                <label class="visibility-option">
+                    <input type="radio" name="visibility" value="private"
+                           <?= ($visibility ?? 'public') === 'private' ? 'checked' : '' ?>>
+                    <i data-lucide="lock" class="visibility-icon"></i>
+                    <span><?= __('post_visibility_private') ?></span>
+                </label>
+            </div>
+
+            <label for="post-image" class="file-picker">
+                <i data-lucide="image-plus" class="file-picker-icon"></i>
+                <span class="file-picker-text"><?= __('post_add_photo') ?></span>
+                <span class="file-picker-name" id="postFileName"></span>
+            </label>
+            <input type="file"
+                   id="post-image"
+                   name="image"
+                   accept="image/jpeg,image/png,image/gif,image/webp"
+                   class="file-picker-input"
+                   onchange="var n = this.files[0] ? this.files[0].name : ''; document.getElementById('postFileName').textContent = n;">
             <button type="submit"><?= __('post_button') ?></button>
         </form>
     </div>
@@ -481,7 +562,7 @@ require 'includes/header.php';
             <?php endif; ?>
 
             <?php if ($post['media_path']): ?>
-                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
+                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
             <?php endif; ?>
 
             <div class="meta">
@@ -497,6 +578,15 @@ require 'includes/header.php';
                     </span>
                 <?php endif; ?>
             </div>
+            <?php $post_visibility = $post['visibility'] ?? 'public'; ?>
+            <?php if ($post_visibility !== 'public'): ?>
+                <span class="post-visibility-badge"
+                      title="<?= __('post_visibility_' . $post_visibility . '_title') ?>">
+                    <i data-lucide="<?= $post_visibility === 'private' ? 'lock' : 'users' ?>"
+                       style="width:12px;height:12px;"></i>
+                    <?= __('post_visibility_' . $post_visibility . '_badge') ?>
+                </span>
+            <?php endif; ?>
 
             <?php if ($blocked_either): ?>
                 <!-- ============================================================

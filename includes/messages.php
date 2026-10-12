@@ -53,6 +53,43 @@ function user_in_conversation(PDO $pdo, int $convId, int $userId): bool
     return (bool) $stmt->fetchColumn();
 }
 
+/**
+ * Return reaction states for all active messages in a conversation.
+ *
+ * @return array<int, array<int, array{emoji: string, count: int, mine: bool}>>
+ */
+function fetch_message_reaction_states(PDO $pdo, int $convId, int $viewerId): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT m.id AS message_id, r.emoji, COUNT(r.id) AS reaction_count,
+                COALESCE(SUM(CASE WHEN r.user_id = :viewer THEN 1 ELSE 0 END), 0) AS mine,
+                MIN(r.id) AS first_reaction_id
+         FROM messages m
+         LEFT JOIN message_reactions r ON r.message_id = m.id
+         WHERE m.conversation_id = :conversation
+           AND m.deleted_at IS NULL
+         GROUP BY m.id, r.emoji
+         ORDER BY m.id ASC, first_reaction_id ASC"
+    );
+    $stmt->execute([':viewer' => $viewerId, ':conversation' => $convId]);
+
+    $states = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $messageId = (int)$row['message_id'];
+        $states[$messageId] ??= [];
+        if ($row['emoji'] === null) {
+            continue;
+        }
+        $states[$messageId][] = [
+            'emoji' => (string)$row['emoji'],
+            'count' => (int)$row['reaction_count'],
+            'mine' => (int)$row['mine'] > 0,
+        ];
+    }
+
+    return $states;
+}
+
 /** Return the other participant's user ID. */
 function conversation_partner(PDO $pdo, int $convId, int $userId): ?int
 {

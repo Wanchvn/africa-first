@@ -590,6 +590,7 @@ function escapeHtmlJs(text) {
     if (!form || !thread) return;
 
     var seenLabel = card.dataset.seenLabel || 'Seen';
+    var reactAddLabel = card.dataset.reactLabel || 'Add reaction';
 
     var lastId = 0;
     thread.querySelectorAll('.bubble').forEach(function (el) {
@@ -615,6 +616,43 @@ function escapeHtmlJs(text) {
         pill.className = 'seen-pill';
         pill.textContent = ' · ' + seenLabel;
         timeEl.appendChild(pill);
+    }
+
+    function renderReactionChips(container, messageId, reactions) {
+        while (container.firstChild) container.removeChild(container.firstChild);
+        (reactions || []).forEach(function (r) {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'reaction-chip' + (r.mine ? ' reaction-mine' : '');
+            chip.dataset.messageId = messageId;
+            chip.dataset.emoji = r.emoji;
+
+            var emoji = document.createElement('span');
+            emoji.className = 'reaction-emoji';
+            emoji.textContent = r.emoji;
+            var count = document.createElement('span');
+            count.className = 'reaction-count';
+            count.textContent = r.count;
+
+            chip.appendChild(emoji);
+            chip.appendChild(count);
+            container.appendChild(chip);
+        });
+    }
+
+    function applyReactionUpdates(updates) {
+        (updates || []).forEach(function (state) {
+            var messageId = parseInt(state.message_id, 10);
+            if (isNaN(messageId)) return;
+
+            var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
+            if (!bubble || bubble.classList.contains('bubble-deleted')) return;
+
+            var container = bubble.querySelector('.bubble-reactions');
+            if (container) {
+                renderReactionChips(container, messageId, state.reactions);
+            }
+        });
     }
 
     function renderMessage(m) {
@@ -712,6 +750,38 @@ function escapeHtmlJs(text) {
         div.appendChild(bodyDiv);
         div.appendChild(timeDiv);
 
+        if (!isDeleted) {
+            var reactions = document.createElement('div');
+            reactions.className = 'bubble-reactions';
+            reactions.dataset.messageId = m.id;
+            renderReactionChips(reactions, m.id, m.reactions);
+            div.appendChild(reactions);
+
+            var trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'bubble-react-trigger';
+            trigger.dataset.messageId = m.id;
+            trigger.title = reactAddLabel;
+            trigger.setAttribute('aria-label', reactAddLabel);
+            trigger.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/><line x1="16" y1="5" x2="22" y2="5"/><line x1="19" y1="2" x2="19" y2="8"/></svg>';
+            div.appendChild(trigger);
+
+            var picker = document.createElement('div');
+            picker.className = 'reaction-picker';
+            picker.dataset.messageId = m.id;
+            picker.hidden = true;
+            ['👍', '❤️', '😂', '😮', '😢', '🙏'].forEach(function (emoji) {
+                var pickerButton = document.createElement('button');
+                pickerButton.type = 'button';
+                pickerButton.className = 'reaction-picker-btn';
+                pickerButton.dataset.messageId = m.id;
+                pickerButton.dataset.emoji = emoji;
+                pickerButton.textContent = emoji;
+                picker.appendChild(pickerButton);
+            });
+            div.appendChild(picker);
+        }
+
         if (!mine && !isDeleted) {
             var rep = document.createElement('a');
             rep.className = 'bubble-report';
@@ -761,6 +831,8 @@ function escapeHtmlJs(text) {
                 var badge = document.querySelector('a[href="messages.php"] .badge');
                 if (badge) badge.remove();
             }
+
+            applyReactionUpdates(data.reaction_states);
 
             if (typeof data.last_own_id !== 'undefined') {
                 updateSeenPill(data.last_own_id, data.last_own_seen);
@@ -853,6 +925,9 @@ function escapeHtmlJs(text) {
                     }
                     var db = bubble.querySelector('.bubble-delete'); if (db) db.remove();
                     var rb = bubble.querySelector('.bubble-report'); if (rb) rb.remove();
+                    var reactions = bubble.querySelector('.bubble-reactions'); if (reactions) reactions.remove();
+                    var reactTrigger = bubble.querySelector('.bubble-react-trigger'); if (reactTrigger) reactTrigger.remove();
+                    var reactionPicker = bubble.querySelector('.reaction-picker'); if (reactionPicker) reactionPicker.remove();
                     var pill = bubble.querySelector('.seen-pill'); if (pill) pill.remove();
                 }
             } else {
@@ -866,6 +941,85 @@ function escapeHtmlJs(text) {
             btn2.disabled = false;
         });
     });
+
+    thread.addEventListener('click', function (e) {
+        var trigger = e.target.closest('.bubble-react-trigger');
+        if (trigger) {
+            e.preventDefault();
+            var messageId = trigger.dataset.messageId;
+            thread.querySelectorAll('.reaction-picker').forEach(function (picker) {
+                if (picker.dataset.messageId !== messageId) picker.hidden = true;
+            });
+            var picker = thread.querySelector(
+                '.reaction-picker[data-message-id="' + messageId + '"]'
+            );
+            if (picker) picker.hidden = !picker.hidden;
+            return;
+        }
+
+        var pickerButton = e.target.closest('.reaction-picker-btn');
+        if (pickerButton) {
+            e.preventDefault();
+            sendReaction(pickerButton.dataset.messageId, pickerButton.dataset.emoji);
+            return;
+        }
+
+        var chip = e.target.closest('.reaction-chip');
+        if (chip) {
+            e.preventDefault();
+            sendReaction(chip.dataset.messageId, chip.dataset.emoji);
+        }
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.reaction-picker') && !e.target.closest('.bubble-react-trigger')) {
+            thread.querySelectorAll('.reaction-picker').forEach(function (picker) {
+                picker.hidden = true;
+            });
+        }
+    });
+
+    function sendReaction(messageId, emoji) {
+        var csrfInput = form.querySelector('input[name="csrf_token"]');
+        var csrfToken = csrfInput ? csrfInput.value : '';
+
+        fetch('message_react.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                message_id: messageId,
+                emoji: emoji,
+                csrf_token: csrfToken
+            })
+        })
+        .then(function (response) {
+            return response.json().then(function (data) {
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Could not update reaction.');
+                }
+                return data;
+            });
+        })
+        .then(function (data) {
+            var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
+            if (!bubble) return;
+
+            var container = bubble.querySelector('.bubble-reactions');
+            if (container) {
+                renderReactionChips(container, messageId, data.reactions);
+            }
+            var picker = bubble.querySelector('.reaction-picker');
+            if (picker) picker.hidden = true;
+        })
+        .catch(function (error) {
+            console.error('Reaction error:', error);
+            alert(error.message || 'Could not update reaction.');
+        });
+    }
 
     var lastPingAt = 0;
     if (bodyEl) {

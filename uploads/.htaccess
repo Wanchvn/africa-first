@@ -1,6 +1,11 @@
 # Block PHP execution in the uploads folder
 php_flag engine off
 
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^private_posts/ - [F,L,NC]
+</IfModule>
+
 <FilesMatch "\.enc$">
     Require all denied
 </FilesMatch>

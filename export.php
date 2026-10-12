@@ -4,6 +4,7 @@ require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -26,7 +27,7 @@ $data['profile'] = $stmt->fetch();
 
 // 2. Posts
 $stmt = $pdo->prepare("
-    SELECT id, content, media_path, created_at
+    SELECT id, content, media_path, created_at, visibility
     FROM posts
     WHERE user_id = :id
     ORDER BY created_at ASC
@@ -35,27 +36,37 @@ $stmt->execute([':id' => $user_id]);
 $data['posts'] = $stmt->fetchAll();
 
 // 3. Comments
+$export_comment_visibility_sql = post_visibility_filter('posts', 'export_comment');
 $stmt = $pdo->prepare("
     SELECT comments.id, comments.post_id, comments.content, comments.created_at,
-           posts.content AS post_content, posts.user_id AS post_author
+           CASE WHEN $export_comment_visibility_sql THEN posts.content ELSE NULL END AS post_content,
+           posts.user_id AS post_author
     FROM comments
     INNER JOIN posts ON comments.post_id = posts.id
     WHERE comments.user_id = :id
     ORDER BY comments.created_at ASC
 ");
-$stmt->execute([':id' => $user_id]);
+$stmt->execute(array_merge(
+    [':id' => $user_id],
+    post_visibility_params($user_id, 'export_comment')
+));
 $data['comments'] = $stmt->fetchAll();
 
 // 4. Likes
+$export_like_visibility_sql = post_visibility_filter('posts', 'export_like');
 $stmt = $pdo->prepare("
     SELECT likes.id, likes.post_id, likes.created_at,
-           posts.content AS post_content, posts.user_id AS post_author
+           CASE WHEN $export_like_visibility_sql THEN posts.content ELSE NULL END AS post_content,
+           posts.user_id AS post_author
     FROM likes
     INNER JOIN posts ON likes.post_id = posts.id
     WHERE likes.user_id = :id
     ORDER BY likes.created_at ASC
 ");
-$stmt->execute([':id' => $user_id]);
+$stmt->execute(array_merge(
+    [':id' => $user_id],
+    post_visibility_params($user_id, 'export_like')
+));
 $data['likes'] = $stmt->fetchAll();
 
 // 5. Follows

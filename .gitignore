@@ -1,4 +1,8 @@
-uploads/
+uploads/*
+!uploads/.htaccess
+!uploads/private_posts/
+uploads/private_posts/*
+!uploads/private_posts/.htaccess
 config/db.php
 config/encryption.php
 *.log

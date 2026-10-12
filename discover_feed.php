@@ -5,6 +5,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -22,9 +23,11 @@ $my_languages = trim($me['languages'] ?? '');
 $suggestions = [];
 
 // Reason 1: Friends of friends
+$friends_visibility_sql = post_visibility_filter('posts', 'discover_friends');
 $stmt = $pdo->prepare("
     SELECT DISTINCT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+        posts.visibility,
         users.username, users.display_name, users.avatar, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -40,17 +43,23 @@ $stmt = $pdo->prepare("
           SELECT following_id FROM follows
           WHERE follower_id IN (SELECT following_id FROM follows WHERE follower_id = :me)
       )
+      AND $friends_visibility_sql
     ORDER BY posts.created_at DESC
     LIMIT 10
 ");
-$stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
+$stmt->execute(array_merge(
+    [':me' => $user_id, ':me_like' => $user_id],
+    post_visibility_params($user_id, 'discover_friends')
+));
 $suggestions = array_merge($suggestions, $stmt->fetchAll());
 
 // Reason 2: Same location
 if ($my_location !== '') {
+    $location_visibility_sql = post_visibility_filter('posts', 'discover_location');
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+            posts.visibility,
             users.username, users.display_name, users.avatar, users.id AS author_id,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
             (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -61,10 +70,14 @@ if ($my_location !== '') {
         WHERE posts.user_id != :me
           AND posts.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me)
           AND users.location = :location
+          AND $location_visibility_sql
         ORDER BY posts.created_at DESC
         LIMIT 8
     ");
-    $stmt->execute([':me' => $user_id, ':me_like' => $user_id, ':location' => $my_location]);
+    $stmt->execute(array_merge(
+        [':me' => $user_id, ':me_like' => $user_id, ':location' => $my_location],
+        post_visibility_params($user_id, 'discover_location')
+    ));
     $suggestions = array_merge($suggestions, $stmt->fetchAll());
 }
 
@@ -74,7 +87,11 @@ if ($my_languages !== '') {
 
     if (!empty($my_lang_tokens)) {
         $lang_conditions = [];
-        $lang_params = [':me' => $user_id, ':me_like' => $user_id];
+        $lang_visibility_sql = post_visibility_filter('posts', 'discover_language');
+        $lang_params = array_merge(
+            [':me' => $user_id, ':me_like' => $user_id],
+            post_visibility_params($user_id, 'discover_language')
+        );
         foreach ($my_lang_tokens as $i => $lang) {
             $key = ":lang$i";
             $lang_conditions[] = "users.languages LIKE $key";
@@ -85,6 +102,7 @@ if ($my_languages !== '') {
         $stmt = $pdo->prepare("
             SELECT
                 posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+                posts.visibility,
                 users.username, users.display_name, users.avatar, users.id AS author_id,
                 (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
                 (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -95,6 +113,7 @@ if ($my_languages !== '') {
             WHERE posts.user_id != :me
               AND posts.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me)
               AND ($lang_sql)
+              AND $lang_visibility_sql
             ORDER BY posts.created_at DESC
             LIMIT 8
         ");
@@ -104,9 +123,11 @@ if ($my_languages !== '') {
 }
 
 // Reason 4: Trending
+$trending_visibility_sql = post_visibility_filter('posts', 'discover_trending');
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+        posts.visibility,
         users.username, users.display_name, users.avatar, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -118,10 +139,14 @@ $stmt = $pdo->prepare("
       AND posts.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me)
       AND posts.created_at > NOW() - INTERVAL 48 HOUR
       AND (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) >= 2
+      AND $trending_visibility_sql
     ORDER BY like_count DESC, posts.created_at DESC
     LIMIT 6
 ");
-$stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
+$stmt->execute(array_merge(
+    [':me' => $user_id, ':me_like' => $user_id],
+    post_visibility_params($user_id, 'discover_trending')
+));
 $suggestions = array_merge($suggestions, $stmt->fetchAll());
 
 // Deduplicate
@@ -250,7 +275,7 @@ require 'includes/header.php';
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
 
             <?php if ($post['media_path']): ?>
-                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
+                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
             <?php endif; ?>
 
             <div class="meta">
@@ -259,6 +284,15 @@ require 'includes/header.php';
                     · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
                 <?php endif; ?>
             </div>
+            <?php $post_visibility = $post['visibility'] ?? 'public'; ?>
+            <?php if ($post_visibility !== 'public'): ?>
+                <span class="post-visibility-badge"
+                      title="<?= __('post_visibility_' . $post_visibility . '_title') ?>">
+                    <i data-lucide="<?= $post_visibility === 'private' ? 'lock' : 'users' ?>"
+                       style="width:12px;height:12px;"></i>
+                    <?= __('post_visibility_' . $post_visibility . '_badge') ?>
+                </span>
+            <?php endif; ?>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">

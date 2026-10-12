@@ -5,6 +5,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -13,6 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
+$notification_post_visibility_sql = post_visibility_filter('p', 'notification_post');
 $stmt = $pdo->prepare("
     SELECT
         n.id, n.type, n.post_id, n.conversation_id, n.is_read, n.created_at,
@@ -31,10 +33,17 @@ $stmt = $pdo->prepare("
     LEFT JOIN posts p ON n.post_id = p.id
     LEFT JOIN topics t ON n.topic_id = t.id
     WHERE n.user_id = :me
+      AND (
+          n.post_id IS NULL
+          OR (p.id IS NOT NULL AND $notification_post_visibility_sql)
+      )
     ORDER BY n.created_at DESC
     LIMIT 100
 ");
-$stmt->execute([':me' => $user_id]);
+$stmt->execute(array_merge(
+    [':me' => $user_id],
+    post_visibility_params($user_id, 'notification_post')
+));
 $notifications = $stmt->fetchAll();
 
 require_once __DIR__ . '/includes/crypto.php';

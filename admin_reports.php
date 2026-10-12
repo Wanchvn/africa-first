@@ -46,11 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ---- Remove: Post ----
             if ($action === 'remove' && !empty($report['post_id'])) {
-                $stmt = $pdo->prepare("SELECT content FROM posts WHERE id = :id");
+                $stmt = $pdo->prepare("SELECT content, visibility FROM posts WHERE id = :id");
                 $stmt->execute([':id' => $report['post_id']]);
-                $post_content = $stmt->fetchColumn();
+                $post = $stmt->fetch();
+                $post_content = $post['content'] ?? null;
 
-                $excerpt = ($post_content && in_array($report_reason, $safe_categories, true))
+                $excerpt = (
+                    $post_content
+                    && ($post['visibility'] ?? 'public') === 'public'
+                    && in_array($report_reason, $safe_categories, true)
+                )
                     ? mb_substr($post_content, 0, 200)
                     : null;
 
@@ -316,7 +321,7 @@ require 'includes/header.php';
                 </div>
 
                 <?php if ($r['post_media']): ?>
-                    <img class="media" src="<?= htmlspecialchars($r['post_media']) ?>" alt="">
+                    <img class="media" src="post_media.php?id=<?= (int)$r['post_id'] ?>" alt="">
                 <?php endif; ?>
 
                 <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">

@@ -5,6 +5,7 @@ start_secure_session();
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/topics.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -12,6 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = (int)$_SESSION['user_id'];
+$topic_list_visibility_sql = post_visibility_filter('topic_posts', 'topic_list');
 
 // Fetch all topics, ordered by member count
 $stmt = $pdo->prepare("
@@ -19,13 +21,20 @@ $stmt = $pdo->prepare("
         t.id, t.name, t.slug, t.description, t.curator_id,
         u.username AS curator_username, u.display_name AS curator_display_name,
         (SELECT COUNT(*) FROM topic_members WHERE topic_id = t.id) AS member_count,
-        (SELECT COUNT(*) FROM post_topics WHERE topic_id = t.id) AS post_count,
+        (SELECT COUNT(*)
+         FROM post_topics
+         INNER JOIN posts topic_posts ON topic_posts.id = post_topics.post_id
+         WHERE post_topics.topic_id = t.id
+           AND $topic_list_visibility_sql) AS post_count,
         (SELECT 1 FROM topic_members WHERE topic_id = t.id AND user_id = :me) AS joined
     FROM topics t
     INNER JOIN users u ON t.curator_id = u.id
     ORDER BY member_count DESC, t.created_at DESC
 ");
-$stmt->execute([':me' => $user_id]);
+$stmt->execute(array_merge(
+    [':me' => $user_id],
+    post_visibility_params($user_id, 'topic_list')
+));
 $topics = $stmt->fetchAll();
 
 $page_title = 'Topics';

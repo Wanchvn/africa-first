@@ -7,6 +7,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -23,20 +24,37 @@ if ($post_id <= 0 && $comment_id <= 0) {
 }
 
 if ($post_id > 0) {
-    $stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT user_id, visibility FROM posts WHERE id = :id");
     $stmt->execute([':id' => $post_id]);
-    $owner = $stmt->fetchColumn();
-    if ($owner === false || (int)$owner === $user_id) {
+    $post = $stmt->fetch();
+    if (
+        !$post
+        || (int)$post['user_id'] === $user_id
+        || !can_view_post($pdo, $post, $user_id)
+    ) {
         header('Location: feed.php');
         exit;
     }
 }
 
 if ($comment_id > 0) {
-    $stmt = $pdo->prepare("SELECT user_id FROM comments WHERE id = :id");
+    $stmt = $pdo->prepare(
+        "SELECT comments.user_id, posts.user_id AS post_user_id, posts.visibility
+         FROM comments
+         INNER JOIN posts ON posts.id = comments.post_id
+         WHERE comments.id = :id"
+    );
     $stmt->execute([':id' => $comment_id]);
-    $owner = $stmt->fetchColumn();
-    if ($owner === false || (int)$owner === $user_id) {
+    $comment = $stmt->fetch();
+    if (
+        !$comment
+        || (int)$comment['user_id'] === $user_id
+        || !can_view_post(
+            $pdo,
+            ['user_id' => $comment['post_user_id'], 'visibility' => $comment['visibility']],
+            $user_id
+        )
+    ) {
         header('Location: feed.php');
         exit;
     }

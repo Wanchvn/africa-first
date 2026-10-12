@@ -4,9 +4,11 @@ require_once __DIR__ . '/includes/session.php';
 start_secure_session();
 
 require 'config/db.php';
+require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require 'includes/blocks.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -49,11 +51,11 @@ if ($post_id <= 0) {
 }
 
 // ---- Look up the post owner (needed for both block gate and notification logic) ----
-$stmt = $pdo->prepare("SELECT user_id FROM posts WHERE id = :id");
+$stmt = $pdo->prepare("SELECT user_id, visibility FROM posts WHERE id = :id");
 $stmt->execute([':id' => $post_id]);
-$post_owner = $stmt->fetchColumn();
+$post = $stmt->fetch();
 
-if ($post_owner === false) {
+if (!$post) {
     if ($is_ajax) {
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'error' => 'Post not found']);
@@ -62,7 +64,7 @@ if ($post_owner === false) {
     header("Location: $redirect");
     exit;
 }
-$post_owner = (int)$post_owner;
+$post_owner = (int)$post['user_id'];
 
 // =============================================================
 //  BLOCK ENFORCEMENT
@@ -78,6 +80,18 @@ if (in_array($action, ['like', 'comment', 'bookmark'], true)) {
             echo json_encode(['success' => false, 'error' => __('block_error_cannot_interact')]);
         } else {
             $_SESSION['flash'] = __('block_error_cannot_interact');
+            header('Location: ' . $redirect);
+        }
+        exit;
+    }
+
+    if (!can_view_post($pdo, $post, $user_id)) {
+        http_response_code(403);
+        if ($is_ajax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'error' => __('post_visibility_denied')]);
+        } else {
+            $_SESSION['flash'] = __('post_visibility_denied');
             header('Location: ' . $redirect);
         }
         exit;

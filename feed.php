@@ -6,6 +6,7 @@ start_secure_session();
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/blocks.php';   // block helpers
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -17,21 +18,32 @@ $user_id = (int)$_SESSION['user_id'];
 // -----------------------------------------------------------------------------
 // Feed: posts from people you follow
 // -----------------------------------------------------------------------------
+$feed_visibility_sql = post_visibility_filter('posts', 'feed_visibility');
 $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+        posts.visibility,
         users.username, users.avatar, users.display_name, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
         (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
     FROM posts
-    INNER JOIN follows ON posts.user_id = follows.following_id
+    LEFT JOIN follows ON posts.user_id = follows.following_id
+                     AND follows.follower_id = :feed_following
     INNER JOIN users ON posts.user_id = users.id
-    WHERE follows.follower_id = :me
+    WHERE (follows.following_id IS NOT NULL OR posts.user_id = :feed_owner)
+      AND $feed_visibility_sql
     ORDER BY posts.created_at DESC
     LIMIT 50
 ");
-$stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
+$stmt->execute(array_merge(
+    [
+        ':feed_following' => $user_id,
+        ':feed_owner' => $user_id,
+        ':me_like' => $user_id,
+    ],
+    post_visibility_params($user_id, 'feed_visibility')
+));
 $feed = $stmt->fetchAll();
 
 // -----------------------------------------------------------------------------
@@ -264,7 +276,7 @@ require 'includes/header.php';
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
 
             <?php if ($post['media_path']): ?>
-                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
+                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
             <?php endif; ?>
 
             <div class="meta">
@@ -273,6 +285,15 @@ require 'includes/header.php';
                     · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
                 <?php endif; ?>
             </div>
+            <?php $post_visibility = $post['visibility'] ?? 'public'; ?>
+            <?php if ($post_visibility !== 'public'): ?>
+                <span class="post-visibility-badge"
+                      title="<?= __('post_visibility_' . $post_visibility . '_title') ?>">
+                    <i data-lucide="<?= $post_visibility === 'private' ? 'lock' : 'users' ?>"
+                       style="width:12px;height:12px;"></i>
+                    <?= __('post_visibility_' . $post_visibility . '_badge') ?>
+                </span>
+            <?php endif; ?>
 
             <?php if ($post_blocked): ?>
                 <!-- Blocked: read-only -->

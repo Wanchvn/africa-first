@@ -7,6 +7,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -22,12 +23,17 @@ if ($post_id <= 0) {
 }
 
 // Fetch the post
+$edit_visibility_sql = post_visibility_filter('posts', 'edit_visibility');
 $stmt = $pdo->prepare("
-    SELECT id, user_id, content, media_path, created_at, edited_at
+    SELECT id, user_id, content, media_path, created_at, edited_at, visibility
     FROM posts
-    WHERE id = :id
+    WHERE id = :id AND user_id = :viewer_id
+      AND $edit_visibility_sql
 ");
-$stmt->execute([':id' => $post_id]);
+$stmt->execute(array_merge(
+    [':id' => $post_id, ':viewer_id' => $user_id],
+    post_visibility_params($user_id, 'edit_visibility')
+));
 $post = $stmt->fetch();
 
 if (!$post) {
@@ -51,32 +57,69 @@ if (strtotime($post['created_at']) < $thirty_days_ago) {
 $message = '';
 $errors = [];
 $content = $post['content'];
+$visibility = $post['visibility'] ?? 'public';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     rate_limit_enforce($pdo, client_ip(), 'edit_post', 30, 3600);
 
     $content = trim($_POST['content'] ?? '');
+    $visibility = $_POST['visibility'] ?? 'public';
+    if (!in_array($visibility, ['public', 'followers', 'private'], true)) {
+        $visibility = 'public';
+    }
 
     if ($content === '') {
         $errors[] = 'Post content cannot be empty.';
     } elseif (mb_strlen($content) > 500) {
         $errors[] = 'Post must be 500 characters or less.';
-    } elseif ($content === $post['content']) {
+    } elseif ($content === $post['content'] && $visibility === ($post['visibility'] ?? 'public')) {
         $errors[] = 'You haven\'t changed anything yet.';
     }
 
     if (empty($errors)) {
-        $stmt = $pdo->prepare("
-            UPDATE posts
-            SET content = :content, edited_at = NOW()
-            WHERE id = :id AND user_id = :user_id
-        ");
-        $stmt->execute([
-            ':content' => $content,
-            ':id'      => $post_id,
-            ':user_id' => $user_id,
-        ]);
+        $mediaMove = null;
+        $updatedMediaPath = $post['media_path'];
+        if (
+            $visibility !== 'public'
+            && !empty($post['media_path'])
+            && !str_starts_with($post['media_path'], 'uploads/private_posts/')
+        ) {
+            $mediaMove = move_post_media_to_private($post['media_path']);
+            $updatedMediaPath = $mediaMove['media_path'];
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("
+                UPDATE posts
+                SET content = :content, visibility = :visibility, media_path = :media_path,
+                    edited_at = NOW()
+                WHERE id = :id AND user_id = :user_id
+            ");
+            $stmt->execute([
+                ':content' => $content,
+                ':visibility' => $visibility,
+                ':media_path' => $updatedMediaPath,
+                ':id' => $post_id,
+                ':user_id' => $user_id,
+            ]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if (
+                $mediaMove !== null
+                && $mediaMove['source_path'] !== null
+                && $mediaMove['destination_path'] !== null
+                && file_exists($mediaMove['destination_path'])
+                && !rename($mediaMove['destination_path'], $mediaMove['source_path'])
+            ) {
+                throw new RuntimeException('Could not restore post media after a failed update.', 0, $e);
+            }
+            throw $e;
+        }
 
         // Redirect back to where the user came from
         $redirect = $_POST['redirect'] ?? 'profile.php';
@@ -125,10 +168,32 @@ require 'includes/header.php';
         <?php if ($post['media_path']): ?>
             <div class="form-field">
                 <label>Attached photo</label>
-                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="">
+                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="">
                 <div class="field-hint">To change the photo, delete this post and create a new one.</div>
             </div>
         <?php endif; ?>
+
+        <div class="form-field">
+            <label><?= __('post_visibility_label') ?></label>
+            <label class="visibility-option">
+                <input type="radio" name="visibility" value="public"
+                       <?= $visibility === 'public' ? 'checked' : '' ?>>
+                <i data-lucide="globe" class="visibility-icon"></i>
+                <span><?= __('post_visibility_public') ?></span>
+            </label>
+            <label class="visibility-option">
+                <input type="radio" name="visibility" value="followers"
+                       <?= $visibility === 'followers' ? 'checked' : '' ?>>
+                <i data-lucide="users" class="visibility-icon"></i>
+                <span><?= __('post_visibility_followers') ?></span>
+            </label>
+            <label class="visibility-option">
+                <input type="radio" name="visibility" value="private"
+                       <?= $visibility === 'private' ? 'checked' : '' ?>>
+                <i data-lucide="lock" class="visibility-icon"></i>
+                <span><?= __('post_visibility_private') ?></span>
+            </label>
+        </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button type="submit">Save changes</button>

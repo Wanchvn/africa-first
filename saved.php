@@ -6,6 +6,7 @@ start_secure_session();
 require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -53,11 +54,13 @@ $stmt->execute([':me' => $user_id]);
 $total_count = (int)$stmt->fetchColumn();
 
 // Fetch posts based on folder filter
+$saved_visibility_sql = post_visibility_filter('posts', 'saved_visibility');
 if ($folder_filter === null) {
     // All saved posts
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+            posts.visibility,
             users.username, users.display_name, users.avatar, users.id AS author_id,
             bookmarks.created_at AS bookmarked_at, bookmarks.folder_id,
             f.name AS folder_name,
@@ -69,14 +72,19 @@ if ($folder_filter === null) {
         INNER JOIN users ON posts.user_id = users.id
         LEFT JOIN bookmark_folders f ON f.id = bookmarks.folder_id
         WHERE bookmarks.user_id = :me
+          AND $saved_visibility_sql
         ORDER BY bookmarks.created_at DESC
     ");
-    $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
+    $stmt->execute(array_merge(
+        [':me' => $user_id, ':me_like' => $user_id],
+        post_visibility_params($user_id, 'saved_visibility')
+    ));
 } elseif ($show_default) {
     // Default "Saved" folder (folder_id IS NULL)
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+            posts.visibility,
             users.username, users.display_name, users.avatar, users.id AS author_id,
             bookmarks.created_at AS bookmarked_at, bookmarks.folder_id,
             NULL AS folder_name,
@@ -87,14 +95,19 @@ if ($folder_filter === null) {
         INNER JOIN posts ON bookmarks.post_id = posts.id
         INNER JOIN users ON posts.user_id = users.id
         WHERE bookmarks.user_id = :me AND bookmarks.folder_id IS NULL
+          AND $saved_visibility_sql
         ORDER BY bookmarks.created_at DESC
     ");
-    $stmt->execute([':me' => $user_id, ':me_like' => $user_id]);
+    $stmt->execute(array_merge(
+        [':me' => $user_id, ':me_like' => $user_id],
+        post_visibility_params($user_id, 'saved_visibility')
+    ));
 } else {
     // Specific folder
     $stmt = $pdo->prepare("
         SELECT
             posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+            posts.visibility,
             users.username, users.display_name, users.avatar, users.id AS author_id,
             bookmarks.created_at AS bookmarked_at, bookmarks.folder_id,
             f.name AS folder_name,
@@ -106,9 +119,13 @@ if ($folder_filter === null) {
         INNER JOIN users ON posts.user_id = users.id
         INNER JOIN bookmark_folders f ON f.id = bookmarks.folder_id
         WHERE bookmarks.user_id = :me AND bookmarks.folder_id = :folder
+          AND $saved_visibility_sql
         ORDER BY bookmarks.created_at DESC
     ");
-    $stmt->execute([':me' => $user_id, ':me_like' => $user_id, ':folder' => $folder_filter]);
+    $stmt->execute(array_merge(
+        [':me' => $user_id, ':me_like' => $user_id, ':folder' => $folder_filter],
+        post_visibility_params($user_id, 'saved_visibility')
+    ));
 }
 $posts = $stmt->fetchAll();
 
@@ -242,7 +259,7 @@ require 'includes/header.php';
                     <div class="content"><?= htmlspecialchars($post['content']) ?></div>
 
                     <?php if ($post['media_path']): ?>
-                        <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
+                        <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
                     <?php endif; ?>
 
                     <div class="meta">
@@ -252,6 +269,15 @@ require 'includes/header.php';
                         <?php endif; ?>
                         · Saved <?= htmlspecialchars(date('M j', strtotime($post['bookmarked_at']))) ?>
                     </div>
+                    <?php $post_visibility = $post['visibility'] ?? 'public'; ?>
+                    <?php if ($post_visibility !== 'public'): ?>
+                        <span class="post-visibility-badge"
+                              title="<?= __('post_visibility_' . $post_visibility . '_title') ?>">
+                            <i data-lucide="<?= $post_visibility === 'private' ? 'lock' : 'users' ?>"
+                               style="width:12px;height:12px;"></i>
+                            <?= __('post_visibility_' . $post_visibility . '_badge') ?>
+                        </span>
+                    <?php endif; ?>
 
                     <div class="actions">
                         <form method="POST" action="interact.php" class="like-form" style="display:inline;">

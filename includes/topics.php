@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/posts.php';
 
 /**
  * Convert a topic name into a URL-safe slug.
@@ -45,8 +46,19 @@ function topic_member_count($pdo, $topic_id) {
 /**
  * Get the count of posts in a topic.
  */
-function topic_post_count($pdo, $topic_id) {
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM post_topics WHERE topic_id = :t");
-    $stmt->execute([':t' => $topic_id]);
+function topic_post_count(PDO $pdo, int $topic_id, int $viewer_id): int
+{
+    $visibilitySql = post_visibility_filter('posts', 'topic_count');
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM post_topics
+         INNER JOIN posts ON posts.id = post_topics.post_id
+         WHERE post_topics.topic_id = :t
+           AND $visibilitySql"
+    );
+    $stmt->execute(array_merge(
+        [':t' => $topic_id],
+        post_visibility_params($viewer_id, 'topic_count')
+    ));
     return (int)$stmt->fetchColumn();
 }

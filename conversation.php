@@ -75,6 +75,14 @@ foreach ($messages as &$m) {
 }
 unset($m);
 
+$reactionStates = fetch_message_reaction_states($pdo, $conv, $me);
+foreach ($messages as &$m) {
+    $m['reactions'] = empty($m['deleted_at'])
+        ? ($reactionStates[(int)$m['id']] ?? [])
+        : [];
+}
+unset($m);
+
 // ---- Read receipt for initial render ----
 $lastOwnId   = null;
 $lastOwnSeen = false;
@@ -106,6 +114,7 @@ require 'includes/header.php';
      data-conv="<?= $conv ?>"
      data-me="<?= $me ?>"
      data-report-label="<?= htmlspecialchars(__('report_title'), ENT_QUOTES, 'UTF-8') ?>"
+     data-react-label="<?= htmlspecialchars(__('react_add'), ENT_QUOTES, 'UTF-8') ?>"
      data-seen-label="<?= htmlspecialchars(__('seen')) ?>"
      data-last-own-id="<?= $lastOwnId ?: '' ?>"
      data-last-own-seen="<?= $lastOwnSeen ? '1' : '0' ?>">
@@ -235,6 +244,37 @@ require 'includes/header.php';
                         <span class="seen-pill">· <?= __('seen') ?></span>
                     <?php endif; ?>
                 </div>
+
+                <?php if (!$is_deleted): ?>
+                    <div class="bubble-reactions" data-message-id="<?= (int)$m['id'] ?>">
+                        <?php foreach (($m['reactions'] ?? []) as $r): ?>
+                            <button type="button"
+                                    class="reaction-chip <?= $r['mine'] ? 'reaction-mine' : '' ?>"
+                                    data-message-id="<?= (int)$m['id'] ?>"
+                                    data-emoji="<?= htmlspecialchars($r['emoji'], ENT_QUOTES, 'UTF-8') ?>">
+                                <span class="reaction-emoji"><?= htmlspecialchars($r['emoji']) ?></span>
+                                <span class="reaction-count"><?= (int)$r['count'] ?></span>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <button type="button"
+                            class="bubble-react-trigger"
+                            data-message-id="<?= (int)$m['id'] ?>"
+                            title="<?= htmlspecialchars(__('react_add'), ENT_QUOTES, 'UTF-8') ?>"
+                            aria-label="<?= htmlspecialchars(__('react_add'), ENT_QUOTES, 'UTF-8') ?>">
+                        <i data-lucide="smile-plus" style="width:12px;height:12px;"></i>
+                    </button>
+
+                    <div class="reaction-picker" data-message-id="<?= (int)$m['id'] ?>" hidden>
+                        <?php foreach (['👍', '❤️', '😂', '😮', '😢', '🙏'] as $e): ?>
+                            <button type="button"
+                                    class="reaction-picker-btn"
+                                    data-message-id="<?= (int)$m['id'] ?>"
+                                    data-emoji="<?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($e) ?></button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
 
                 <?php if (!$mine && !$is_deleted): ?>
                     <a class="bubble-report"

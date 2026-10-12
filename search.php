@@ -5,6 +5,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
+require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -49,9 +50,11 @@ if ($query !== '' && mb_strlen($query) >= 2) {
 
     // ---- Post search ----
     if ($type === 'all' || $type === 'posts') {
+        $search_visibility_sql = post_visibility_filter('posts', 'search_visibility');
         $stmt = $pdo->prepare("
             SELECT
                 posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+                posts.visibility,
                 users.username, users.display_name, users.avatar, users.id AS author_id,
                 (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
                 (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -59,10 +62,14 @@ if ($query !== '' && mb_strlen($query) >= 2) {
             FROM posts
             INNER JOIN users ON posts.user_id = users.id
             WHERE posts.content LIKE :like
+              AND $search_visibility_sql
             ORDER BY posts.created_at DESC
             LIMIT 30
         ");
-        $stmt->execute([':like' => $like, ':me_like' => $user_id]);
+        $stmt->execute(array_merge(
+            [':like' => $like, ':me_like' => $user_id],
+            post_visibility_params($user_id, 'search_visibility')
+        ));
         $posts = $stmt->fetchAll();
     }
 }
@@ -174,7 +181,7 @@ require 'includes/header.php';
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
 
             <?php if ($post['media_path']): ?>
-                <img class="media" src="<?= htmlspecialchars($post['media_path']) ?>" alt="Post image">
+                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
             <?php endif; ?>
 
             <div class="meta">
@@ -183,6 +190,15 @@ require 'includes/header.php';
                     · <span class="edited-label" title="Edited <?= htmlspecialchars($post['edited_at']) ?>">Edited</span>
                 <?php endif; ?>
             </div>
+            <?php $post_visibility = $post['visibility'] ?? 'public'; ?>
+            <?php if ($post_visibility !== 'public'): ?>
+                <span class="post-visibility-badge"
+                      title="<?= __('post_visibility_' . $post_visibility . '_title') ?>">
+                    <i data-lucide="<?= $post_visibility === 'private' ? 'lock' : 'users' ?>"
+                       style="width:12px;height:12px;"></i>
+                    <?= __('post_visibility_' . $post_visibility . '_badge') ?>
+                </span>
+            <?php endif; ?>
 
             <div class="actions">
                 <form method="POST" action="interact.php" class="like-form" style="display:inline;">

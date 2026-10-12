@@ -464,6 +464,129 @@ h3 { font-size: 1rem; font-weight: 600; }
     opacity: 1;
 }
 
+.post-visibility-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--sand);
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    margin-left: var(--space-2);
+    vertical-align: middle;
+}
+.post-visibility-badge svg {
+    width: 12px;
+    height: 12px;
+    stroke-width: 2;
+}
+body.dark-mode .post-visibility-badge {
+    background: #3A322B;
+    color: var(--muted);
+}
+
+.visibility-option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 0;
+    font-size: 0.9rem;
+    cursor: pointer;
+    color: var(--charcoal);
+}
+.visibility-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--terracotta);
+    stroke-width: 2;
+    margin-right: 2px;
+}
+.visibility-option input[type="radio"] {
+    accent-color: var(--terracotta);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.visibility-option:hover {
+    color: var(--terracotta);
+}
+body.dark-mode .visibility-icon {
+    color: var(--terracotta);
+}
+
+/* ============================================================
+   FILE PICKER
+   ============================================================ */
+.file-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--muted);
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+    font-family: inherit;
+    user-select: none;
+}
+
+.file-picker:hover {
+    border-color: var(--terracotta);
+    color: var(--terracotta);
+    background: #FFF9F5;
+}
+
+.file-picker-icon svg,
+.file-picker svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
+.file-picker-name {
+    color: var(--deep-brown);
+    font-weight: 600;
+    margin-left: 4px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-picker-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+    white-space: nowrap;
+}
+
+body.dark-mode .file-picker {
+    border-color: var(--border);
+    color: var(--muted);
+}
+
+body.dark-mode .file-picker:hover {
+    border-color: var(--terracotta);
+    color: var(--terracotta);
+    background: #2A2219;
+}
+
+body.dark-mode .file-picker-name {
+    color: var(--charcoal);
+}
+
 /* ---- Comments ---- */
 .comments {
     margin-top: var(--space-4);
@@ -4283,4 +4406,151 @@ body.dark-mode .profile-menu-item svg {
 .nav-link .badge[hidden],
 .badge[hidden] {
     display: none !important;
+}
+
+/* ============================================================
+   DM EMOJI REACTIONS
+   ============================================================ */
+.bubble-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: var(--ivory);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background var(--transition), border-color var(--transition);
+    font-family: inherit;
+    color: var(--charcoal);
+}
+
+.reaction-chip:hover {
+    background: var(--sand);
+    border-color: var(--terracotta);
+}
+
+.reaction-chip.reaction-mine {
+    background: #FFF0E9;
+    border-color: var(--terracotta);
+    color: var(--terracotta);
+    font-weight: 600;
+}
+
+.reaction-emoji {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.reaction-count {
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.bubble-react-trigger {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0;
+    padding: 2px;
+    transition: opacity var(--transition), color var(--transition);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bubble:hover .bubble-react-trigger {
+    opacity: 0.7;
+}
+
+.bubble-react-trigger:hover {
+    opacity: 1 !important;
+    color: var(--terracotta);
+}
+
+.reaction-picker {
+    position: absolute;
+    bottom: -32px;
+    right: 8px;
+    background: var(--ivory);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    box-shadow: 0 4px 12px rgba(62, 39, 35, 0.15);
+    padding: 4px 6px;
+    display: flex;
+    gap: 2px;
+    z-index: 20;
+    animation: reactionIn 0.12s ease-out;
+}
+
+@keyframes reactionIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.reaction-picker[hidden] {
+    display: none;
+}
+
+.reaction-picker-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.15rem;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: transform 0.12s ease-out, background var(--transition);
+}
+
+.reaction-picker-btn:hover {
+    transform: scale(1.25);
+    background: var(--sand);
+}
+
+body.dark-mode .reaction-chip {
+    background: #252019;
+    border-color: var(--border);
+    color: var(--charcoal);
+}
+
+body.dark-mode .reaction-chip:hover {
+    background: #2A2219;
+    border-color: var(--terracotta);
+}
+
+body.dark-mode .reaction-chip.reaction-mine {
+    background: #3A2219;
+    border-color: var(--terracotta);
+    color: var(--terracotta);
+}
+
+body.dark-mode .reaction-picker {
+    background: #252019;
+    border-color: var(--border);
+}
+
+body.dark-mode .reaction-picker-btn:hover {
+    background: #2A2219;
+}
+
+@media (max-width: 600px) {
+    .bubble-react-trigger {
+        opacity: 0.55;
+        padding: 4px;
+    }
 }
