@@ -157,6 +157,7 @@ elseif ($action === 'comment') {
     if ($content !== '' && mb_strlen($content) <= 500) {
         $stmt = $pdo->prepare("INSERT INTO comments (user_id, post_id, content) VALUES (:u, :p, :c)");
         $stmt->execute([':u' => $user_id, ':p' => $post_id, ':c' => $content]);
+        $new_comment_id = (int)$pdo->lastInsertId();
 
         if ($post_owner !== $user_id) {
             // Respect the recipient's notification preferences
@@ -172,6 +173,42 @@ elseif ($action === 'comment') {
                 $stmt->execute([':owner' => $post_owner, ':actor' => $user_id, ':p' => $post_id]);
             }
         }
+
+        if ($is_ajax) {
+            $stmt = $pdo->prepare("
+                SELECT comments.id, comments.content, comments.created_at, comments.user_id,
+                       users.username, users.display_name, users.avatar
+                FROM comments
+                INNER JOIN users ON users.id = comments.user_id
+                WHERE comments.id = :id
+                LIMIT 1
+            ");
+            $stmt->execute([':id' => $new_comment_id]);
+            $new_comment = $stmt->fetch();
+            if (!$new_comment) {
+                throw new RuntimeException('Could not load the newly created comment');
+            }
+
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => true,
+                'comment' => [
+                    'id' => (int)$new_comment['id'],
+                    'content' => $new_comment['content'],
+                    'created_at' => $new_comment['created_at'],
+                    'user_id' => (int)$new_comment['user_id'],
+                    'username' => $new_comment['username'],
+                    'display_name' => $new_comment['display_name'] ?: $new_comment['username'],
+                    'avatar' => $new_comment['avatar'],
+                ],
+            ]);
+            exit;
+        }
+    } elseif ($is_ajax) {
+        http_response_code(400);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'error' => 'Comment must be between 1 and 500 characters.']);
+        exit;
     }
 }
 

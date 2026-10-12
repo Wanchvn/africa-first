@@ -23,6 +23,14 @@ document.addEventListener('DOMContentLoaded', function() {
             handleBookmark(form);
         });
     });
+
+    // NEW: wire up comment forms
+    document.querySelectorAll('.comment-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            handleComment(form);
+        });
+    });
 });
 
 /* ---- LIKE HANDLER ---- */
@@ -154,6 +162,131 @@ function handleBookmark(form) {
         console.error('Error:', error);
         button.disabled = false;
         form.submit();
+    });
+}
+
+/* ---- COMMENT HANDLER ---- */
+function handleComment(form) {
+    const button = form.querySelector('button');
+    const postId = form.querySelector('input[name="post_id"]').value;
+    const contentInput = form.querySelector('input[name="content"]');
+    const content = contentInput.value.trim();
+
+    if (!content) return;
+
+    const csrfInput = form.querySelector('input[name="csrf_token"]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    button.disabled = true;
+
+    fetch('interact.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({
+            action: 'comment',
+            post_id: postId,
+            content: content,
+            csrf_token: csrfToken
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success || !data.comment) {
+            alert(data.error || 'Something went wrong');
+            button.disabled = false;
+            return;
+        }
+
+        const c = data.comment;
+        contentInput.value = '';
+
+        // Append the new comment inline (no page reload)
+        const card = form.closest('.card');
+        if (!card) { button.disabled = false; return; }
+
+        let comments = card.querySelector('.comments');
+        if (!comments) {
+            comments = document.createElement('div');
+            comments.className = 'comments';
+            form.parentNode.insertBefore(comments, form);
+        }
+
+        const comment = document.createElement('div');
+        comment.className = 'comment';
+
+        const header = document.createElement('div');
+        header.className = 'comment-header';
+
+        if (c.avatar) {
+            const img = document.createElement('img');
+            img.className = 'avatar avatar-tiny';
+            img.src = c.avatar;
+            img.alt = '';
+            header.appendChild(img);
+        } else {
+            const av = document.createElement('div');
+            av.className = 'avatar avatar-tiny avatar-placeholder';
+            av.textContent = (c.display_name || c.username || '?').charAt(0).toUpperCase();
+            header.appendChild(av);
+        }
+
+        const nameLink = document.createElement('a');
+        nameLink.href = 'profile.php?u=' + encodeURIComponent(c.username);
+        nameLink.dataset.userId = c.user_id;
+        const strong = document.createElement('strong');
+        strong.textContent = c.display_name || c.username;
+        nameLink.appendChild(strong);
+        header.appendChild(nameLink);
+
+        const body = document.createElement('div');
+        body.className = 'comment-body';
+        body.textContent = c.content;
+
+        const meta = document.createElement('div');
+        meta.className = 'meta comment-meta';
+        meta.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
+        const timeSpan = document.createElement('span');
+        timeSpan.textContent = c.created_at;
+        meta.appendChild(timeSpan);
+
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'comment-edit-btn';
+        editBtn.dataset.commentId = c.id;
+        editBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-size:0.75rem;cursor:pointer;padding:0;text-decoration:underline;';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            startEditComment(editBtn);
+        });
+        meta.appendChild(editBtn);
+
+        comment.appendChild(header);
+        comment.appendChild(body);
+        comment.appendChild(meta);
+        comments.appendChild(comment);
+
+        // Bump comment count in the actions row
+        const countEl = card.querySelector('.comment-count');
+        if (countEl) {
+            const countText = Array.from(countEl.childNodes).reverse().find(function(node) {
+                return node.nodeType === Node.TEXT_NODE && /\d+/.test(node.textContent);
+            });
+            if (countText) {
+                const current = parseInt(countText.textContent.match(/\d+/)[0], 10);
+                countText.textContent = countText.textContent.replace(/\d+/, current + 1);
+            }
+        }
+
+        button.disabled = false;
+    })
+    .catch(err => {
+        console.error('Comment error:', err);
+        button.disabled = false;
+        alert('Unable to send your comment. Please try again.');
     });
 }
 
@@ -548,7 +681,7 @@ function escapeHtmlJs(text) {
             vid.controls = true;
             vid.preload = 'metadata';
             vid.className = 'dm-video';
-            if (m.video_thumb) vid.poster = m.video_thumb;
+            if (m.video_thumb) vid.poster = 'video_thumb_serve.php?id=' + encodeURIComponent(m.id);
 
             var vsrc = document.createElement('source');
             vsrc.src = 'video_serve.php?id=' + encodeURIComponent(m.id);
@@ -848,7 +981,6 @@ function escapeHtmlJs(text) {
         var csrfToken = form.querySelector('input[name="csrf_token"]').value;
         var convId    = form.querySelector('input[name="conversation_id"]').value;
 
-        // Probe duration from metadata
         var probe = document.createElement('video');
         probe.preload = 'metadata';
         probe.onloadedmetadata = function () {
@@ -1126,7 +1258,6 @@ function handleBlock(form) {
 }
 
 
-
 /* ========================================
    HEADER — mobile nav toggle + profile menu
    ======================================== */
@@ -1134,7 +1265,6 @@ function handleBlock(form) {
 (function () {
     'use strict';
 
-    /* ---- Mobile hamburger ---- */
     window.toggleNav = function () {
         var nav = document.getElementById('navLinks');
         var overlay = document.getElementById('navOverlay');
@@ -1145,7 +1275,6 @@ function handleBlock(form) {
 
     document.addEventListener('DOMContentLoaded', function () {
 
-        /* ---- Close nav on link click (mobile) ---- */
         var navLinks = document.getElementById('navLinks');
         if (navLinks) {
             navLinks.querySelectorAll('a').forEach(function (link) {
@@ -1157,7 +1286,6 @@ function handleBlock(form) {
             });
         }
 
-        /* ---- Profile dropdown ---- */
         var btn         = document.getElementById('profileMenuBtn');
         var dropdown    = document.getElementById('profileMenuDropdown');
         var settingsBtn = document.getElementById('settingsToggle');
@@ -1240,8 +1368,6 @@ function handleBlock(form) {
                     renderBadge(notifBadge, data.count);
                     notifCount = data.count;
 
-                    // If count increased while user is on another page,
-                    // flash the badge briefly for attention
                     if (data.count > 0) {
                         notifBadge.animate(
                             [
@@ -1268,15 +1394,12 @@ function handleBlock(form) {
             .catch(function () { /* silent */ });
     }
 
-    // Initial load — sync everything on page open
     pollNotifications();
     pollMessages();
 
-    // Poll every 15 seconds
     setInterval(pollNotifications, 15000);
     setInterval(pollMessages, 15000);
 
-    // Also refetch when the tab becomes visible again (user switches back)
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') {
             pollNotifications();
