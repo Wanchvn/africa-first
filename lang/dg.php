@@ -174,6 +174,19 @@ return [
 'report_error_duplicate'=> 'A mali sabu naabu.',
 'report_dm_title'       => 'Sabmi tibdahili zuɣu',
 'report_dm_intro'       => 'Admins n-ko ka yɛn nya tibdahili maa. Nira zaa ni nya kadama a sabmi ya, amaa ka bi nya tibdahili maa.',
+'report_dm_conversation_title' => 'Sabmi tibdahili yini zuɣu',
+'report_dm_message_from' => 'A sabmi tibdahili din yina <strong>%s</strong> ni:',
+'report_dm_conversation_with' => 'A sabmi tibdahili ni a ni <strong>%s</strong> yɛltɔɣa.',
+'report_message_attachment' => 'Tibdahili maa ni pahi video, picha bee file.',
+'report_reason_harassment' => 'Nira zuɣu lahabali bee bihim',
+'report_reason_spam' => 'Spam',
+'report_reason_violence' => 'Zahim bee bihim',
+'report_reason_nudity' => 'Nuaŋsim',
+'report_reason_misinformation' => 'Yɛltɔɣa din nyɛla',
+'report_reason_other' => 'Bɛ din pahira',
+'report_optional' => 'a ni bɔri',
+'moderation_message_reported' => 'Tibdahili sabu ni bɛ sabi',
+'moderation_message_reported_note' => 'Nira sabmi tibdahili zuɣu. Tibdahili maa ni yɛltɔɣa mali niŋ public log maa.',
 
 
 // Admin reports

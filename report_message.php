@@ -16,9 +16,14 @@ if (!isset($_SESSION['user_id'])) {
 
 $me          = (int) $_SESSION['user_id'];
 $conversationId = isset($_GET['conversation_id']) ? (int) $_GET['conversation_id'] : 0;
-$messageId      = isset($_GET['message_id'])      ? (int) $_GET['message_id']      : 0;
+$hasMessageId = array_key_exists('message_id', $_GET);
+$messageId = $hasMessageId ? filter_var($_GET['message_id'], FILTER_VALIDATE_INT) : 0;
 
-if ($conversationId <= 0 || !user_in_conversation($pdo, $conversationId, $me)) {
+if (
+    $conversationId <= 0
+    || ($hasMessageId && ($messageId === false || $messageId <= 0))
+    || !user_in_conversation($pdo, $conversationId, $me)
+) {
     header('Location: messages.php');
     exit;
 }
@@ -28,7 +33,7 @@ if ($conversationId <= 0 || !user_in_conversation($pdo, $conversationId, $me)) {
 $targetMessage = null;
 if ($messageId > 0) {
     $stmt = $pdo->prepare(
-        "SELECT id, sender_id, body, created_at
+        "SELECT id, sender_id, body, message_type, created_at
          FROM messages
          WHERE id = :id AND conversation_id = :c LIMIT 1"
     );
@@ -61,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reason  = trim($_POST['reason'] ?? '');
     $details = trim($_POST['details'] ?? '');
 
-    $allowed_reasons = ['harassment', 'spam', 'threats', 'hate', 'scam', 'other'];
+    $allowed_reasons = ['harassment', 'spam', 'violence', 'nudity', 'misinformation', 'other'];
 
     if (!in_array($reason, $allowed_reasons, true)) {
         $message = __('report_error_reason');
@@ -89,41 +94,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($dupe->fetchColumn()) {
             $message = __('report_error_duplicate');
         } else {
-            $ins = $pdo->prepare(
-                "INSERT INTO reports
-                    (reporter_id, conversation_id, message_id, reason, details, status)
-                 VALUES
-                    (:reporter, :conv, :msg, :reason, :details, 'pending')"
-            );
-            $ins->execute([
-                ':reporter' => $me,
-                ':conv'     => $conversationId,
-                ':msg'      => $messageId > 0 ? $messageId : null,
-                ':reason'   => $reason,
-                ':details'  => $details !== '' ? $details : null,
-            ]);
+            $pdo->beginTransaction();
+            try {
+                $ins = $pdo->prepare(
+                    "INSERT INTO reports
+                        (reporter_id, conversation_id, message_id, reason, details, status)
+                     VALUES
+                        (:reporter, :conv, :msg, :reason, :details, 'pending')"
+                );
+                $ins->execute([
+                    ':reporter' => $me,
+                    ':conv'     => $conversationId,
+                    ':msg'      => $messageId > 0 ? $messageId : null,
+                    ':reason'   => $reason,
+                    ':details'  => $details !== '' ? $details : null,
+                ]);
 
-            // Public moderation log entry — metadata only, never content
-            $pdo->prepare(
-                "INSERT INTO moderation_log (actor_id, action, target_type, target_id, note, created_at)
-                 VALUES (:actor, 'reported', 'message', :tid, :note, NOW())"
-            )->execute([
-                ':actor' => $me,
-                ':tid'   => $messageId > 0 ? $messageId : $conversationId,
-                ':note'  => $messageId > 0 ? 'Reported a direct message' : 'Reported a conversation',
-            ]);
+                $pdo->prepare(
+                    "INSERT INTO moderation_log (action_type, created_at)
+                     VALUES ('message_reported', NOW())"
+                )->execute();
 
-            $success = true;
+                $pdo->commit();
+                $success = true;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $e;
+            }
         }
     }
 }
 
-$page_title = __('report_title');
+$page_title = $messageId > 0 ? __('report_dm_title') : __('report_dm_conversation_title');
 require 'includes/header.php';
 ?>
 
 <div class="card">
-    <h2 style="margin-top:0;"><?= __('report_title') ?></h2>
+    <h2 style="margin-top:0;"><?= htmlspecialchars($page_title) ?></h2>
 
     <?php if ($success): ?>
         <div class="message">
@@ -142,15 +151,22 @@ require 'includes/header.php';
 
         <p style="color: var(--muted); font-size: 0.9rem;">
             <?php if ($messageId > 0): ?>
-                Reporting a message from <strong><?= htmlspecialchars($partner_name) ?></strong>:
+                <?= sprintf(__('report_dm_message_from'), htmlspecialchars($partner_name, ENT_QUOTES, 'UTF-8')) ?>
             <?php else: ?>
-                Reporting the conversation with <strong><?= htmlspecialchars($partner_name) ?></strong>.
+                <?= sprintf(__('report_dm_conversation_with'), htmlspecialchars($partner_name, ENT_QUOTES, 'UTF-8')) ?>
             <?php endif; ?>
+        </p>
+        <p style="color: var(--muted); font-size: 0.9rem;">
+            <?= __('report_dm_intro') ?>
         </p>
 
         <?php if ($targetMessage): ?>
             <div class="report-preview">
-                "<?= htmlspecialchars(mb_substr($targetMessage['body'], 0, 200)) ?><?= mb_strlen($targetMessage['body']) > 200 ? '…' : '' ?>"
+                <?php if ($targetMessage['body'] !== ''): ?>
+                    "<?= htmlspecialchars(mb_substr($targetMessage['body'], 0, 200)) ?><?= mb_strlen($targetMessage['body']) > 200 ? '…' : '' ?>"
+                <?php else: ?>
+                    <?= __('report_message_attachment') ?>
+                <?php endif; ?>
                 <div class="meta"><?= htmlspecialchars($targetMessage['created_at']) ?></div>
             </div>
         <?php endif; ?>
@@ -162,19 +178,19 @@ require 'includes/header.php';
                 <label for="reason"><?= __('report_reason') ?></label>
                 <select id="reason" name="reason" required>
                     <option value="">— <?= __('report_reason') ?> —</option>
-                    <option value="harassment">Harassment or bullying</option>
-                    <option value="spam">Spam</option>
-                    <option value="threats">Threats or violence</option>
-                    <option value="hate">Hate speech</option>
-                    <option value="scam">Scam or fraud</option>
-                    <option value="other">Other</option>
+                    <option value="harassment"><?= __('report_reason_harassment') ?></option>
+                    <option value="spam"><?= __('report_reason_spam') ?></option>
+                    <option value="violence"><?= __('report_reason_violence') ?></option>
+                    <option value="nudity"><?= __('report_reason_nudity') ?></option>
+                    <option value="misinformation"><?= __('report_reason_misinformation') ?></option>
+                    <option value="other"><?= __('report_reason_other') ?></option>
                 </select>
             </div>
 
             <div class="form-field">
                 <label for="details">
                     <?= __('report_details') ?>
-                    <span class="optional">(optional)</span>
+                    <span class="optional">(<?= __('report_optional') ?>)</span>
                 </label>
                 <textarea id="details" name="details" maxlength="1000" rows="4"
                           placeholder="<?= __('report_details') ?>"></textarea>

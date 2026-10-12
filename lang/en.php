@@ -154,6 +154,19 @@ return [
 'report_error_duplicate'=> 'You already have a pending report on this.',
 'report_dm_title'       => 'Report a message',
 'report_dm_intro'       => 'The message content is visible to moderators only. The public log will record that a report was made, not what was reported.',
+'report_dm_conversation_title' => 'Report a conversation',
+'report_dm_message_from' => 'Reporting a message from <strong>%s</strong>:',
+'report_dm_conversation_with' => 'Reporting the conversation with <strong>%s</strong>.',
+'report_message_attachment' => 'This message contains media or an attachment.',
+'report_reason_harassment' => 'Harassment or bullying',
+'report_reason_spam' => 'Spam',
+'report_reason_violence' => 'Violence or threats',
+'report_reason_nudity' => 'Nudity',
+'report_reason_misinformation' => 'Misinformation',
+'report_reason_other' => 'Other',
+'report_optional' => 'optional',
+'moderation_message_reported' => 'Direct message report received',
+'moderation_message_reported_note' => 'A direct message report was submitted. The message content is not included in this public log.',
 
 
 // Admin reports

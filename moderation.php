@@ -65,9 +65,11 @@ require 'includes/header.php';
         <div class="card">
             <div class="meta" style="margin-bottom:8px;">
                 <?= htmlspecialchars($e['created_at']) ?>
-                · decided by
-                <?php $admin_name = $e['admin_display_name'] ?: $e['admin_username'] ?? 'former admin'; ?>
-                <strong><?= htmlspecialchars($admin_name) ?></strong>
+                <?php if ($e['action_type'] !== 'message_reported'): ?>
+                    · decided by
+                    <?php $admin_name = $e['admin_display_name'] ?: $e['admin_username'] ?? 'former admin'; ?>
+                    <strong><?= htmlspecialchars($admin_name) ?></strong>
+                <?php endif; ?>
             </div>
 
             <?php if ($e['action_type'] === 'post_removed'): ?>
@@ -86,6 +88,13 @@ require 'includes/header.php';
                         "<?= htmlspecialchars($e['post_excerpt']) ?><?= mb_strlen($e['post_excerpt']) >= 200 ? '…' : '' ?>"
                     </div>
                 <?php endif; ?>
+            <?php elseif ($e['action_type'] === 'message_reported'): ?>
+                <div style="font-weight:600; margin-bottom:6px;">
+                    <?= __('moderation_message_reported') ?>
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    <?= __('moderation_message_reported_note') ?>
+                </p>
             <?php elseif ($e['action_type'] === 'report_dismissed'): ?>
                 <div style="color:var(--muted); font-weight:600; margin-bottom:6px;">
                     Report dismissed

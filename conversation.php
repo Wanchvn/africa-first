@@ -105,6 +105,7 @@ require 'includes/header.php';
 <div class="card" id="conversationCard"
      data-conv="<?= $conv ?>"
      data-me="<?= $me ?>"
+     data-report-label="<?= htmlspecialchars(__('report_title'), ENT_QUOTES, 'UTF-8') ?>"
      data-seen-label="<?= htmlspecialchars(__('seen')) ?>"
      data-last-own-id="<?= $lastOwnId ?: '' ?>"
      data-last-own-seen="<?= $lastOwnSeen ? '1' : '0' ?>">
