@@ -297,10 +297,17 @@ require 'includes/header.php';
                 </div>
 
             <?php elseif ($has_image): ?>
-                <img class="media"
-                     src="post_media.php?id=<?= (int)$post['id'] ?>"
-                     alt="<?= __('post_image_alt') ?>"
-                     loading="lazy">
+                <?php if (!empty($_SESSION['low_data_mode'])): ?>
+                    <div class="img-placeholder" data-src="post_media.php?id=<?= (int)$post['id'] ?>">
+                        <i data-lucide="image"></i>
+                        <span>Tap to load image</span>
+                    </div>
+                <?php else: ?>
+                    <img class="media"
+                         src="post_media.php?id=<?= (int)$post['id'] ?>"
+                         alt="<?= __('post_image_alt') ?>"
+                         loading="lazy">
+                <?php endif; ?>
             <?php endif; ?>
 
             <div class="meta">

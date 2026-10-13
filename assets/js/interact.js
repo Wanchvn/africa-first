@@ -2050,3 +2050,38 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
+
+
+
+/* ============================================================
+   LOW-DATA MODE — tap-to-load images
+   ============================================================ */
+(function () {
+    document.addEventListener('click', function (e) {
+        var placeholder = e.target.closest('.img-placeholder');
+        if (!placeholder) return;
+
+        var src = placeholder.dataset.src;
+        if (!src) return;
+
+        placeholder.classList.add('loading');
+        placeholder.innerHTML = '<i data-lucide="loader"></i><span>Loading…</span>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        var img = new Image();
+        img.onload = function () {
+            var replacement = document.createElement('img');
+            replacement.className = 'media';
+            replacement.src = src;
+            replacement.alt = 'Post image';
+            placeholder.replaceWith(replacement);
+        };
+        img.onerror = function () {
+            placeholder.classList.remove('loading');
+            placeholder.innerHTML = '<i data-lucide="alert-circle"></i><span>Could not load</span>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+        img.src = src;
+    });
+})();

@@ -15,27 +15,27 @@ $is_admin        = false;
 $user_theme      = 'light';
 $nav_user_avatar = null;
 $nav_user_name   = '';
+$user_low_data   = false;
 
 if ($logged_in) {
     require_once __DIR__ . '/../config/db.php';
     require_once __DIR__ . '/messages.php';
 
-    // Notifications
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :me AND is_read = 0");
     $stmt->execute([':me' => $_SESSION['user_id']]);
     $unread_count = (int)$stmt->fetchColumn();
 
-    // Messages
     $unread_messages = unread_message_count($pdo, (int)$_SESSION['user_id']);
 
-    // User info
-    $stmt = $pdo->prepare("SELECT is_admin, theme, avatar, display_name, username FROM users WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT is_admin, theme, avatar, display_name, username, low_data_mode FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $user_row   = $stmt->fetch();
     $is_admin   = (bool)($user_row['is_admin'] ?? false);
     $user_theme = $user_row['theme'] ?? 'light';
     $nav_user_avatar = $user_row['avatar'] ?? null;
     $nav_user_name   = $user_row['display_name'] ?? $user_row['username'] ?? '';
+    $user_low_data   = (int)($user_row['low_data_mode'] ?? 0) === 1;
+    $_SESSION['low_data_mode'] = $user_low_data ? 1 : 0;
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
@@ -50,11 +50,9 @@ $og_description = "Africa's social network. Your data stays home.";
 
     <link rel="stylesheet" href="assets/css/style.css?v=<?= filemtime(__DIR__ . '/../assets/css/style.css') ?>">
 
-    <!-- Icons -->
     <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="512x512" href="assets/img/favicon-512.png">
 
-    <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#C65D3B">
     <meta name="mobile-web-app-capable" content="yes">
@@ -63,7 +61,6 @@ $og_description = "Africa's social network. Your data stays home.";
     <meta name="apple-mobile-web-app-title" content="Qarota">
     <link rel="apple-touch-icon" href="assets/img/icon-192.png">
 
-    <!-- Open Graph -->
     <meta property="og:title" content="<?= htmlspecialchars($page_title) ?> — Qarota">
     <meta property="og:description" content="<?= htmlspecialchars($og_description) ?>">
     <meta property="og:image" content="https://qarota.com/assets/img/social-preview.png">
@@ -71,8 +68,9 @@ $og_description = "Africa's social network. Your data stays home.";
     <meta name="twitter:card" content="summary_large_image">
 
     <script src="assets/js/lucide.min.js"></script>
+    <script>window.QAROTA_LOW_DATA = <?= $user_low_data ? 'true' : 'false' ?>;</script>
 </head>
-<body class="<?= $user_theme === 'dark' ? 'dark-mode' : '' ?>">
+<body class="<?= $user_theme === 'dark' ? 'dark-mode' : '' ?><?= $user_low_data ? ' low-data' : '' ?>">
 <header class="site-header">
     <nav>
         <a href="feed.php" class="brand">
@@ -189,6 +187,16 @@ $og_description = "Africa's social network. Your data stays home.";
                             <span>Password</span>
                         </a>
 
+                        <a href="settings_notifications.php" class="profile-menu-item">
+                            <i data-lucide="bell"></i>
+                            <span>Notifications</span>
+                        </a>
+
+                        <a href="settings_data.php" class="profile-menu-item">
+                            <i data-lucide="wifi-off"></i>
+                            <span>Data</span>
+                        </a>
+
                         <a href="saved.php" class="profile-menu-item">
                             <i data-lucide="bookmark"></i>
                             <span>Saved posts</span>
@@ -270,23 +278,12 @@ function toggleNav() {
     overlay.classList.toggle('open', isOpen);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    var navLinks = document.getElementById('navLinks');
-    if (!navLinks) return;
-    navLinks.querySelectorAll('a').forEach(function(link) {
-        link.addEventListener('click', function() {
-            navLinks.classList.remove('open');
-            document.getElementById('navOverlay').classList.remove('open');
-        });
-    });
-});
-
 /* ---- Profile dropdown ---- */
-(function () {
-    var btn          = document.getElementById('profileMenuBtn');
-    var dropdown     = document.getElementById('profileMenuDropdown');
-    var settingsBtn  = document.getElementById('settingsToggle');
-    var settingsSub  = document.getElementById('settingsSubmenu');
+document.addEventListener('DOMContentLoaded', function () {
+    var btn         = document.getElementById('profileMenuBtn');
+    var dropdown    = document.getElementById('profileMenuDropdown');
+    var settingsBtn = document.getElementById('settingsToggle');
+    var settingsSub = document.getElementById('settingsSubmenu');
 
     if (!btn || !dropdown) return;
 
@@ -327,7 +324,20 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeAll();
     });
-})();
+});
+
+/* ---- Mobile nav: close on link click ---- */
+document.addEventListener('DOMContentLoaded', function() {
+    var navLinks = document.getElementById('navLinks');
+    if (!navLinks) return;
+    navLinks.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() {
+            navLinks.classList.remove('open');
+            var ov = document.getElementById('navOverlay');
+            if (ov) ov.classList.remove('open');
+        });
+    });
+});
 </script>
 
 <main class="container">

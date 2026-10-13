@@ -274,8 +274,15 @@ require 'includes/header.php';
 
             <div class="content"><?= htmlspecialchars($post['content']) ?></div>
 
-            <?php if ($post['media_path']): ?>
-                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
+                      <?php if ($post['media_path']): ?>
+                <?php if (!empty($_SESSION['low_data_mode'])): ?>
+                    <div class="img-placeholder" data-src="post_media.php?id=<?= (int)$post['id'] ?>">
+                        <i data-lucide="image"></i>
+                        <span>Tap to load image</span>
+                    </div>
+                <?php else: ?>
+                    <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
+                <?php endif; ?>
             <?php endif; ?>
 
             <div class="meta">
