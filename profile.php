@@ -9,6 +9,7 @@ require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require_once __DIR__ . '/includes/posts.php';
 require_once __DIR__ . '/includes/voice_upload.php';
+require_once __DIR__ . '/includes/badge.php';
 require 'includes/messages.php';
 require 'includes/blocks.php';
 
@@ -35,7 +36,7 @@ if (isset($_GET['id']) && !isset($_GET['u'])) {
 $profile_username = $_GET['u'] ?? $_SESSION['username'];
 $viewer_id = (int)$_SESSION['user_id'];
 
-// ---- Admin gate (needed for ban UI) ----
+// ---- Admin gate (needed for ban + verify UI) ----
 $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id LIMIT 1");
 $stmt->execute([':id' => $viewer_id]);
 $viewer_is_admin = (int)$stmt->fetchColumn() === 1;
@@ -47,6 +48,7 @@ $stmt = $pdo->prepare("
         id, username, avatar, bio,
         display_name, location, occupation, education, languages, interests,
         is_banned, ban_reason, is_admin,
+        verification_type, verified_at,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
         (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
         (SELECT COUNT(*) FROM posts counted_posts
@@ -66,11 +68,12 @@ if (!$profile_user) {
     exit;
 }
 
-$profile_id     = (int)$profile_user['id'];
-$is_own_profile = ($profile_id === $viewer_id);
-$display_name   = $profile_user['display_name'] ?: $profile_user['username'];
-$profile_is_admin = (int)($profile_user['is_admin'] ?? 0) === 1;
+$profile_id        = (int)$profile_user['id'];
+$is_own_profile    = ($profile_id === $viewer_id);
+$display_name      = $profile_user['display_name'] ?: $profile_user['username'];
+$profile_is_admin  = (int)($profile_user['is_admin'] ?? 0) === 1;
 $profile_is_banned = (int)($profile_user['is_banned'] ?? 0) === 1;
+$profile_is_verified = ($profile_user['verification_type'] ?? 'none') !== 'none';
 
 $is_following = false;
 if (!$is_own_profile) {
@@ -259,7 +262,7 @@ $stmt = $pdo->prepare("
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
-        users.avatar,
+        users.avatar, users.verification_type,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
         (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count,
@@ -314,7 +317,7 @@ if (!empty($posts)) {
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
     $stmt = $pdo->prepare("
         SELECT comments.id, comments.post_id, comments.user_id, comments.content, comments.created_at,
-               users.username, users.display_name, users.avatar
+               users.username, users.display_name, users.avatar, users.verification_type
         FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
@@ -351,7 +354,7 @@ require 'includes/header.php';
     <div class="profile-info">
         <h1 style="margin-bottom:2px;">
             <?= $is_own_profile ? __('profile_hello') . ' ' : '' ?>
-            <?= htmlspecialchars($display_name) ?>
+            <?= htmlspecialchars($display_name) ?><?= verification_badge($profile_user['verification_type'] ?? 'none', 20) ?>
         </h1>
 
         <?php if ($profile_user['display_name']): ?>
@@ -463,22 +466,43 @@ require 'includes/header.php';
                 </form>
 
                 <?php if ($viewer_is_admin && !$profile_is_admin && !$i_blocked_them): ?>
-    <?php if ($profile_is_banned): ?>
-        <form method="POST" action="admin_ban.php" style="display:inline;"
-              onsubmit="return confirm('Unban @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?');">
-            <?= csrf_field() ?>
-            <input type="hidden" name="target_id" value="<?= $profile_id ?>">
-            <input type="hidden" name="action" value="unban">
-            <input type="hidden" name="admin_note" value="Unbanned via admin panel.">
-            <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
-            <button type="submit" class="btn-secondary">Unban user</button>
-        </form>
-    <?php else: ?>
-        <button type="button" class="btn-danger" onclick="document.getElementById('banDialog').showModal();">
-            Ban user
-        </button>
-    <?php endif; ?>
-<?php endif; ?>
+                    <?php if ($profile_is_verified): ?>
+                        <form method="POST" action="admin_verify.php" style="display:inline;"
+                              onsubmit="return confirm('Remove verification from @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?');">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+                            <input type="hidden" name="action" value="revoke">
+                            <input type="hidden" name="admin_note" value="Verification removed via admin panel.">
+                            <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                            <button type="submit" class="btn-secondary">
+                                <i data-lucide="badge-x" style="width:14px;height:14px;vertical-align:middle;"></i>
+                                Remove verification
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <button type="button" class="btn-secondary"
+                                onclick="document.getElementById('verifyDialog').showModal();">
+                            <i data-lucide="badge-check" style="width:14px;height:14px;vertical-align:middle;"></i>
+                            Verify user
+                        </button>
+                    <?php endif; ?>
+
+                    <?php if ($profile_is_banned): ?>
+                        <form method="POST" action="admin_ban.php" style="display:inline;"
+                              onsubmit="return confirm('Unban @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?');">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+                            <input type="hidden" name="action" value="unban">
+                            <input type="hidden" name="admin_note" value="Unbanned via admin panel.">
+                            <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+                            <button type="submit" class="btn-secondary">Unban user</button>
+                        </form>
+                    <?php else: ?>
+                        <button type="button" class="btn-danger" onclick="document.getElementById('banDialog').showModal();">
+                            Ban user
+                        </button>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
             <?php if ($i_blocked_them): ?>
                 <p class="blocked-note"><?= __('block_you_blocked') ?></p>
@@ -617,7 +641,7 @@ require 'includes/header.php';
                 <?php endif; ?>
                 <div class="author">
                     <a href="profile.php?u=<?= urlencode($profile_user['username']) ?>" data-user-id="<?= $profile_id ?>">
-                        <?= htmlspecialchars($display_name) ?>
+                        <?= htmlspecialchars($display_name) ?><?= verification_badge($post['verification_type'] ?? 'none', 12) ?>
                     </a>
                 </div>
             </div>
@@ -647,7 +671,7 @@ require 'includes/header.php';
                     <span class="post-voice-time"><?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?></span>
                     <audio preload="none" src="voice_serve.php?type=post&id=<?= (int)$post['id'] ?>"></audio>
                 </div>
-                       <?php elseif ($has_image): ?>
+            <?php elseif ($has_image): ?>
                 <?php if (!empty($_SESSION['low_data_mode'])): ?>
                     <div class="img-placeholder" data-src="post_media.php?id=<?= (int)$post['id'] ?>">
                         <i data-lucide="image"></i>
@@ -759,7 +783,7 @@ require 'includes/header.php';
                                     </div>
                                 <?php endif; ?>
                                 <a href="profile.php?u=<?= urlencode($c['username']) ?>" data-user-id="<?= $c['user_id'] ?>">
-                                    <strong><?= htmlspecialchars($comment_name) ?></strong>
+                                    <strong><?= htmlspecialchars($comment_name) ?></strong><?= verification_badge($c['verification_type'] ?? 'none', 11) ?>
                                 </a>
                             </div>
                             <?= htmlspecialchars($c['content']) ?>
@@ -792,6 +816,43 @@ require 'includes/header.php';
             <?php endif; ?>
         </div>
     <?php endforeach; ?>
+<?php endif; ?>
+
+<?php if ($viewer_is_admin && !$is_own_profile && !$profile_is_admin && !$profile_is_banned && !$profile_is_verified): ?>
+    <dialog id="verifyDialog" class="qarota-dialog">
+        <form method="POST" action="admin_verify.php" class="stack">
+            <?= csrf_field() ?>
+            <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+            <input type="hidden" name="action" value="grant">
+            <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+
+            <h2 style="margin-top:0;">Verify @<?= htmlspecialchars($profile_user['username']) ?></h2>
+            <p style="color:var(--muted); font-size:0.9rem;">
+                Only grant verification after confirming identity. This decision is logged publicly.
+            </p>
+
+            <div class="form-field">
+                <label for="verify_type">Verification type</label>
+                <select id="verify_type" name="verification_type" required>
+                    <option value="personal">Personal — individual identity confirmed</option>
+                    <option value="organization">Organization — business, NGO, or media</option>
+                    <option value="staff">Qarota staff</option>
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label for="verify_note">Note (shown publicly)</label>
+                <textarea id="verify_note" name="admin_note" maxlength="500" rows="3" required
+                          placeholder="Explain how identity was confirmed…"></textarea>
+            </div>
+
+            <div style="display:flex; gap: var(--space-2); margin-top: var(--space-3);">
+                <button type="submit">Grant verification</button>
+                <button type="button" class="btn-secondary"
+                        onclick="document.getElementById('verifyDialog').close();">Cancel</button>
+            </div>
+        </form>
+    </dialog>
 <?php endif; ?>
 
 <?php if ($viewer_is_admin && !$is_own_profile && !$profile_is_admin && !$profile_is_banned): ?>

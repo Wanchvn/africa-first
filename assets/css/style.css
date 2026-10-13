@@ -5551,3 +5551,27 @@ body.low-data .media:not(.avatar) {
     /* Belt-and-braces: if any <img> slips through, dim it to signal data use */
     image-rendering: auto;
 }
+
+
+
+
+/* ============================================================
+   VERIFICATION BADGE
+   ============================================================ */
+.verified-badge {
+    display: inline-block;
+    vertical-align: -2px;
+    margin-left: 3px;
+    flex-shrink: 0;
+}
+
+.user-hover-name .verified-badge,
+.profile-username .verified-badge {
+    margin-left: 4px;
+}
+
+.post-header .verified-badge {
+    width: 12px;
+    height: 12px;
+    margin-left: 2px;
+}

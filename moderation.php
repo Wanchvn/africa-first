@@ -38,6 +38,9 @@ $total_dismissed = (int)$stmt->fetchColumn();
 $stmt = $pdo->query("SELECT COUNT(*) FROM moderation_log WHERE action_type IN ('appeal_approved','appeal_rejected')");
 $total_appeals = (int)$stmt->fetchColumn();
 
+$stmt = $pdo->query("SELECT COUNT(*) FROM moderation_log WHERE action_type IN ('user_verified','user_unverified')");
+$total_verifications = (int)$stmt->fetchColumn();
+
 $page_title = 'Moderation Log';
 require 'includes/header.php';
 ?>
@@ -55,7 +58,8 @@ require 'includes/header.php';
         <strong><?= $total ?></strong> total actions ·
         <strong><?= $total_removed ?></strong> posts removed ·
         <strong><?= $total_dismissed ?></strong> reports dismissed ·
-        <strong><?= $total_appeals ?></strong> appeals resolved
+        <strong><?= $total_appeals ?></strong> appeals resolved ·
+        <strong><?= $total_verifications ?></strong> verification actions
     </p>
 </div>
 
@@ -74,6 +78,8 @@ require 'includes/header.php';
         if ($e['action_type'] === 'appeal_approved')  $accent = 'var(--baobab-green)';
         if ($e['action_type'] === 'appeal_rejected')  $accent = 'var(--danger)';
         if ($e['action_type'] === 'message_reported') $accent = 'var(--terracotta)';
+        if ($e['action_type'] === 'user_verified')    $accent = 'var(--terracotta)';
+        if ($e['action_type'] === 'user_unverified')  $accent = 'var(--muted)';
         ?>
         <div class="card" style="border-left: 4px solid <?= $accent ?>;">
             <div class="meta" style="margin-bottom:8px;">
@@ -162,6 +168,32 @@ require 'includes/header.php';
                     <?php if (!empty($e['admin_note'])): ?>
                         Reason:
                     <?php endif; ?>
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php elseif ($e['action_type'] === 'user_verified'): ?>
+                <div style="color:var(--terracotta); font-weight:600; margin-bottom:6px;">
+                    User verified
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin verified a user's identity or organization.
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php elseif ($e['action_type'] === 'user_unverified'): ?>
+                <div style="color:var(--muted); font-weight:600; margin-bottom:6px;">
+                    Verification removed
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin removed a user's verification badge.
                 </p>
                 <?php if (!empty($e['admin_note'])): ?>
                     <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">

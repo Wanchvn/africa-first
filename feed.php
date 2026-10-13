@@ -7,6 +7,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/blocks.php';
 require_once __DIR__ . '/includes/posts.php';
+require_once __DIR__ . '/includes/badge.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -25,7 +26,8 @@ $stmt = $pdo->prepare("
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
-        users.username, users.avatar, users.display_name, users.id AS author_id,
+        users.username, users.avatar, users.display_name, users.verification_type,
+        users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
         (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
@@ -158,7 +160,7 @@ if (!empty($post_ids)) {
     $stmt = $pdo->prepare("
         SELECT comments.id, comments.post_id, comments.user_id, comments.content,
                comments.created_at, comments.edited_at,
-               users.username, users.display_name, users.avatar
+               users.username, users.display_name, users.avatar, users.verification_type
         FROM comments
         INNER JOIN users ON comments.user_id = users.id
         WHERE comments.post_id IN ($placeholders)
@@ -263,6 +265,7 @@ require 'includes/header.php';
                     <a href="profile.php?u=<?= urlencode($post['username']) ?>" data-user-id="<?= $post['author_id'] ?>">
                         <?= htmlspecialchars($author_name) ?>
                     </a>
+                    <?= verification_badge($post['verification_type'] ?? 'none', 12) ?>
                 </div>
             </div>
 
@@ -407,6 +410,7 @@ require 'includes/header.php';
                                 <a href="profile.php?u=<?= urlencode($c['username']) ?>" data-user-id="<?= $c['user_id'] ?>">
                                     <strong><?= htmlspecialchars($comment_name) ?></strong>
                                 </a>
+                                <?= verification_badge($c['verification_type'] ?? 'none', 11) ?>
                             </div>
 
                             <div class="comment-body"><?= htmlspecialchars($c['content']) ?></div>
