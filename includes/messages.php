@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/blocks.php';
+require_once __DIR__ . '/conversations.php';
 
 /**
  * Get or create a 1-to-1 conversation between two users.
@@ -31,22 +32,38 @@ function get_or_create_conversation(PDO $pdo, int $a, int $b): int
     );
     $stmt->execute([':u1' => $u1, ':u2' => $u2]);
     $id = $stmt->fetchColumn();
-    if ($id) return (int) $id;
 
-    $ins = $pdo->prepare(
-        "INSERT INTO conversations (user1_id, user2_id, last_message_at)
-         VALUES (:u1, :u2, NULL)"
+    if ($id) {
+        $conversationId = (int)$id;
+    } else {
+        $ins = $pdo->prepare(
+            "INSERT INTO conversations (user1_id, user2_id, last_message_at)
+             VALUES (:u1, :u2, NULL)"
+        );
+        $ins->execute([':u1' => $u1, ':u2' => $u2]);
+        $conversationId = (int)$pdo->lastInsertId();
+    }
+
+    $members = $pdo->prepare(
+        "INSERT INTO conversation_members (conversation_id, user_id, role)
+         VALUES (:conversation, :user1, 'member'), (:conversation, :user2, 'member')
+         ON DUPLICATE KEY UPDATE role = role"
     );
-    $ins->execute([':u1' => $u1, ':u2' => $u2]);
-    return (int) $pdo->lastInsertId();
+    $members->execute([
+        ':conversation' => $conversationId,
+        ':user1' => $u1,
+        ':user2' => $u2,
+    ]);
+
+    return $conversationId;
 }
 
 /** Verify the given user is a participant in the conversation. */
 function user_in_conversation(PDO $pdo, int $convId, int $userId): bool
 {
     $stmt = $pdo->prepare(
-        "SELECT 1 FROM conversations
-         WHERE id = :c AND (user1_id = :u OR user2_id = :u)
+        "SELECT 1 FROM conversation_members
+         WHERE conversation_id = :c AND user_id = :u
          LIMIT 1"
     );
     $stmt->execute([':c' => $convId, ':u' => $userId]);
@@ -94,40 +111,48 @@ function fetch_message_reaction_states(PDO $pdo, int $convId, int $viewerId): ar
 function conversation_partner(PDO $pdo, int $convId, int $userId): ?int
 {
     $stmt = $pdo->prepare(
-        "SELECT user1_id, user2_id FROM conversations WHERE id = :c LIMIT 1"
+        "SELECT user_id FROM conversation_members
+         WHERE conversation_id = :c AND user_id <> :u
+         ORDER BY joined_at ASC
+         LIMIT 1"
     );
-    $stmt->execute([':c' => $convId]);
-    $row = $stmt->fetch();
-    if (!$row) return null;
-    if ((int)$row['user1_id'] === $userId) return (int)$row['user2_id'];
-    if ((int)$row['user2_id'] === $userId) return (int)$row['user1_id'];
-    return null;
+    $stmt->execute([':c' => $convId, ':u' => $userId]);
+    $partnerId = $stmt->fetchColumn();
+    return $partnerId === false ? null : (int)$partnerId;
 }
 
 /**
- * Insert a notification row for a new message, respecting user prefs.
+ * Notify conversation participants about a new message, respecting preferences.
  * Must be called inside the same transaction as the message insert.
  */
 function notify_new_message(PDO $pdo, int $recipientId, int $senderId, int $convId): void
 {
-    $pref = $pdo->prepare(
-        "SELECT notify_paused, notify_messages FROM users WHERE id = :id LIMIT 1"
-    );
-    $pref->execute([':id' => $recipientId]);
-    $u = $pref->fetch();
-    if (!$u) return;
-    if ((int)($u['notify_paused'] ?? 0) === 1) return;
-    if ((int)($u['notify_messages'] ?? 1) !== 1) return;
+    $recipientIds = conversation_partners($pdo, $convId, $senderId);
+    if (!$recipientIds) {
+        return;
+    }
 
-    $ins = $pdo->prepare(
+    $recipientIds = array_slice($recipientIds, 0, 50);
+    $placeholders = [];
+    $params = [
+        ':actor' => $senderId,
+        ':conv' => $convId,
+    ];
+    foreach ($recipientIds as $index => $id) {
+        $placeholder = ':recipient_' . $index;
+        $placeholders[] = $placeholder;
+        $params[$placeholder] = $id;
+    }
+
+    $stmt = $pdo->prepare(
         "INSERT INTO notifications (user_id, actor_id, type, conversation_id)
-         VALUES (:user_id, :actor, 'message', :conv)"
+         SELECT u.id, :actor, 'message', :conv
+         FROM users u
+         WHERE u.id IN (" . implode(', ', $placeholders) . ")
+           AND u.notify_paused = 0
+           AND u.notify_messages = 1"
     );
-    $ins->execute([
-        ':user_id' => $recipientId,
-        ':actor'   => $senderId,
-        ':conv'    => $convId,
-    ]);
+    $stmt->execute($params);
 }
 
 /**
@@ -145,22 +170,18 @@ function send_message(PDO $pdo, int $convId, int $senderId, string $body): int
         throw new InvalidArgumentException('Message too long.');
     }
 
-    // Look up the conversation + recipient once, up front
-    $pair = $pdo->prepare(
-        "SELECT user1_id, user2_id FROM conversations WHERE id = :c LIMIT 1"
-    );
-    $pair->execute([':c' => $convId]);
-    $row = $pair->fetch();
-    if (!$row) {
+    if (!user_in_conversation($pdo, $convId, $senderId)) {
         throw new InvalidArgumentException('Conversation not found.');
     }
-    $recipientId = ((int)$row['user1_id'] === $senderId)
-        ? (int)$row['user2_id']
-        : (int)$row['user1_id'];
+    $recipients = conversation_partners($pdo, $convId, $senderId);
+    if (!$recipients) {
+        throw new InvalidArgumentException('Conversation has no other members.');
+    }
 
-    // Block check — either direction stops the send
-    if (is_blocked_either($pdo, $senderId, $recipientId)) {
-        throw new InvalidArgumentException('Cannot send a message to this user.');
+    foreach ($recipients as $recipientId) {
+        if (is_blocked_either($pdo, $senderId, $recipientId)) {
+            throw new InvalidArgumentException('Cannot send a message to this user.');
+        }
     }
 
     $pdo->beginTransaction();
@@ -180,9 +201,7 @@ function send_message(PDO $pdo, int $convId, int $senderId, string $body): int
         );
         $upd->execute([':c' => $convId]);
 
-        if ($recipientId > 0) {
-            notify_new_message($pdo, $recipientId, $senderId, $convId);
-        }
+        notify_new_message($pdo, $recipients[0], $senderId, $convId);
 
         $pdo->commit();
         return $id;
@@ -212,6 +231,12 @@ function mark_conversation_read(PDO $pdo, int $convId, int $userId): void
            AND is_read = 0"
     );
     $stmt->execute([':u' => $userId, ':c' => $convId]);
+
+    $stmt = $pdo->prepare(
+        "UPDATE conversation_members SET last_read_at = NOW()
+         WHERE conversation_id = :c AND user_id = :u"
+    );
+    $stmt->execute([':c' => $convId, ':u' => $userId]);
 }
 
 /** Total unread messages across all conversations for a user. */
@@ -220,12 +245,12 @@ function unread_message_count(PDO $pdo, int $userId): int
     $stmt = $pdo->prepare(
         "SELECT COUNT(*)
          FROM messages m
-         JOIN conversations c ON c.id = m.conversation_id
-         WHERE m.is_read = 0
-           AND m.sender_id <> :u
-           AND (c.user1_id = :u OR c.user2_id = :u)"
+         JOIN conversation_members cm ON cm.conversation_id = m.conversation_id
+         WHERE m.sender_id <> :sender
+           AND cm.user_id = :member
+           AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)"
     );
-    $stmt->execute([':u' => $userId]);
+    $stmt->execute([':sender' => $userId, ':member' => $userId]);
     return (int) $stmt->fetchColumn();
 }
 

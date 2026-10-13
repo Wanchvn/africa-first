@@ -33,6 +33,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Toggle the group info panel
+(function () {
+    var btn = document.getElementById('groupInfoBtn');
+    var panel = document.getElementById('groupPanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        panel.hidden = !panel.hidden;
+        btn.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+})();
+
 /* ---- LIKE HANDLER ---- */
 function handleLike(form) {
     const button = form.querySelector('button');
@@ -817,7 +830,27 @@ function escapeHtmlJs(text) {
             if (!data) return;
 
             var typingEl = document.getElementById('typingIndicator');
-            if (typingEl) typingEl.style.display = data.typing ? 'flex' : 'none';
+            if (typingEl) {
+                var tu = data.typing_users || [];
+                if (tu.length === 0) {
+                    typingEl.style.display = 'none';
+                } else {
+                    var names = tu.map(function (u) { return u.display_name || u.username; });
+                    var text = '';
+                    if (names.length === 1) {
+                        text = names[0] + ' is typing…';
+                    } else if (names.length === 2) {
+                        text = names[0] + ' and ' + names[1] + ' are typing…';
+                    } else {
+                        text = names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' others are typing…';
+                    }
+                    var nameEl = typingEl.querySelector('.typing-name');
+                    if (nameEl) nameEl.textContent = text;
+                    var textEl = typingEl.querySelector('.typing-text');
+                    if (textEl) textEl.textContent = '';
+                    typingEl.style.display = 'flex';
+                }
+            }
 
             if (data.messages && data.messages.length) {
                 if (empty) empty.style.display = 'none';
@@ -1561,4 +1594,386 @@ function handleBlock(form) {
             pollMessages();
         }
     });
+})();
+
+
+/* ============================================================
+   POST VOICE RECORDER
+   Mirrors the DM recorder pattern. Targets #compose-form.
+   ============================================================ */
+
+(function () {
+    var form = document.getElementById('compose-form');
+    if (!form) return;
+
+    var micBtn         = document.getElementById('postMicBtn');
+    var voiceRecorder  = document.getElementById('postVoiceRecorder');
+    var voiceRecTime   = document.getElementById('postVoiceRecTime');
+    var voiceCancelBtn = document.getElementById('postVoiceCancelBtn');
+    var voiceSendBtn   = document.getElementById('postVoiceSendBtn');
+    var statusEl       = document.getElementById('postRecStatus');
+
+    var hiddenVoiceInput = document.getElementById('postVoiceFile');
+    var durationInput    = document.getElementById('postVoiceDuration');
+    var previewWrap      = document.getElementById('postVoicePreview');
+    var previewAudio     = document.getElementById('postVoiceAudio');
+    var discardBtn       = document.getElementById('postVoiceDiscard');
+
+    if (!micBtn || !hiddenVoiceInput) return;
+
+    var mediaRecorder   = null;
+    var recordedChunks  = [];
+    var recordStartTime = 0;
+    var recordTimerId   = null;
+    var maxVoiceSeconds = parseInt(form.dataset.voiceMax || '180', 10);
+    var isUploading     = false;
+
+    function clearRecorderUI() {
+        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+        if (voiceRecorder) voiceRecorder.style.display = 'none';
+        if (voiceRecTime)  voiceRecTime.textContent = '0:00';
+        if (statusEl)      statusEl.textContent = '';
+        if (micBtn)        micBtn.disabled = false;
+        if (voiceSendBtn)  voiceSendBtn.disabled = false;
+    }
+
+    function pickMime() {
+        var candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+        for (var i = 0; i < candidates.length; i++) {
+            if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) {
+                return candidates[i];
+            }
+        }
+        return '';
+    }
+
+    function startRecording() {
+        if (isUploading) return;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Voice recording is not supported in this browser.');
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(function (stream) {
+                recordedChunks = [];
+                var mime = pickMime();
+                mediaRecorder = mime
+                    ? new MediaRecorder(stream, { mimeType: mime })
+                    : new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = function (e) {
+                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = function () {
+                    stream.getTracks().forEach(function (t) { t.stop(); });
+                };
+
+                mediaRecorder.start(1000);
+
+                recordStartTime = Date.now();
+                if (voiceRecorder) voiceRecorder.style.display = 'flex';
+                if (micBtn) micBtn.disabled = true;
+
+                recordTimerId = setInterval(function () {
+                    var elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+                    if (voiceRecTime) {
+                        voiceRecTime.textContent =
+                            Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
+                    }
+                    if (elapsed >= maxVoiceSeconds) {
+                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                            try { mediaRecorder.stop(); } catch (e) {}
+                        }
+                        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+                    }
+                }, 250);
+            })
+            .catch(function (err) {
+                console.error('Mic denied:', err);
+                alert('Microphone access is needed to record voice notes.');
+                clearRecorderUI();
+            });
+    }
+
+    function cancelRecording() {
+        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            try { mediaRecorder.stop(); } catch (e) {}
+        }
+        recordedChunks = [];
+        mediaRecorder = null;
+        clearRecorderUI();
+    }
+
+    function finishRecording() {
+        if (isUploading) return;
+
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            var duration = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
+            if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+
+            var originalOnStop = mediaRecorder.onstop;
+            mediaRecorder.onstop = function () {
+                if (originalOnStop) originalOnStop.call(mediaRecorder);
+                stageVoicePreview(duration);
+            };
+
+            try {
+                mediaRecorder.stop();
+            } catch (e) {
+                stageVoicePreview(duration);
+            }
+            return;
+        }
+
+        var fallback = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
+        stageVoicePreview(fallback);
+    }
+
+function stageVoicePreview(duration) {
+    if (!recordedChunks.length) {
+        mediaRecorder = null;
+        clearRecorderUI();
+        return;
+    }
+
+    duration = Math.max(1, duration || 1);
+
+    var mimeType = 'audio/webm';
+    try {
+        mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
+    } catch (e) {}
+
+    var blob = new Blob(recordedChunks, { type: mimeType });
+    var ext = mimeType.indexOf('mp4') !== -1 ? 'm4a'
+            : mimeType.indexOf('ogg') !== -1 ? 'ogg'
+            : 'webm';
+
+    var file = new File([blob], 'voice.' + ext, { type: blob.type });
+    var dt = new DataTransfer();
+    dt.items.add(file);
+    hiddenVoiceInput.files = dt.files;
+
+    if (durationInput) durationInput.value = duration;
+
+  /*  if (previewAudio) {
+        var objectUrl = URL.createObjectURL(blob);
+        previewAudio.src = objectUrl;
+
+        // Force-load metadata so the native player shows the real duration
+        previewAudio.load();
+
+        // When metadata loads, if the browser reports a duration, trust it
+        // (some browsers give fractional times — round up)
+        previewAudio.addEventListener('loadedmetadata', function onMeta() {
+            previewAudio.removeEventListener('loadedmetadata', onMeta);
+            var realDur = Math.max(1, Math.round(previewAudio.duration || duration));
+            if (durationInput) durationInput.value = realDur;
+        });
+    } */
+    if (previewWrap) previewWrap.hidden = false;
+
+    recordedChunks = [];
+    mediaRecorder = null;
+    clearRecorderUI();
+}
+
+    function discardPreview() {
+        hiddenVoiceInput.value = '';
+        if (durationInput) durationInput.value = 0;
+        if (previewAudio) previewAudio.src = '';
+        if (previewWrap) previewWrap.hidden = true;
+    }
+
+    micBtn.addEventListener('click', function (e) { e.preventDefault(); startRecording(); });
+    if (voiceCancelBtn) voiceCancelBtn.addEventListener('click', function (e) { e.preventDefault(); cancelRecording(); });
+    if (voiceSendBtn)   voiceSendBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); finishRecording(); });
+    if (discardBtn)     discardBtn.addEventListener('click', function (e) { e.preventDefault(); discardPreview(); });
+
+    // Prevent submitting while a recording is in progress
+    form.addEventListener('submit', function (e) {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            e.preventDefault();
+            alert('Please stop or cancel the recording first.');
+        }
+    });
+})();
+
+
+
+/* ============================================================
+   POST VOICE PLAYER — play/pause + seekable progress
+   FIXED: auto-resume edge case, ended progress reset, scrub flicker
+   ============================================================ */
+
+(function () {
+    function attachVoicePlayer(wrapper) {
+        var audio = wrapper.querySelector('audio');
+        var btn   = wrapper.querySelector('.post-voice-play');
+        var wave  = wrapper.querySelector('.post-voice-wave');
+        var time  = wrapper.querySelector('.post-voice-time');
+        if (!audio || !btn || !wave) return;
+
+        var tooltip = document.createElement('span');
+        tooltip.className = 'post-voice-seek-tooltip';
+        tooltip.setAttribute('aria-hidden', 'true');
+        wave.appendChild(tooltip);
+        wave.setAttribute('role', 'slider');
+        wave.setAttribute('tabindex', '0');
+        wave.setAttribute('aria-label', 'Seek voice note');
+        wave.setAttribute('aria-valuemin', '0');
+        wave.setAttribute('aria-valuemax', '100');
+        wave.setAttribute('aria-valuenow', '0');
+
+        var dragging = false;
+        var resumeAfterDrag = false;
+
+        function fmt(s) {
+            s = Math.max(0, Math.floor(s || 0));
+            return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+        }
+
+        function duration() {
+            var length = audio.duration || parseFloat(wrapper.dataset.duration) || 0;
+            return Number.isFinite(length) ? length : 0;
+        }
+
+        function updateProgress() {
+            var length = duration();
+            var pct = length > 0 ? Math.max(0, Math.min(100, (audio.currentTime / length) * 100)) : 0;
+            wave.style.setProperty('--progress', pct + '%');
+            wave.setAttribute('aria-valuenow', String(Math.round(pct)));
+            if (time) time.textContent = fmt(audio.currentTime);
+        }
+
+        function seekFromClientX(clientX) {
+            var bounds = wave.getBoundingClientRect();
+            var length = duration();
+            if (!length || bounds.width <= 0) return;
+            var fraction = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+            audio.currentTime = fraction * length;
+            updateProgress();
+        }
+
+        function setTooltip(clientX) {
+            var bounds = wave.getBoundingClientRect();
+            var length = duration();
+            if (bounds.width <= 0 || !length) return;
+            var fraction = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+            tooltip.textContent = fmt(fraction * length);
+            tooltip.style.left = (fraction * 100) + '%';
+        }
+
+        function play() {
+            document.querySelectorAll('.post-voice audio').forEach(function (otherAudio) {
+                if (otherAudio !== audio) otherAudio.pause();
+            });
+            audio.play();
+        }
+
+        btn.addEventListener('click', function () {
+            if (audio.paused) {
+                play();
+            } else {
+                audio.pause();
+            }
+        });
+
+        audio.addEventListener('play', function () {
+            btn.classList.add('playing');
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        });
+
+        audio.addEventListener('pause', function () {
+            // FIX: don't swap icon mid-scrub (prevents flicker while dragging)
+            if (dragging) return;
+            btn.classList.remove('playing');
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+        });
+
+        audio.addEventListener('ended', function () {
+            btn.classList.remove('playing');
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+            // FIX: keep the wave/time consistent at the end
+            updateProgress();
+        });
+
+        audio.addEventListener('timeupdate', function () {
+            if (!dragging) updateProgress();
+        });
+
+        audio.addEventListener('loadedmetadata', function () {
+            updateProgress();
+        });
+
+        wave.addEventListener('pointerdown', function (event) {
+            if (!duration()) return;
+            event.preventDefault();
+            dragging = true;
+            resumeAfterDrag = !audio.paused;
+            if (resumeAfterDrag) audio.pause();
+            wave.setPointerCapture(event.pointerId);
+            seekFromClientX(event.clientX);
+            setTooltip(event.clientX);
+            tooltip.classList.add('visible');
+        });
+
+        wave.addEventListener('pointermove', function (event) {
+            setTooltip(event.clientX);
+            if (dragging) seekFromClientX(event.clientX);
+        });
+
+        function finishScrub(event) {
+            if (!dragging) return;
+            if (typeof event.clientX === 'number') {
+                seekFromClientX(event.clientX);
+                setTooltip(event.clientX); // FIX: keep tooltip aligned after release
+            }
+            dragging = false;
+
+            // FIX: don't auto-resume if the drag landed at the very end
+            var length = duration();
+            var atEnd = length > 0 && audio.currentTime >= length - 0.05;
+            if (resumeAfterDrag && !atEnd) play();
+            resumeAfterDrag = false;
+        }
+
+        wave.addEventListener('pointerup', finishScrub);
+        wave.addEventListener('pointercancel', finishScrub);
+
+        wave.addEventListener('pointerenter', function (event) {
+            setTooltip(event.clientX);
+            tooltip.classList.add('visible');
+        });
+
+        wave.addEventListener('pointerleave', function () {
+            if (!dragging) tooltip.classList.remove('visible');
+        });
+
+        wave.addEventListener('keydown', function (event) {
+            var length = duration();
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                if (!length) return;
+                audio.currentTime = Math.max(0, Math.min(length, audio.currentTime + (event.key === 'ArrowRight' ? 5 : -5)));
+                updateProgress();
+            } else if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault();
+                if (!length) return;
+                audio.currentTime = event.key === 'Home' ? 0 : length;
+                updateProgress();
+            } else if (event.key === ' ' || event.key === 'Enter') {
+                event.preventDefault();
+                if (audio.paused) play();
+                else audio.pause();
+            }
+        });
+
+        updateProgress();
+    }
+
+    document.querySelectorAll('.post-voice').forEach(attachVoicePlayer);
 })();

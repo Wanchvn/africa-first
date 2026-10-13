@@ -8,6 +8,7 @@ require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require_once __DIR__ . '/includes/posts.php';
+require_once __DIR__ . '/includes/voice_upload.php';
 require 'includes/messages.php';   // messaging helpers
 require 'includes/blocks.php';     // block helpers
 
@@ -80,9 +81,6 @@ if (!$is_own_profile) {
 
 // -----------------------------------------------------------------------------
 // Block state
-//   $i_blocked_them  = I blocked this person
-//   $they_blocked_me = they blocked me
-//   $blocked_either  = a block exists in either direction → disable interaction
 // -----------------------------------------------------------------------------
 $i_blocked_them  = false;
 $they_blocked_me = false;
@@ -98,119 +96,154 @@ $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
 
 // -----------------------------------------------------------------------------
-// New post (own profile only)
+// New post (own profile only) — supports text, image, or voice
 // -----------------------------------------------------------------------------
-if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty(trim($_POST['content']))) {
+if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     rate_limit_enforce($pdo, client_ip(), 'profile_post', 30, 3600);
-    $content = trim($_POST['content']);
+
+    $content    = trim($_POST['content'] ?? '');
     $visibility = $_POST['visibility'] ?? 'public';
     if (!in_array($visibility, ['public', 'followers', 'private'], true)) {
         $visibility = 'public';
     }
-    $media_path = null;
 
-    if (empty($message) && !empty($_FILES['image']['name'])) {
-        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $max_size = 5 * 1024 * 1024;
+    $has_image = !empty($_FILES['image']['name'] ?? '') && ($_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+    $has_voice = !empty($_FILES['voice']['name'] ?? '') && ($_FILES['voice']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $_FILES['image']['tmp_name']);
-        finfo_close($finfo);
+    if ($content === '' && !$has_image && !$has_voice) {
+        $message = 'Please write something or attach media.';
+    } elseif ($has_image && $has_voice) {
+        $message = 'Please attach either a photo or a voice note, not both.';
+    } else {
+        $media_path     = null;
+        $media_type     = 'text';
+        $media_duration = null;
+        $media_mime     = null;
 
-        if (!in_array($mime, $allowed)) {
-            $message = __('upload_only_images');
-        } elseif ($_FILES['image']['size'] > $max_size) {
-            $message = __('upload_too_big');
-        } elseif ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-            $message = __('upload_failed');
-        } else {
-            $ext = match($mime) {
-                'image/jpeg' => 'jpg',
-                'image/png'  => 'png',
-                'image/gif'  => 'gif',
-                'image/webp' => 'webp',
-            };
-            $filename = bin2hex(random_bytes(16)) . '.' . $ext;
-            $media_directory = $visibility !== 'public'
-                ? 'uploads/private_posts/'
-                : 'uploads/';
-            $destination = __DIR__ . '/' . $media_directory . $filename;
+        // ---- Image handling ----
+        if ($has_image) {
+            $allowed  = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $max_size = 5 * 1024 * 1024;
 
-            if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
-                $media_path = $media_directory . $filename;
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime  = finfo_file($finfo, $_FILES['image']['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime, $allowed)) {
+                $message = __('upload_only_images');
+            } elseif ($_FILES['image']['size'] > $max_size) {
+                $message = __('upload_too_big');
             } else {
-                $message = __('upload_save_error');
+                $ext = match($mime) {
+                    'image/jpeg' => 'jpg',
+                    'image/png'  => 'png',
+                    'image/gif'  => 'gif',
+                    'image/webp' => 'webp',
+                };
+                $filename        = bin2hex(random_bytes(16)) . '.' . $ext;
+                $media_directory = $visibility !== 'public'
+                    ? 'uploads/private_posts/'
+                    : 'uploads/';
+                $destination     = __DIR__ . '/' . $media_directory . $filename;
+
+                if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
+                    $media_path = $media_directory . $filename;
+                    $media_type = 'image';
+                    $media_mime = $mime;
+                } else {
+                    $message = __('upload_save_error');
+                }
             }
         }
-    }
 
-    if (empty($message)) {
-        $stmt = $pdo->prepare(
-            "INSERT INTO posts (user_id, content, media_path, visibility)
-             VALUES (:user_id, :content, :media, :visibility)"
-        );
-        $stmt->execute([
-            ':user_id' => $_SESSION['user_id'],
-            ':content' => $content,
-            ':media'   => $media_path,
-            ':visibility' => $visibility,
-        ]);
-        $new_post_id = (int)$pdo->lastInsertId();
+        // ---- Voice handling ----
+        if (empty($message) && $has_voice) {
+            $duration = (int)($_POST['voice_duration'] ?? 0);
 
-        // Optional topic tag
-        $topic_id = (int)($_POST['topic_id'] ?? 0);
-        if ($topic_id > 0) {
-            $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
-            $stmt->execute([':t' => $topic_id, ':u' => $_SESSION['user_id']]);
-            if ($stmt->fetch()) {
-                $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
-                $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
+            try {
+                $v = handle_voice_upload($_FILES['voice'], $duration);
+                $media_path     = $v['path'];
+                $media_type     = 'voice';
+                $media_duration = $v['duration'];
+                $media_mime     = $v['mime'];
+            } catch (Throwable $e) {
+                $message = $e->getMessage();
+            }
+        }
 
-                // Notify topic members respecting their prefs
-                $stmt = $pdo->prepare("
-                    INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
-                    SELECT tm.user_id, :actor_insert, 'topic_posted', :post_id, :topic_id
-                    FROM topic_members tm
-                    INNER JOIN users u ON u.id = tm.user_id
-                    WHERE tm.topic_id = :topic_id
-                      AND tm.user_id != :actor_exclude
-                      AND u.notify_topic_posts = 1
-                      AND u.notify_paused = 0
-                      AND (
-                          :topic_visibility_public = 'public'
-                          OR (
-                              :topic_visibility_followers = 'followers'
-                              AND EXISTS (
-                                  SELECT 1 FROM follows topic_follow
-                                  WHERE topic_follow.follower_id = tm.user_id
-                                    AND topic_follow.following_id = :topic_author
+        // ---- Insert post ----
+        if (empty($message)) {
+            $stmt = $pdo->prepare(
+                "INSERT INTO posts
+                    (user_id, content, media_path, media_type, media_duration, media_mime, visibility)
+                 VALUES
+                    (:user_id, :content, :media, :mtype, :mdur, :mmime, :visibility)"
+            );
+            $stmt->execute([
+                ':user_id'    => $_SESSION['user_id'],
+                ':content'    => $content,
+                ':media'      => $media_path,
+                ':mtype'      => $media_type,
+                ':mdur'       => $media_duration,
+                ':mmime'      => $media_mime,
+                ':visibility' => $visibility,
+            ]);
+            $new_post_id = (int)$pdo->lastInsertId();
+
+            // Optional topic tag
+            $topic_id = (int)($_POST['topic_id'] ?? 0);
+            if ($topic_id > 0) {
+                $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
+                $stmt->execute([':t' => $topic_id, ':u' => $_SESSION['user_id']]);
+                if ($stmt->fetch()) {
+                    $stmt = $pdo->prepare("INSERT INTO post_topics (post_id, topic_id) VALUES (:p, :t)");
+                    $stmt->execute([':p' => $new_post_id, ':t' => $topic_id]);
+
+                    $stmt = $pdo->prepare("
+                        INSERT INTO notifications (user_id, actor_id, type, post_id, topic_id)
+                        SELECT tm.user_id, :actor_insert, 'topic_posted', :post_id, :topic_id
+                        FROM topic_members tm
+                        INNER JOIN users u ON u.id = tm.user_id
+                        WHERE tm.topic_id = :topic_id
+                          AND tm.user_id != :actor_exclude
+                          AND u.notify_topic_posts = 1
+                          AND u.notify_paused = 0
+                          AND (
+                              :topic_visibility_public = 'public'
+                              OR (
+                                  :topic_visibility_followers = 'followers'
+                                  AND EXISTS (
+                                      SELECT 1 FROM follows topic_follow
+                                      WHERE topic_follow.follower_id = tm.user_id
+                                        AND topic_follow.following_id = :topic_author
+                                  )
                               )
                           )
-                      )
-                      AND NOT EXISTS (
-                          SELECT 1 FROM user_blocks topic_block
-                          WHERE (topic_block.blocker_id = tm.user_id
-                                 AND topic_block.blocked_id = :topic_author_blocked)
-                             OR (topic_block.blocker_id = :topic_blocker
-                                 AND topic_block.blocked_id = tm.user_id)
-                      )
-                ");
-                $stmt->execute([
-                    ':actor_insert' => $_SESSION['user_id'],
-                    ':actor_exclude' => $_SESSION['user_id'],
-                    ':topic_author' => $_SESSION['user_id'],
-                    ':topic_author_blocked' => $_SESSION['user_id'],
-                    ':topic_blocker' => $_SESSION['user_id'],
-                    ':topic_visibility_public' => $visibility,
-                    ':topic_visibility_followers' => $visibility,
-                    ':post_id'  => $new_post_id,
-                    ':topic_id' => $topic_id,
-                ]);
+                          AND NOT EXISTS (
+                              SELECT 1 FROM user_blocks topic_block
+                              WHERE (topic_block.blocker_id = tm.user_id
+                                     AND topic_block.blocked_id = :topic_author_blocked)
+                                 OR (topic_block.blocker_id = :topic_blocker
+                                     AND topic_block.blocked_id = tm.user_id)
+                          )
+                    ");
+                    $stmt->execute([
+                        ':actor_insert'                => $_SESSION['user_id'],
+                        ':actor_exclude'               => $_SESSION['user_id'],
+                        ':topic_author'                => $_SESSION['user_id'],
+                        ':topic_author_blocked'        => $_SESSION['user_id'],
+                        ':topic_blocker'               => $_SESSION['user_id'],
+                        ':topic_visibility_public'     => $visibility,
+                        ':topic_visibility_followers'  => $visibility,
+                        ':post_id'                     => $new_post_id,
+                        ':topic_id'                    => $topic_id,
+                    ]);
+                }
             }
-        }
 
-        $message = __('post_published');
+            $message = __('post_published');
+        }
     }
 }
 
@@ -238,6 +271,7 @@ $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
+        posts.media_type, posts.media_duration, posts.media_mime,
         users.avatar,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -389,9 +423,6 @@ require 'includes/header.php';
         <?php endif; ?>
 
         <?php if ($is_own_profile): ?>
-            <!-- ============================================================
-                 OWN PROFILE — management actions
-                 ============================================================ -->
             <div class="profile-actions">
                 <a href="edit_profile.php" class="btn-secondary"><?= __('bio_edit_link') ?></a>
                 <form method="POST" action="avatar.php" enctype="multipart/form-data" style="display:inline;">
@@ -406,15 +437,9 @@ require 'includes/header.php';
                 <a href="privacy.php" class="btn-secondary"><?= __('profile_privacy') ?></a>
                 <a href="delete_account.php" class="btn-danger"><?= __('profile_delete') ?></a>
             </div>
-
         <?php else: ?>
-            <!-- ============================================================
-                 SOMEONE ELSE'S PROFILE — Follow / Message / Block
-                 ============================================================ -->
             <div class="profile-actions" style="margin-top: 8px;">
-
                 <?php if (!$blocked_either): ?>
-                    <!-- Follow -->
                     <form method="POST" action="follow.php" class="follow-form">
                         <?= csrf_field() ?>
                         <input type="hidden" name="target_id" value="<?= $profile_id ?>">
@@ -427,15 +452,11 @@ require 'includes/header.php';
                             <?= $is_following ? __('profile_unfollow') : __('profile_follow') ?>
                         </button>
                     </form>
-
-                    <!-- Message -->
                     <a href="start_conversation.php?user=<?= $profile_id ?>" class="btn-secondary">
                         <i data-lucide="mail" style="width:16px;height:16px;vertical-align:middle;"></i>
                         <?= __('profile_message_button') ?>
                     </a>
                 <?php endif; ?>
-
-                <!-- Block / Unblock toggle -->
                 <form method="POST" action="block.php" class="block-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="target_id" value="<?= $profile_id ?>">
@@ -452,8 +473,6 @@ require 'includes/header.php';
                     </button>
                 </form>
             </div>
-
-            <!-- Status note -->
             <?php if ($i_blocked_them): ?>
                 <p class="blocked-note"><?= __('block_you_blocked') ?></p>
             <?php elseif ($they_blocked_me): ?>
@@ -475,9 +494,13 @@ require 'includes/header.php';
     <!-- Composer (own profile only) -->
     <div class="card">
         <h2 style="margin-top:0;"><?= __('post_share') ?></h2>
-        <form method="POST" enctype="multipart/form-data" class="stack">
+        <form id="compose-form"
+              method="POST"
+              enctype="multipart/form-data"
+              class="stack"
+              data-voice-max="180">
             <?= csrf_field() ?>
-            <textarea name="content" maxlength="500" placeholder="<?= __('post_placeholder') ?>" required></textarea>
+            <textarea name="content" maxlength="500" placeholder="<?= __('post_placeholder') ?>"></textarea>
 
             <?php if (!empty($my_topics)): ?>
                 <div class="form-field">
@@ -513,17 +536,48 @@ require 'includes/header.php';
                 </label>
             </div>
 
-            <label for="post-image" class="file-picker">
-                <i data-lucide="image-plus" class="file-picker-icon"></i>
-                <span class="file-picker-text"><?= __('post_add_photo') ?></span>
-                <span class="file-picker-name" id="postFileName"></span>
-            </label>
-            <input type="file"
-                   id="post-image"
-                   name="image"
-                   accept="image/jpeg,image/png,image/gif,image/webp"
-                   class="file-picker-input"
-                   onchange="var n = this.files[0] ? this.files[0].name : ''; document.getElementById('postFileName').textContent = n;">
+            <!-- Media row: photo + voice -->
+            <div class="compose-media-row">
+                <label for="post-image" class="file-picker">
+                    <i data-lucide="image-plus" class="file-picker-icon"></i>
+                    <span class="file-picker-text"><?= __('post_add_photo') ?></span>
+                    <span class="file-picker-name" id="postFileName"></span>
+                </label>
+                <input type="file"
+                       id="post-image"
+                       name="image"
+                       accept="image/jpeg,image/png,image/gif,image/webp"
+                       class="file-picker-input"
+                       onchange="var n = this.files[0] ? this.files[0].name : ''; document.getElementById('postFileName').textContent = n;">
+
+                <button type="button"
+                        id="postMicBtn"
+                        class="file-picker"
+                        aria-label="Record voice note">
+                    <i data-lucide="mic" class="file-picker-icon"></i>
+                    <span class="file-picker-text">Record voice</span>
+                </button>
+            </div>
+
+            <!-- Live recording indicator -->
+            <div id="postVoiceRecorder" class="voice-recorder" style="display:none;">
+                <span class="voice-rec-dot"></span>
+                <span id="postVoiceRecTime" class="voice-rec-time">0:00</span>
+                <button type="button" id="postVoiceCancelBtn" class="voice-rec-cancel">Cancel</button>
+                <button type="button" id="postVoiceSendBtn"   class="voice-rec-send">Attach</button>
+            </div>
+
+           <!-- Voice note ready (no player preview) -->
+<div id="postVoicePreview" class="post-voice-ready" hidden>
+    <span class="post-voice-ready-dot"></span>
+    <span class="post-voice-ready-text">Voice note attached</span>
+    <button type="button" id="postVoiceDiscard" class="post-voice-ready-discard" aria-label="Discard recording">✕</button>
+</div>
+
+            <!-- Hidden inputs the recorder fills in -->
+            <input type="file"   name="voice"          id="postVoiceFile"     accept="audio/*" hidden>
+            <input type="hidden" name="voice_duration" id="postVoiceDuration" value="0">
+
             <button type="submit"><?= __('post_button') ?></button>
         </form>
     </div>
@@ -533,6 +587,11 @@ require 'includes/header.php';
     <div class="empty"><?= __('profile_no_posts') ?></div>
 <?php else: ?>
     <?php foreach ($posts as $post): ?>
+        <?php
+        $media_type = $post['media_type'] ?? 'text';
+        $has_voice  = $media_type === 'voice' && !empty($post['media_path']);
+        $has_image  = $media_type === 'image' && !empty($post['media_path']);
+        ?>
         <div class="card">
             <div class="post-header">
                 <?php if ($post['avatar']): ?>
@@ -549,7 +608,9 @@ require 'includes/header.php';
                 </div>
             </div>
 
-            <div class="content"><?= htmlspecialchars($post['content']) ?></div>
+            <?php if (trim((string)$post['content']) !== ''): ?>
+                <div class="content"><?= htmlspecialchars($post['content']) ?></div>
+            <?php endif; ?>
 
             <?php if (!empty($topics_by_post[$post['id']])): ?>
                 <div style="margin: var(--space-2) 0;">
@@ -561,7 +622,18 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <?php if ($post['media_path']): ?>
+            <?php if ($has_voice): ?>
+                <div class="post-voice" data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
+                    <button type="button" class="post-voice-play" aria-label="Play voice note">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <polygon points="6 4 20 12 6 20 6 4"/>
+                        </svg>
+                    </button>
+                    <div class="post-voice-wave" aria-hidden="true"></div>
+                    <span class="post-voice-time"><?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?></span>
+                    <audio preload="none" src="<?= htmlspecialchars($post['media_path']) ?>"></audio>
+                </div>
+            <?php elseif ($has_image): ?>
                 <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
             <?php endif; ?>
 
@@ -589,9 +661,6 @@ require 'includes/header.php';
             <?php endif; ?>
 
             <?php if ($blocked_either): ?>
-                <!-- ============================================================
-                     Blocked: read-only counts, no interaction forms
-                     ============================================================ -->
                 <div class="actions">
                     <span class="like-btn" style="opacity:0.5; cursor:not-allowed;" title="<?= __('block_cannot_interact') ?>">
                         <span class="like-heart">♡</span>
@@ -607,7 +676,6 @@ require 'includes/header.php';
                     <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                 </div>
             <?php else: ?>
-                <!-- Normal: full interaction -->
                 <div class="actions">
                     <form method="POST" action="interact.php" class="like-form" style="display:inline;">
                         <?= csrf_field() ?>

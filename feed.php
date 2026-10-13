@@ -23,6 +23,7 @@ $stmt = $pdo->prepare("
     SELECT
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
+        posts.media_type, posts.media_duration, posts.media_mime,
         users.username, users.avatar, users.display_name, users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -273,11 +274,43 @@ require 'includes/header.php';
                 </div>
             </div>
 
-            <div class="content"><?= htmlspecialchars($post['content']) ?></div>
+            <?php
+$media_type = $post['media_type'] ?? 'text';
+$has_voice  = $media_type === 'voice' && !empty($post['media_path']);
+$has_image  = $media_type === 'image' && !empty($post['media_path']);
+$has_text   = trim((string)$post['content']) !== '';
+?>
 
-            <?php if ($post['media_path']): ?>
-                <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
-            <?php endif; ?>
+<?php if ($has_text): ?>
+    <div class="content"><?= nl2br(htmlspecialchars($post['content'])) ?></div>
+<?php endif; ?>
+
+<?php if ($has_voice): ?>
+    <div class="post-voice"
+         data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
+        <button type="button"
+                class="post-voice-play"
+                aria-label="<?= __('post_voice_play') ?>">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                 viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <polygon points="6 4 20 12 6 20 6 4"/>
+            </svg>
+        </button>
+        <div class="post-voice-wave" aria-hidden="true"></div>
+        <span class="post-voice-time">
+            <?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?>
+        </span>
+        <audio preload="none"
+               src="<?= htmlspecialchars($post['media_path']) ?>"></audio>
+    </div>
+
+<?php elseif ($has_image): ?>
+    <img class="media"
+         src="post_media.php?id=<?= (int)$post['id'] ?>"
+         alt="<?= __('post_image_alt') ?>"
+         loading="lazy">
+
+<?php endif; ?>
 
             <div class="meta">
                 <?= htmlspecialchars($post['created_at']) ?>

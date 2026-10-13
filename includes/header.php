@@ -319,3 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <main class="container">
+    <?php if (!empty($_SESSION['flash'])): ?>
+        <div class="message"><?= htmlspecialchars($_SESSION['flash'], ENT_QUOTES, 'UTF-8') ?></div>
+        <?php unset($_SESSION['flash']); ?>
+    <?php endif; ?>

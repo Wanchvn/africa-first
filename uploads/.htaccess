@@ -1,4 +1,4 @@
-# Block PHP execution in the uploads folder
+# Prevent PHP execution inside uploads/
 php_flag engine off
 
 <IfModule mod_rewrite.c>
@@ -6,21 +6,28 @@ php_flag engine off
     RewriteRule ^private_posts/ - [F,L,NC]
 </IfModule>
 
-<FilesMatch "\.enc$">
-    Require all denied
-</FilesMatch>
-
-<FilesMatch "\.(mp4|webm|mov|mkv)$">
-    Require all denied
-</FilesMatch>
-
-<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|pl|py|jsp|asp|aspx|sh|cgi|htaccess)$">
+# Block dangerous extensions
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|pl|py|jsp|asp|aspx|sh|cgi|htaccess|enc)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Only allow these file types to be served
-<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+# Block video (mp4, mov, mkv) — but NOT webm (we need it for voice)
+<FilesMatch "\.(mp4|mov|mkv)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Whitelist images + audio
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|webm|ogg|m4a|mp3|wav|aac)$">
     Order allow,deny
     Allow from all
 </FilesMatch>
+
+# Correct MIME types so browsers can play
+AddType audio/webm .webm
+AddType audio/ogg  .ogg
+AddType audio/mp4  .m4a
+AddType audio/mpeg .mp3
+AddType audio/wav  .wav
+AddType audio/aac  .aac

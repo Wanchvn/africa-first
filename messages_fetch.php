@@ -73,9 +73,25 @@ foreach ($reactionStates as $messageId => $reactions) {
 // Mark incoming as read (clears the bell badge while the thread is open)
 mark_conversation_read($pdo, $conv, $me);
 
-// Is the partner currently typing?
-$partnerId = conversation_partner($pdo, $conv, $me);
-$partnerIsTyping = $partnerId ? is_typing($pdo, $conv, $partnerId) : false;
+$typingUsers = [];
+$tStmt = $pdo->prepare(
+    "SELECT ti.user_id, u.display_name, u.username
+     FROM typing_indicators ti
+     INNER JOIN users u ON u.id = ti.user_id
+     WHERE ti.conversation_id = :c
+       AND ti.user_id <> :me
+       AND ti.updated_at > (NOW() - INTERVAL 4 SECOND)
+     ORDER BY ti.updated_at DESC
+     LIMIT 5"
+);
+$tStmt->execute([':c' => $conv, ':me' => $me]);
+foreach ($tStmt->fetchAll() as $tu) {
+    $typingUsers[] = [
+        'user_id' => (int)$tu['user_id'],
+        'display_name' => $tu['display_name'] ?: $tu['username'],
+        'username' => $tu['username'],
+    ];
+}
 
 
 // ---- Read receipt: has the partner read my LAST outgoing message? ----
@@ -103,7 +119,7 @@ echo json_encode([
     'success'        => true,
     'messages'       => $messages,
     'reaction_states' => $reactionUpdates,
-    'typing'         => $partnerIsTyping,
+    'typing_users'   => $typingUsers,
     'last_own_id'    => $readInfo['last_own_id'],
     'last_own_seen'  => $readInfo['last_own_seen'],
 ]);
