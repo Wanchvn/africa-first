@@ -194,23 +194,35 @@ $og_description = "Africa's social network. Your data stays home.";
                             <span>Saved posts</span>
                         </a>
 
-                        <a href="moderation.php" class="profile-menu-item">
-                            <i data-lucide="book-open"></i>
-                            <span><?= __('nav_moderation') ?></span>
-                        </a>
-
-                        <?php if ($is_admin): ?>
-                            <a href="admin_reports.php" class="profile-menu-item">
-                                <i data-lucide="shield"></i>
-                                <span><?= __('nav_admin') ?></span>
-                            </a>
-                        <?php endif; ?>
-
                         <a href="privacy.php" class="profile-menu-item">
                             <i data-lucide="lock"></i>
                             <span><?= __('nav_privacy') ?></span>
                         </a>
                     </div>
+
+                    <?php if ($is_admin): ?>
+                        <div class="profile-menu-sep"></div>
+
+                        <div class="profile-menu-section-label">
+                            <i data-lucide="shield"></i>
+                            <span>Admin</span>
+                        </div>
+
+                        <a href="admin_appeals.php" class="profile-menu-item">
+                            <i data-lucide="gavel"></i>
+                            <span>Appeals</span>
+                        </a>
+
+                        <a href="admin_reports.php" class="profile-menu-item">
+                            <i data-lucide="flag"></i>
+                            <span>Reported content</span>
+                        </a>
+
+                        <a href="moderation.php" class="profile-menu-item">
+                            <i data-lucide="book-open"></i>
+                            <span><?= __('nav_moderation') ?></span>
+                        </a>
+                    <?php endif; ?>
 
                     <div class="profile-menu-sep"></div>
 

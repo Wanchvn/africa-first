@@ -136,6 +136,132 @@ function move_post_media_to_private(string $mediaPath): array
 
 
 
+/**
+ * Move a voice note file between public (uploads/voice/) and
+ * private (uploads/private_posts/) storage.
+ *
+ * @param  string $mediaPath  Current relative path (uploads/...)
+ * @param  string $target     'private' or 'public'
+ * @return string             New relative path, or original on no-op
+ * @throws RuntimeException   On any failure
+ */
+function move_voice_note(string $mediaPath, string $target): string
+{
+    $projectRoot = dirname(__DIR__);
+    $uploadsRoot = realpath($projectRoot . DIRECTORY_SEPARATOR . 'uploads');
+
+    if ($uploadsRoot === false) {
+        throw new RuntimeException('Uploads directory missing.');
+    }
+
+    // --- Determine source and destination roots ---
+    $isPublic  = (bool)preg_match('#^uploads/voice/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.(webm|ogg|m4a|mp3|wav|aac)$#i', $mediaPath);
+    $isPrivate = (bool)preg_match('#^uploads/private_posts/[a-f0-9]{32}\.(webm|ogg|m4a|mp3|wav|aac)$#i', $mediaPath);
+
+    if (!$isPublic && !$isPrivate) {
+        // Not a voice note path we manage — leave it alone
+        return $mediaPath;
+    }
+
+    // Already in the right place?
+    if ($target === 'private' && $isPrivate) return $mediaPath;
+    if ($target === 'public'  && $isPublic)  return $mediaPath;
+
+    // --- Resolve source ---
+    $source = realpath($projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $mediaPath));
+    if (
+        $source === false
+        || !str_starts_with(strtolower($source), strtolower($uploadsRoot . DIRECTORY_SEPARATOR))
+        || !is_file($source)
+    ) {
+        throw new RuntimeException('Could not locate the voice note to move.');
+    }
+
+    $ext  = strtolower(pathinfo($source, PATHINFO_EXTENSION));
+    $name = bin2hex(random_bytes(16)) . '.' . $ext;
+
+    // --- Determine destination ---
+    if ($target === 'private') {
+        $destDir = $uploadsRoot . DIRECTORY_SEPARATOR . 'private_posts';
+        $newRel  = 'uploads/private_posts/' . $name;
+    } else {
+        $destDir = $uploadsRoot . DIRECTORY_SEPARATOR . 'voice' . DIRECTORY_SEPARATOR
+                 . date('Y') . DIRECTORY_SEPARATOR . date('m');
+        $newRel  = 'uploads/voice/' . date('Y') . '/' . date('m') . '/' . $name;
+    }
+
+    if (!is_dir($destDir) && !mkdir($destDir, 0750, true) && !is_dir($destDir)) {
+        throw new RuntimeException('Could not create destination directory.');
+    }
+
+    $dest = $destDir . DIRECTORY_SEPARATOR . $name;
+    if (!rename($source, $dest)) {
+        throw new RuntimeException('Could not move the voice note.');
+    }
+    @chmod($dest, 0644);
+
+    return $newRel;
+}
+
+/**
+ * Update a post's visibility and relocate its voice note if needed.
+ * Returns the new visibility value (unchanged if input was invalid).
+ *
+ * @throws RuntimeException If the file move fails (DB is NOT updated in that case)
+ */
+function update_post_visibility(PDO $pdo, int $postId, int $userId, string $newVisibility): string
+{
+    if (!in_array($newVisibility, ['public', 'followers', 'private'], true)) {
+        throw new InvalidArgumentException('Invalid visibility.');
+    }
+
+    // Load the post + confirm ownership
+    $stmt = $pdo->prepare(
+        "SELECT user_id, media_type, media_path, visibility
+         FROM posts WHERE id = :id LIMIT 1"
+    );
+    $stmt->execute([':id' => $postId]);
+    $post = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$post) {
+        throw new RuntimeException('Post not found.');
+    }
+    if ((int)$post['user_id'] !== $userId) {
+        throw new RuntimeException('You can only change your own posts.');
+    }
+
+    // Compute target: 'private' means private_posts/, everything else stays public
+    $target = $newVisibility === 'private' ? 'private' : 'public';
+
+    $newMediaPath = $post['media_path'] ?? null;
+
+    if (
+        ($post['media_type'] ?? 'text') === 'voice'
+        && !empty($post['media_path'])
+    ) {
+        $newMediaPath = move_voice_note($post['media_path'], $target);
+    }
+
+    // Update DB — file move happens first, so a failure aborts before we touch the row
+    $stmt = $pdo->prepare(
+        "UPDATE posts
+         SET visibility = :v, media_path = :mp, edited_at = NOW()
+         WHERE id = :id"
+    );
+    $stmt->execute([
+        ':v'  => $newVisibility,
+        ':mp' => $newMediaPath,
+        ':id' => $postId,
+    ]);
+
+    return $newVisibility;
+}
+
+
+
+
+
+
 require_once __DIR__ . '/voice_upload.php';
 
 /**
@@ -202,11 +328,18 @@ function create_post(
 }
 
 /**
- * Delete a post and its associated media file (if any).
+ * Delete a post and all of its associated data + media file.
+ * Returns true on success, false if the post doesn't exist or the user isn't the author.
+ *
+ * @throws RuntimeException if the DB delete fails
  */
 function delete_post(PDO $pdo, int $postId, int $userId): bool
 {
-    $stmt = $pdo->prepare('SELECT user_id, media_path FROM posts WHERE id = :id LIMIT 1');
+    // 1. Load post + verify ownership
+    $stmt = $pdo->prepare(
+        'SELECT user_id, media_type, media_path
+         FROM posts WHERE id = :id LIMIT 1'
+    );
     $stmt->execute([':id' => $postId]);
     $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -214,15 +347,37 @@ function delete_post(PDO $pdo, int $postId, int $userId): bool
         return false;
     }
 
-    $pdo->prepare('DELETE FROM posts WHERE id = :id')->execute([':id' => $postId]);
+    $pdo->beginTransaction();
+    try {
+        // 2. Delete dependent rows explicitly (safe even if FK has CASCADE)
+        //    Order matters if FKs don't cascade.
+        // Delete dependent rows that reference posts.id via post_id
+$pdo->prepare('DELETE FROM post_topics   WHERE post_id = :id')->execute([':id' => $postId]);
+$pdo->prepare('DELETE FROM post_views    WHERE post_id = :id')->execute([':id' => $postId]);
+$pdo->prepare('DELETE FROM likes         WHERE post_id = :id')->execute([':id' => $postId]);
+$pdo->prepare('DELETE FROM comments      WHERE post_id = :id')->execute([':id' => $postId]);
+$pdo->prepare('DELETE FROM bookmarks     WHERE post_id = :id')->execute([':id' => $postId]);
+$pdo->prepare('DELETE FROM notifications WHERE post_id = :id')->execute([':id' => $postId]);
 
-    // Remove the media file if it exists and is inside uploads/voice/
-    if (!empty($post['media_path'])
-        && preg_match('#^uploads/voice/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.(webm|ogg|m4a|mp3|wav)$#', $post['media_path'])
-    ) {
-        $abs = dirname(__DIR__) . '/' . $post['media_path'];
-        if (is_file($abs)) {
-            @unlink($abs);
+        // 3. Delete the post itself
+        $pdo->prepare('DELETE FROM posts WHERE id = :id')->execute([':id' => $postId]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    // 4. Unlink the media file (DB commit already succeeded — file cleanup is best-effort)
+    if (!empty($post['media_path'])) {
+        $pattern = '#^uploads/(voice/[0-9]{4}/[0-9]{2}|private_posts)/[a-f0-9]{32}\.(webm|ogg|m4a|mp3|wav|aac|jpg|jpeg|png|gif|webp)$#i';
+        if (preg_match($pattern, $post['media_path'])) {
+            $abs = dirname(__DIR__) . '/' . $post['media_path'];
+            if (is_file($abs)) {
+                @unlink($abs);
+            }
         }
     }
 

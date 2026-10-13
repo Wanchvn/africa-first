@@ -35,6 +35,9 @@ $total_removed = (int)$stmt->fetchColumn();
 $stmt = $pdo->query("SELECT COUNT(*) FROM moderation_log WHERE action_type = 'report_dismissed'");
 $total_dismissed = (int)$stmt->fetchColumn();
 
+$stmt = $pdo->query("SELECT COUNT(*) FROM moderation_log WHERE action_type IN ('appeal_approved','appeal_rejected')");
+$total_appeals = (int)$stmt->fetchColumn();
+
 $page_title = 'Moderation Log';
 require 'includes/header.php';
 ?>
@@ -45,13 +48,14 @@ require 'includes/header.php';
     <h2 style="margin-top:0; color: var(--baobab-green);">Every action, in public</h2>
     <p>
         Most platforms moderate in secret. Qarota doesn't.
-        Every post removal and every dismissed report is published here permanently.
+        Every post removal, dismissed report, and appeal decision is published here permanently.
         Users can see exactly how the platform is run.
     </p>
     <p style="margin-top:10px;">
         <strong><?= $total ?></strong> total actions ·
         <strong><?= $total_removed ?></strong> posts removed ·
-        <strong><?= $total_dismissed ?></strong> reports dismissed
+        <strong><?= $total_dismissed ?></strong> reports dismissed ·
+        <strong><?= $total_appeals ?></strong> appeals resolved
     </p>
 </div>
 
@@ -62,7 +66,16 @@ require 'includes/header.php';
     </div>
 <?php else: ?>
     <?php foreach ($entries as $e): ?>
-        <div class="card">
+        <?php
+        // Per-type accent color for the card's left border
+        $accent = 'var(--border)';
+        if ($e['action_type'] === 'post_removed')     $accent = 'var(--danger)';
+        if ($e['action_type'] === 'report_dismissed') $accent = 'var(--muted)';
+        if ($e['action_type'] === 'appeal_approved')  $accent = 'var(--baobab-green)';
+        if ($e['action_type'] === 'appeal_rejected')  $accent = 'var(--danger)';
+        if ($e['action_type'] === 'message_reported') $accent = 'var(--terracotta)';
+        ?>
+        <div class="card" style="border-left: 4px solid <?= $accent ?>;">
             <div class="meta" style="margin-bottom:8px;">
                 <?= htmlspecialchars($e['created_at']) ?>
                 <?php if ($e['action_type'] !== 'message_reported'): ?>
@@ -88,6 +101,7 @@ require 'includes/header.php';
                         "<?= htmlspecialchars($e['post_excerpt']) ?><?= mb_strlen($e['post_excerpt']) >= 200 ? '…' : '' ?>"
                     </div>
                 <?php endif; ?>
+
             <?php elseif ($e['action_type'] === 'message_reported'): ?>
                 <div style="font-weight:600; margin-bottom:6px;">
                     <?= __('moderation_message_reported') ?>
@@ -95,6 +109,7 @@ require 'includes/header.php';
                 <p style="font-size:0.9rem; color:var(--muted);">
                     <?= __('moderation_message_reported_note') ?>
                 </p>
+
             <?php elseif ($e['action_type'] === 'report_dismissed'): ?>
                 <div style="color:var(--muted); font-weight:600; margin-bottom:6px;">
                     Report dismissed
@@ -105,6 +120,64 @@ require 'includes/header.php';
                 <p style="font-size:0.9rem; color:var(--muted);">
                     An admin reviewed a report and found no violation of Qarota's policies.
                 </p>
+
+            <?php elseif ($e['action_type'] === 'appeal_approved'): ?>
+                <div style="color:var(--baobab-green); font-weight:600; margin-bottom:6px;">
+                    Appeal approved — ban lifted
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin reviewed an appeal and decided to lift the ban.
+                    <?php if (!empty($e['admin_note'])): ?>
+                        Their reply is recorded below.
+                    <?php endif; ?>
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php elseif ($e['action_type'] === 'appeal_rejected'): ?>
+                <div style="color:var(--danger); font-weight:600; margin-bottom:6px;">
+                    Appeal rejected
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin reviewed an appeal and decided to keep the ban in place.
+                    <?php if (!empty($e['admin_note'])): ?>
+                        Their reply is recorded below.
+                    <?php endif; ?>
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php elseif ($e['action_type'] === 'user_banned'): ?>
+                <div style="color:var(--danger); font-weight:600; margin-bottom:6px;">
+                    User banned
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin banned a user for violating Qarota's policies.
+                    <?php if (!empty($e['admin_note'])): ?>
+                        Reason:
+                    <?php endif; ?>
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php else: ?>
+                <div style="font-weight:600; margin-bottom:6px;">
+                    <?= htmlspecialchars(str_replace('_', ' ', ucfirst($e['action_type']))) ?>
+                </div>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     <?php endforeach; ?>

@@ -9,17 +9,14 @@ require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require_once __DIR__ . '/includes/posts.php';
 require_once __DIR__ . '/includes/voice_upload.php';
-require 'includes/messages.php';   // messaging helpers
-require 'includes/blocks.php';     // block helpers
+require 'includes/messages.php';
+require 'includes/blocks.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-// -----------------------------------------------------------------------------
-// Backwards compat: redirect old ?id= URLs to ?u=username
-// -----------------------------------------------------------------------------
 if (isset($_GET['id']) && !isset($_GET['u'])) {
     $old_id = (int)$_GET['id'];
     if ($old_id > 0) {
@@ -37,15 +34,19 @@ if (isset($_GET['id']) && !isset($_GET['u'])) {
 
 $profile_username = $_GET['u'] ?? $_SESSION['username'];
 $viewer_id = (int)$_SESSION['user_id'];
+
+// ---- Admin gate (needed for ban UI) ----
+$stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id LIMIT 1");
+$stmt->execute([':id' => $viewer_id]);
+$viewer_is_admin = (int)$stmt->fetchColumn() === 1;
+
 $profile_count_visibility_sql = post_visibility_filter('counted_posts', 'profile_count');
 
-// -----------------------------------------------------------------------------
-// Load profile being viewed
-// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("
     SELECT
         id, username, avatar, bio,
         display_name, location, occupation, education, languages, interests,
+        is_banned, ban_reason, is_admin,
         (SELECT COUNT(*) FROM follows WHERE following_id = users.id) AS follower_count,
         (SELECT COUNT(*) FROM follows WHERE follower_id = users.id) AS following_count,
         (SELECT COUNT(*) FROM posts counted_posts
@@ -68,10 +69,9 @@ if (!$profile_user) {
 $profile_id     = (int)$profile_user['id'];
 $is_own_profile = ($profile_id === $viewer_id);
 $display_name   = $profile_user['display_name'] ?: $profile_user['username'];
+$profile_is_admin = (int)($profile_user['is_admin'] ?? 0) === 1;
+$profile_is_banned = (int)($profile_user['is_banned'] ?? 0) === 1;
 
-// -----------------------------------------------------------------------------
-// Follow state
-// -----------------------------------------------------------------------------
 $is_following = false;
 if (!$is_own_profile) {
     $stmt = $pdo->prepare("SELECT 1 FROM follows WHERE follower_id = :me AND following_id = :them");
@@ -79,9 +79,6 @@ if (!$is_own_profile) {
     $is_following = (bool)$stmt->fetch();
 }
 
-// -----------------------------------------------------------------------------
-// Block state
-// -----------------------------------------------------------------------------
 $i_blocked_them  = false;
 $they_blocked_me = false;
 $blocked_either  = false;
@@ -95,9 +92,10 @@ $message = '';
 $avatar_message = $_SESSION['avatar_message'] ?? '';
 unset($_SESSION['avatar_message']);
 
-// -----------------------------------------------------------------------------
-// New post (own profile only) — supports text, image, or voice
-// -----------------------------------------------------------------------------
+$flash_error   = $_SESSION['flash_error']   ?? '';
+$flash_success = $_SESSION['flash_success'] ?? '';
+unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+
 if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     rate_limit_enforce($pdo, client_ip(), 'profile_post', 30, 3600);
@@ -121,7 +119,6 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $media_duration = null;
         $media_mime     = null;
 
-        // ---- Image handling ----
         if ($has_image) {
             $allowed  = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $max_size = 5 * 1024 * 1024;
@@ -157,10 +154,8 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // ---- Voice handling ----
         if (empty($message) && $has_voice) {
             $duration = (int)($_POST['voice_duration'] ?? 0);
-
             try {
                 $v = handle_voice_upload($_FILES['voice'], $duration);
                 $media_path     = $v['path'];
@@ -172,7 +167,6 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // ---- Insert post ----
         if (empty($message)) {
             $stmt = $pdo->prepare(
                 "INSERT INTO posts
@@ -191,7 +185,6 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $new_post_id = (int)$pdo->lastInsertId();
 
-            // Optional topic tag
             $topic_id = (int)($_POST['topic_id'] ?? 0);
             if ($topic_id > 0) {
                 $stmt = $pdo->prepare("SELECT 1 FROM topic_members WHERE topic_id = :t AND user_id = :u");
@@ -247,9 +240,6 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Topics the viewer belongs to (for the composer dropdown)
-// -----------------------------------------------------------------------------
 $my_topics = [];
 if ($is_own_profile) {
     $stmt = $pdo->prepare("
@@ -263,9 +253,6 @@ if ($is_own_profile) {
     $my_topics = $stmt->fetchAll();
 }
 
-// -----------------------------------------------------------------------------
-// Posts
-// -----------------------------------------------------------------------------
 $profile_visibility_sql = post_visibility_filter('posts', 'profile_posts');
 $stmt = $pdo->prepare("
     SELECT
@@ -289,7 +276,6 @@ $stmt->execute(array_merge(
 ));
 $posts = $stmt->fetchAll();
 
-// Record views (skip own profile)
 if (!$is_own_profile && !empty($posts)) {
     $view_post_ids = array_column($posts, 'id');
     $placeholders = implode(',', array_fill(0, count($view_post_ids), '(?, ?)'));
@@ -302,16 +288,10 @@ if (!$is_own_profile && !empty($posts)) {
     $stmt->execute($params);
 }
 
-// -----------------------------------------------------------------------------
-// Bookmarks
-// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
 $stmt->execute([':me' => $_SESSION['user_id']]);
 $my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
-// -----------------------------------------------------------------------------
-// Topics + comments per post
-// -----------------------------------------------------------------------------
 $topics_by_post = [];
 if (!empty($posts)) {
     $post_ids = array_column($posts, 'id');
@@ -349,6 +329,15 @@ if (!empty($posts)) {
 $page_title = $display_name;
 require 'includes/header.php';
 ?>
+
+<?php if ($viewer_is_admin && $profile_is_banned): ?>
+    <div class="message" style="border-left-color: var(--danger); background: #FDECEA;">
+        <strong>This user is banned.</strong>
+        <?php if (!empty($profile_user['ban_reason'])): ?>
+            <div style="margin-top: 4px;">Reason: <?= htmlspecialchars($profile_user['ban_reason']) ?></div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
 <div class="profile-header">
     <?php if ($profile_user['avatar']): ?>
@@ -472,6 +461,24 @@ require 'includes/header.php';
                         <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
                     </button>
                 </form>
+
+                <?php if ($viewer_is_admin && !$profile_is_admin && !$i_blocked_them): ?>
+    <?php if ($profile_is_banned): ?>
+        <form method="POST" action="admin_ban.php" style="display:inline;"
+              onsubmit="return confirm('Unban @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?');">
+            <?= csrf_field() ?>
+            <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+            <input type="hidden" name="action" value="unban">
+            <input type="hidden" name="admin_note" value="Unbanned via admin panel.">
+            <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+            <button type="submit" class="btn-secondary">Unban user</button>
+        </form>
+    <?php else: ?>
+        <button type="button" class="btn-danger" onclick="document.getElementById('banDialog').showModal();">
+            Ban user
+        </button>
+    <?php endif; ?>
+<?php endif; ?>
             </div>
             <?php if ($i_blocked_them): ?>
                 <p class="blocked-note"><?= __('block_you_blocked') ?></p>
@@ -482,6 +489,18 @@ require 'includes/header.php';
     </div>
 </div>
 
+<?php if ($flash_error): ?>
+    <div class="message" style="border-left-color: var(--danger); background: #FDECEA;">
+        <?= htmlspecialchars($flash_error) ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($flash_success): ?>
+    <div class="message" style="border-left-color: var(--baobab-green); background: #E8F5E9;">
+        <?= htmlspecialchars($flash_success) ?>
+    </div>
+<?php endif; ?>
+
 <?php if ($message): ?>
     <div class="message"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
@@ -491,7 +510,6 @@ require 'includes/header.php';
 <?php endif; ?>
 
 <?php if ($is_own_profile): ?>
-    <!-- Composer (own profile only) -->
     <div class="card">
         <h2 style="margin-top:0;"><?= __('post_share') ?></h2>
         <form id="compose-form"
@@ -536,7 +554,6 @@ require 'includes/header.php';
                 </label>
             </div>
 
-            <!-- Media row: photo + voice -->
             <div class="compose-media-row">
                 <label for="post-image" class="file-picker">
                     <i data-lucide="image-plus" class="file-picker-icon"></i>
@@ -559,7 +576,6 @@ require 'includes/header.php';
                 </button>
             </div>
 
-            <!-- Live recording indicator -->
             <div id="postVoiceRecorder" class="voice-recorder" style="display:none;">
                 <span class="voice-rec-dot"></span>
                 <span id="postVoiceRecTime" class="voice-rec-time">0:00</span>
@@ -567,14 +583,12 @@ require 'includes/header.php';
                 <button type="button" id="postVoiceSendBtn"   class="voice-rec-send">Attach</button>
             </div>
 
-           <!-- Voice note ready (no player preview) -->
-<div id="postVoicePreview" class="post-voice-ready" hidden>
-    <span class="post-voice-ready-dot"></span>
-    <span class="post-voice-ready-text">Voice note attached</span>
-    <button type="button" id="postVoiceDiscard" class="post-voice-ready-discard" aria-label="Discard recording">✕</button>
-</div>
+            <div id="postVoicePreview" class="post-voice-ready" hidden>
+                <span class="post-voice-ready-dot"></span>
+                <span class="post-voice-ready-text">Voice note attached</span>
+                <button type="button" id="postVoiceDiscard" class="post-voice-ready-discard" aria-label="Discard recording">✕</button>
+            </div>
 
-            <!-- Hidden inputs the recorder fills in -->
             <input type="file"   name="voice"          id="postVoiceFile"     accept="audio/*" hidden>
             <input type="hidden" name="voice_duration" id="postVoiceDuration" value="0">
 
@@ -631,7 +645,7 @@ require 'includes/header.php';
                     </button>
                     <div class="post-voice-wave" aria-hidden="true"></div>
                     <span class="post-voice-time"><?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?></span>
-                    <audio preload="none" src="<?= htmlspecialchars($post['media_path']) ?>"></audio>
+                    <audio preload="none" src="voice_serve.php?type=post&id=<?= (int)$post['id'] ?>"></audio>
                 </div>
             <?php elseif ($has_image): ?>
                 <img class="media" src="post_media.php?id=<?= (int)$post['id'] ?>" alt="Post image">
@@ -705,6 +719,19 @@ require 'includes/header.php';
                             <i data-lucide="pencil" style="width:14px;height:14px;"></i>
                             Edit
                         </a>
+                        <form method="POST"
+                              action="delete_post.php"
+                              class="delete-post-form"
+                              onsubmit="return confirm('Delete this post permanently? This cannot be undone.');"
+                              style="display:inline; margin:0;">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="post_id" value="<?= (int)$post['id'] ?>">
+                            <input type="hidden" name="redirect" value="<?= htmlspecialchars('profile.php?u=' . $profile_user['username']) ?>">
+                            <button type="submit" class="delete-link" title="Delete post">
+                                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                                Delete
+                            </button>
+                        </form>
                     <?php else: ?>
                         <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                     <?php endif; ?>
@@ -758,6 +785,46 @@ require 'includes/header.php';
             <?php endif; ?>
         </div>
     <?php endforeach; ?>
+<?php endif; ?>
+
+<?php if ($viewer_is_admin && !$is_own_profile && !$profile_is_admin && !$profile_is_banned): ?>
+    <dialog id="banDialog" class="qarota-dialog">
+        <form method="POST" action="admin_ban.php" class="stack">
+            <?= csrf_field() ?>
+            <input type="hidden" name="target_id" value="<?= $profile_id ?>">
+            <input type="hidden" name="action" value="ban">
+            <input type="hidden" name="redirect" value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
+
+            <h2 style="margin-top:0;">Ban @<?= htmlspecialchars($profile_user['username']) ?></h2>
+            <p style="color:var(--muted); font-size:0.9rem;">
+                This user will lose access immediately. The reason and your note will appear in the public moderation log.
+            </p>
+
+            <div class="form-field">
+                <label for="ban_category">Policy category</label>
+                <select id="ban_category" name="policy_category" required>
+                    <option value="">— Choose —</option>
+                    <option value="spam">Spam</option>
+                    <option value="harassment">Harassment</option>
+                    <option value="hate_speech">Hate speech</option>
+                    <option value="misinformation">Misinformation</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label for="ban_note">Note (shown publicly)</label>
+                <textarea id="ban_note" name="admin_note" maxlength="500" rows="4" required
+                          placeholder="Brief explanation of why you're banning this user…"></textarea>
+            </div>
+
+            <div style="display:flex; gap: var(--space-2); margin-top: var(--space-3);">
+                <button type="submit" class="btn-danger">Confirm ban</button>
+                <button type="button" class="btn-secondary"
+                        onclick="document.getElementById('banDialog').close();">Cancel</button>
+            </div>
+        </form>
+    </dialog>
 <?php endif; ?>
 
 <?php require 'includes/footer.php'; ?>

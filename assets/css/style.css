@@ -5336,3 +5336,89 @@ body.dark-mode .post-voice-seek-tooltip {
     background: var(--ivory);
     color: var(--deep-brown);
 }
+
+
+
+/* Delete-post link (matches .edit-link style but red on hover) */
+.delete-post-form {
+    display: inline;
+    margin: 0;
+    padding: 0;
+}
+
+.delete-link {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+    opacity: 0.7;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color var(--transition), opacity var(--transition);
+}
+
+.delete-link:hover {
+    color: var(--danger);
+    opacity: 1;
+}
+
+.delete-link svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+}
+
+
+.profile-menu-section-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3) var(--space-1);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--terracotta);
+    opacity: 0.8;
+}
+
+.profile-menu-section-label svg {
+    width: 12px;
+    height: 12px;
+    stroke-width: 2.5;
+}
+
+body.dark-mode .profile-menu-section-label {
+    color: var(--terracotta);
+    opacity: 0.9;
+}
+
+
+/* ---- Native modal dialog ---- */
+.qarota-dialog {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    background: var(--ivory);
+    color: var(--charcoal);
+    max-width: 520px;
+    width: calc(100% - 32px);
+    box-shadow: 0 16px 48px rgba(62, 39, 35, 0.2);
+    font-family: inherit;
+}
+
+.qarota-dialog::backdrop {
+    background: rgba(62, 39, 35, 0.5);
+    backdrop-filter: blur(2px);
+}
+
+body.dark-mode .qarota-dialog {
+    background: #252019;
+    color: var(--charcoal);
+    border-color: var(--border);
+}

@@ -73,7 +73,80 @@ function start_secure_session() {
     if (!isset($_SESSION['session_started'])) {
         $_SESSION['session_started'] = $now;
     }
+
+    // ============================================================
+    // BAN ENFORCEMENT
+    // ------------------------------------------------------------
+    // Banned users are redirected to appeal.php from every page.
+    // Runs only for logged-in users, on pages that aren't exempt.
+    // Fresh DB query each request (~0.2ms on indexed PK) so bans
+    // take effect immediately — no cache to invalidate.
+    // Fails open: DB errors never lock everyone out.
+    // ============================================================
+    enforce_ban_redirect();
 }
+
+/**
+ * If the current logged-in user is banned, redirect them to appeal.php.
+ * Skips exempt pages and unauthenticated users.
+ */
+/**
+ * If the current logged-in user is banned, redirect them to appeal.php.
+ * Skips exempt pages and unauthenticated users.
+ */
+function enforce_ban_redirect() {
+    if (empty($_SESSION['user_id'])) {
+        return;
+    }
+
+    $allowed_scripts = [
+        'appeal.php',
+        'logout.php',
+        'login.php',
+        'register.php',
+    ];
+
+    $current_script = basename($_SERVER['PHP_SELF'] ?? '');
+    if (in_array($current_script, $allowed_scripts, true)) {
+        return;
+    }
+
+    // Build a fresh DB connection — do NOT rely on $GLOBALS['pdo']
+    // being set, because config/db.php may not have been loaded yet.
+    try {
+        $db_path = __DIR__ . '/../config/db.php';
+        if (!is_file($db_path)) {
+            return;   // no DB config, can't check
+        }
+
+        // config/db.php is expected to create a top-level $pdo.
+        // Include it in an isolated scope so we can capture $pdo safely.
+        $pdo_check = (static function () use ($db_path) {
+            require $db_path;
+            return $pdo ?? null;
+        })();
+
+        if (!$pdo_check instanceof PDO) {
+            return;   // couldn't get a PDO — fail open
+        }
+
+        $stmt = $pdo_check->prepare("SELECT is_banned FROM users WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => (int)$_SESSION['user_id']]);
+        $is_banned = (int)$stmt->fetchColumn() === 1;
+    } catch (Throwable $e) {
+        return;   // fail open
+    }
+
+    if ($is_banned) {
+        if (!headers_sent()) {
+            header('Location: appeal.php');
+        } else {
+            echo '<script>window.location.href="appeal.php";</script>';
+        }
+        exit;
+    }
+}
+
 /**
  * Call immediately after a successful login.
  * Regenerates the session ID to prevent session fixation.

@@ -5,7 +5,7 @@ start_secure_session();
 
 require 'config/db.php';
 require 'lang/init.php';
-require 'includes/blocks.php';   // block helpers
+require 'includes/blocks.php';
 require_once __DIR__ . '/includes/posts.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -15,9 +15,10 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = (int)$_SESSION['user_id'];
 
-// -----------------------------------------------------------------------------
-// Feed: posts from people you follow
-// -----------------------------------------------------------------------------
+$flash_error   = $_SESSION['flash_error']   ?? '';
+$flash_success = $_SESSION['flash_success'] ?? '';
+unset($_SESSION['flash_error'], $_SESSION['flash_success']);
+
 $feed_visibility_sql = post_visibility_filter('posts', 'feed_visibility');
 $stmt = $pdo->prepare("
     SELECT
@@ -47,9 +48,6 @@ $stmt->execute(array_merge(
 ));
 $feed = $stmt->fetchAll();
 
-// -----------------------------------------------------------------------------
-// Pre-compute block state per unique author (avoids N queries in the loop)
-// -----------------------------------------------------------------------------
 $blocked_authors = [];
 foreach ($feed as $p) {
     $author = (int)$p['author_id'];
@@ -57,9 +55,6 @@ foreach ($feed as $p) {
     $blocked_authors[$author] = is_blocked_either($pdo, $user_id, $author);
 }
 
-// -----------------------------------------------------------------------------
-// Record views (skip own posts)
-// -----------------------------------------------------------------------------
 if (!empty($feed)) {
     $view_post_ids = [];
     foreach ($feed as $p) {
@@ -79,9 +74,6 @@ if (!empty($feed)) {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Suggestions (only if user follows fewer than 5 people)
-// -----------------------------------------------------------------------------
 $suggestions = [];
 $my_location = '';
 $min_follows = 5;
@@ -96,7 +88,6 @@ if ($following_count < $min_follows) {
     $my_location  = trim($me_info['location'] ?? '');
     $my_languages = trim($me_info['languages'] ?? '');
 
-    // Friends of friends
     $stmt = $pdo->prepare("
         SELECT u.id, u.username, u.display_name, u.avatar,
             (SELECT u2.username FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id
@@ -116,14 +107,12 @@ if ($following_count < $min_follows) {
     $stmt->execute([':me' => $user_id]);
     $suggestions = array_merge($suggestions, $stmt->fetchAll());
 
-    // Same location
     if ($my_location !== '' && count($suggestions) < 4) {
         $stmt = $pdo->prepare("SELECT id, username, display_name, avatar, 'same_location' AS source FROM users WHERE id != :me AND id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me) AND location = :location LIMIT 3");
         $stmt->execute([':me' => $user_id, ':location' => $my_location]);
         $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
-    // Shared language
     if ($my_languages !== '' && count($suggestions) < 4) {
         $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages)));
         if (!empty($my_lang_tokens)) {
@@ -141,14 +130,12 @@ if ($following_count < $min_follows) {
         }
     }
 
-    // New users
     if (count($suggestions) < 4) {
         $stmt = $pdo->prepare("SELECT id, username, display_name, avatar, 'new_user' AS source FROM users WHERE id != :me AND id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me) ORDER BY created_at DESC LIMIT 4");
         $stmt->execute([':me' => $user_id]);
         $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
-    // Dedupe
     $seen = [];
     $unique = [];
     foreach ($suggestions as $s) {
@@ -160,16 +147,10 @@ if ($following_count < $min_follows) {
     $suggestions = $unique;
 }
 
-// -----------------------------------------------------------------------------
-// Bookmarks
-// -----------------------------------------------------------------------------
 $stmt = $pdo->prepare("SELECT post_id FROM bookmarks WHERE user_id = :me");
 $stmt->execute([':me' => $user_id]);
 $my_bookmarks = array_column($stmt->fetchAll(), 'post_id');
 
-// -----------------------------------------------------------------------------
-// Comments for all posts in one query
-// -----------------------------------------------------------------------------
 $post_ids = array_column($feed, 'id');
 $comments_by_post = [];
 if (!empty($post_ids)) {
@@ -195,8 +176,19 @@ require 'includes/header.php';
 
 <h1><?= __('feed_title') ?></h1>
 
+<?php if ($flash_error): ?>
+    <div class="message" style="border-left-color: var(--danger); background: #FDECEA;">
+        <?= htmlspecialchars($flash_error) ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($flash_success): ?>
+    <div class="message" style="border-left-color: var(--baobab-green); background: #E8F5E9;">
+        <?= htmlspecialchars($flash_success) ?>
+    </div>
+<?php endif; ?>
+
 <?php if (!empty($suggestions)): ?>
-    <!-- Who to follow suggestions -->
     <div class="card suggestions-card">
         <h2 style="margin-top:0;">Who to follow</h2>
         <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: var(--space-4);">
@@ -275,42 +267,41 @@ require 'includes/header.php';
             </div>
 
             <?php
-$media_type = $post['media_type'] ?? 'text';
-$has_voice  = $media_type === 'voice' && !empty($post['media_path']);
-$has_image  = $media_type === 'image' && !empty($post['media_path']);
-$has_text   = trim((string)$post['content']) !== '';
-?>
+            $media_type = $post['media_type'] ?? 'text';
+            $has_voice  = $media_type === 'voice' && !empty($post['media_path']);
+            $has_image  = $media_type === 'image' && !empty($post['media_path']);
+            $has_text   = trim((string)$post['content']) !== '';
+            ?>
 
-<?php if ($has_text): ?>
-    <div class="content"><?= nl2br(htmlspecialchars($post['content'])) ?></div>
-<?php endif; ?>
+            <?php if ($has_text): ?>
+                <div class="content"><?= nl2br(htmlspecialchars($post['content'])) ?></div>
+            <?php endif; ?>
 
-<?php if ($has_voice): ?>
-    <div class="post-voice"
-         data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
-        <button type="button"
-                class="post-voice-play"
-                aria-label="<?= __('post_voice_play') ?>">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                 viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <polygon points="6 4 20 12 6 20 6 4"/>
-            </svg>
-        </button>
-        <div class="post-voice-wave" aria-hidden="true"></div>
-        <span class="post-voice-time">
-            <?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?>
-        </span>
-        <audio preload="none"
-               src="<?= htmlspecialchars($post['media_path']) ?>"></audio>
-    </div>
+            <?php if ($has_voice): ?>
+                <div class="post-voice"
+                     data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
+                    <button type="button"
+                            class="post-voice-play"
+                            aria-label="<?= __('post_voice_play') ?>">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                             viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <polygon points="6 4 20 12 6 20 6 4"/>
+                        </svg>
+                    </button>
+                    <div class="post-voice-wave" aria-hidden="true"></div>
+                    <span class="post-voice-time">
+                        <?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?>
+                    </span>
+                    <audio preload="none"
+                           src="voice_serve.php?type=post&id=<?= (int)$post['id'] ?>"></audio>
+                </div>
 
-<?php elseif ($has_image): ?>
-    <img class="media"
-         src="post_media.php?id=<?= (int)$post['id'] ?>"
-         alt="<?= __('post_image_alt') ?>"
-         loading="lazy">
-
-<?php endif; ?>
+            <?php elseif ($has_image): ?>
+                <img class="media"
+                     src="post_media.php?id=<?= (int)$post['id'] ?>"
+                     alt="<?= __('post_image_alt') ?>"
+                     loading="lazy">
+            <?php endif; ?>
 
             <div class="meta">
                 <?= htmlspecialchars($post['created_at']) ?>
@@ -329,7 +320,6 @@ $has_text   = trim((string)$post['content']) !== '';
             <?php endif; ?>
 
             <?php if ($post_blocked): ?>
-                <!-- Blocked: read-only -->
                 <div class="actions">
                     <span class="like-btn" style="opacity:0.5; cursor:not-allowed;" title="<?= __('block_cannot_interact') ?>">
                         <span class="like-heart">♡</span>
@@ -348,7 +338,6 @@ $has_text   = trim((string)$post['content']) !== '';
                     <?= __('block_cannot_interact') ?>
                 </p>
             <?php else: ?>
-                <!-- Normal -->
                 <div class="actions">
                     <form method="POST" action="interact.php" class="like-form" style="display:inline;">
                         <?= csrf_field() ?>
@@ -378,6 +367,19 @@ $has_text   = trim((string)$post['content']) !== '';
                             <i data-lucide="pencil" style="width:14px;height:14px;"></i>
                             Edit
                         </a>
+                        <form method="POST"
+                              action="delete_post.php"
+                              class="delete-post-form"
+                              onsubmit="return confirm('Delete this post permanently? This cannot be undone.');"
+                              style="display:inline; margin:0;">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="post_id" value="<?= (int)$post['id'] ?>">
+                            <input type="hidden" name="redirect" value="feed.php">
+                            <button type="submit" class="delete-link" title="Delete post">
+                                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                                Delete
+                            </button>
+                        </form>
                     <?php else: ?>
                         <a href="report.php?post_id=<?= $post['id'] ?>" class="report-link"><?= __('post_report') ?></a>
                     <?php endif; ?>

@@ -31,3 +31,10 @@ AddType audio/mp4  .m4a
 AddType audio/mpeg .mp3
 AddType audio/wav  .wav
 AddType audio/aac  .aac
+
+
+# Post voice notes must be served through voice_serve.php
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^voice/ - [F,L,NC]
+</IfModule>

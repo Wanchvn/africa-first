@@ -1977,3 +1977,76 @@ function stageVoicePreview(duration) {
 
     document.querySelectorAll('.post-voice').forEach(attachVoicePlayer);
 })();
+
+
+
+
+
+/* ============================================================
+   DELETE POST — AJAX
+   Intercepts .delete-post-form submit and removes the card in place.
+   ============================================================ */
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.delete-post-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            if (!confirm('Delete this post permanently? This cannot be undone.')) {
+                return;
+            }
+
+            var button = form.querySelector('button[type="submit"]');
+            var postId = form.querySelector('input[name="post_id"]').value;
+            var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+
+            if (button) button.disabled = true;
+
+            fetch('delete_post.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    post_id: postId,
+                    csrf_token: csrfToken
+                })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    alert(data.error || 'Could not delete the post.');
+                    if (button) button.disabled = false;
+                    return;
+                }
+
+                // Fade out the post card, then remove it
+                var card = form.closest('.card');
+                if (card) {
+                    card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.98)';
+                    setTimeout(function () {
+                        card.remove();
+
+                        // If no more posts remain, show the empty state
+                        var anyCards = document.querySelectorAll('.card:not(.suggestions-card)');
+                        if (anyCards.length === 0) {
+                            var empty = document.createElement('div');
+                            empty.className = 'empty';
+                            empty.textContent = 'No posts yet.';
+                            var container = document.querySelector('.container') || document.body;
+                            container.appendChild(empty);
+                        }
+                    }, 200);
+                }
+            })
+            .catch(function (err) {
+                console.error('Delete error:', err);
+                alert('Could not delete the post. Please try again.');
+                if (button) button.disabled = false;
+            });
+        });
+    });
+});
