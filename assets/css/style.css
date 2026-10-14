@@ -5948,3 +5948,12 @@ body.dark-mode .feed-lang-banner {
     background: #2A2219;
     color: var(--charcoal);
 }
+
+
+
+@media (max-width: 480px) {
+    /* Make backup codes stack on mobile */
+    .card > div[style*="grid-template-columns: repeat(2"] {
+        grid-template-columns: 1fr !important;
+    }
+}

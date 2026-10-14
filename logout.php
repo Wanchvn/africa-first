@@ -13,6 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 csrf_verify();
 
+// Clear any pending-2FA state before destroying the session
+// (destroy_session wipes $_SESSION anyway, but explicit here is clearer)
+unset(
+    $_SESSION['pending_2fa_user_id'],
+    $_SESSION['pending_2fa_started'],
+    $_SESSION['pending_2fa_remember'],
+    $_SESSION['pending_2fa_secret'],
+    $_SESSION['fresh_backup_codes']
+);
+
 destroy_session();
 
 header('Location: login.php');

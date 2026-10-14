@@ -20,26 +20,47 @@ unset($_SESSION['login_message']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     rate_limit_enforce($pdo, client_ip(), 'login', 5, 900);
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
+
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
 
     if (empty($username) || empty($password)) {
         $message = __('login_error_empty');
     } else {
-        $stmt = $pdo->prepare("SELECT id, username, password FROM users WHERE username = :username");
+        $stmt = $pdo->prepare("
+            SELECT id, username, password, is_admin, totp_enabled
+            FROM users
+            WHERE username = :username
+        ");
         $stmt->execute([':username' => $username]);
-        $user = $stmt->fetch();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
+            // ---- 2FA branch ----
+            if ((int)($user['totp_enabled'] ?? 0) === 1) {
+                // Don't log in yet — stash pending state and redirect to 2FA prompt
+                $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
+                $_SESSION['pending_2fa_started'] = time();
+
+                // Regenerate session ID for the pre-auth state too (prevents fixation)
+                session_regenerate_id(true);
+
+                header('Location: login_2fa.php');
+                exit;
+            }
+
+            // ---- No 2FA — log in normally ----
+            $_SESSION['user_id']  = (int)$user['id'];
             $_SESSION['username'] = $user['username'];
-            $_SESSION['is_admin'] = (int)($user['is_admin'] ?? 0);   // NEW
+            $_SESSION['is_admin'] = (int)($user['is_admin'] ?? 0);
+
             regenerate_session_on_login();
+
             header('Location: profile.php');
             exit;
-        } else {
-            $message = __('login_error_invalid');
         }
+
+        $message = __('login_error_invalid');
     }
 }
 

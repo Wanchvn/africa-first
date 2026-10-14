@@ -193,6 +193,11 @@ $og_description = "Africa's social network. Your data stays home.";
                             <span>Notifications</span>
                         </a>
 
+                                <a href="settings_2fa.php" class="profile-menu-item">
+            <i data-lucide="shield-check"></i>
+            <span>Two-factor auth</span>
+                            </a>
+
                         <a href="settings_data.php" class="profile-menu-item">
                             <i data-lucide="wifi-off"></i>
                             <span>Data</span>
