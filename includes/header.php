@@ -27,7 +27,7 @@ if ($logged_in) {
 
     $unread_messages = unread_message_count($pdo, (int)$_SESSION['user_id']);
 
-    $stmt = $pdo->prepare("SELECT is_admin, theme, avatar, display_name, username, low_data_mode FROM users WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT is_admin, theme, avatar, display_name, username, low_data_mode, verification_type FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $user_row   = $stmt->fetch();
     $is_admin   = (bool)($user_row['is_admin'] ?? false);
@@ -35,7 +35,8 @@ if ($logged_in) {
     $nav_user_avatar = $user_row['avatar'] ?? null;
     $nav_user_name   = $user_row['display_name'] ?? $user_row['username'] ?? '';
     $user_low_data   = (int)($user_row['low_data_mode'] ?? 0) === 1;
-    $_SESSION['low_data_mode'] = $user_low_data ? 1 : 0;
+    $_SESSION['low_data_mode']      = $user_low_data ? 1 : 0;
+    $_SESSION['verification_type']  = $user_row['verification_type'] ?? 'none';
 }
 
 if (!isset($page_title)) $page_title = 'Qarota';
@@ -197,6 +198,23 @@ $og_description = "Africa's social network. Your data stays home.";
                             <span>Data</span>
                         </a>
 
+                        <?php if (($_SESSION['verification_type'] ?? 'none') !== 'none'): ?>
+                            <a href="verify_apply_status.php" class="profile-menu-item">
+                                <i data-lucide="badge-check"></i>
+                                <span>Verification</span>
+                            </a>
+                        <?php else: ?>
+                            <a href="verify_apply.php" class="profile-menu-item">
+                                <i data-lucide="badge-plus"></i>
+                                <span>Get verified</span>
+                            </a>
+                        <?php endif; ?>
+
+                        <a href="my_reports.php" class="profile-menu-item">
+                            <i data-lucide="flag"></i>
+                            <span>My reports</span>
+                        </a>
+
                         <a href="saved.php" class="profile-menu-item">
                             <i data-lucide="bookmark"></i>
                             <span>Saved posts</span>
@@ -224,6 +242,11 @@ $og_description = "Africa's social network. Your data stays home.";
                         <a href="admin_reports.php" class="profile-menu-item">
                             <i data-lucide="flag"></i>
                             <span>Reported content</span>
+                        </a>
+
+                        <a href="admin_verifications.php" class="profile-menu-item">
+                            <i data-lucide="id-card"></i>
+                            <span>Verification requests</span>
                         </a>
 
                         <a href="moderation.php" class="profile-menu-item">

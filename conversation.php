@@ -630,4 +630,32 @@ require 'includes/header.php';
 </script>
 <?php endif; ?>
 
+<script>
+/* ============================================================
+   ANCHOR SCROLL — jump to a message from search
+   ============================================================ */
+(function () {
+    var hash = window.location.hash;
+    if (!hash || hash.indexOf('#message-') !== 0) return;
+
+    var messageId = hash.replace('#message-', '');
+    if (!messageId) return;
+
+    var attempts = 0;
+    var interval = setInterval(function () {
+        attempts++;
+        var bubble = document.querySelector('.bubble[data-id="' + messageId + '"]');
+        if (bubble) {
+            clearInterval(interval);
+            bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            bubble.classList.add('bubble-highlighted');
+            setTimeout(function () {
+                bubble.classList.remove('bubble-highlighted');
+            }, 2400);
+        }
+        if (attempts > 20) clearInterval(interval);
+    }, 200);
+})();
+</script>
+
 <?php require 'includes/footer.php'; ?>

@@ -41,6 +41,9 @@ $total_appeals = (int)$stmt->fetchColumn();
 $stmt = $pdo->query("SELECT COUNT(*) FROM moderation_log WHERE action_type IN ('user_verified','user_unverified')");
 $total_verifications = (int)$stmt->fetchColumn();
 
+$stmt = $pdo->query("SELECT COUNT(*) FROM moderation_log WHERE action_type IN ('verification_approved','verification_rejected')");
+$total_vapps = (int)$stmt->fetchColumn();
+
 $page_title = 'Moderation Log';
 require 'includes/header.php';
 ?>
@@ -51,7 +54,7 @@ require 'includes/header.php';
     <h2 style="margin-top:0; color: var(--baobab-green);">Every action, in public</h2>
     <p>
         Most platforms moderate in secret. Qarota doesn't.
-        Every post removal, dismissed report, and appeal decision is published here permanently.
+        Every post removal, dismissed report, appeal decision, and verification decision is published here permanently.
         Users can see exactly how the platform is run.
     </p>
     <p style="margin-top:10px;">
@@ -59,7 +62,8 @@ require 'includes/header.php';
         <strong><?= $total_removed ?></strong> posts removed ·
         <strong><?= $total_dismissed ?></strong> reports dismissed ·
         <strong><?= $total_appeals ?></strong> appeals resolved ·
-        <strong><?= $total_verifications ?></strong> verification actions
+        <strong><?= $total_verifications ?></strong> verification actions ·
+        <strong><?= $total_vapps ?></strong> verification decisions
     </p>
 </div>
 
@@ -73,13 +77,15 @@ require 'includes/header.php';
         <?php
         // Per-type accent color for the card's left border
         $accent = 'var(--border)';
-        if ($e['action_type'] === 'post_removed')     $accent = 'var(--danger)';
-        if ($e['action_type'] === 'report_dismissed') $accent = 'var(--muted)';
-        if ($e['action_type'] === 'appeal_approved')  $accent = 'var(--baobab-green)';
-        if ($e['action_type'] === 'appeal_rejected')  $accent = 'var(--danger)';
-        if ($e['action_type'] === 'message_reported') $accent = 'var(--terracotta)';
-        if ($e['action_type'] === 'user_verified')    $accent = 'var(--terracotta)';
-        if ($e['action_type'] === 'user_unverified')  $accent = 'var(--muted)';
+        if ($e['action_type'] === 'post_removed')             $accent = 'var(--danger)';
+        if ($e['action_type'] === 'report_dismissed')         $accent = 'var(--muted)';
+        if ($e['action_type'] === 'appeal_approved')          $accent = 'var(--baobab-green)';
+        if ($e['action_type'] === 'appeal_rejected')          $accent = 'var(--danger)';
+        if ($e['action_type'] === 'message_reported')         $accent = 'var(--terracotta)';
+        if ($e['action_type'] === 'user_verified')            $accent = 'var(--terracotta)';
+        if ($e['action_type'] === 'user_unverified')          $accent = 'var(--muted)';
+        if ($e['action_type'] === 'verification_approved')    $accent = 'var(--baobab-green)';
+        if ($e['action_type'] === 'verification_rejected')    $accent = 'var(--danger)';
         ?>
         <div class="card" style="border-left: 4px solid <?= $accent ?>;">
             <div class="meta" style="margin-bottom:8px;">
@@ -194,6 +200,32 @@ require 'includes/header.php';
                 </div>
                 <p style="font-size:0.9rem; color:var(--muted);">
                     An admin removed a user's verification badge.
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php elseif ($e['action_type'] === 'verification_approved'): ?>
+                <div style="color:var(--baobab-green); font-weight:600; margin-bottom:6px;">
+                    Verification approved
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin approved a verification application and granted the badge.
+                </p>
+                <?php if (!empty($e['admin_note'])): ?>
+                    <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">
+                        <?= htmlspecialchars($e['admin_note']) ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php elseif ($e['action_type'] === 'verification_rejected'): ?>
+                <div style="color:var(--danger); font-weight:600; margin-bottom:6px;">
+                    Verification rejected
+                </div>
+                <p style="font-size:0.9rem; color:var(--muted);">
+                    An admin rejected a verification application.
                 </p>
                 <?php if (!empty($e['admin_note'])): ?>
                     <div style="background:var(--sand); padding:10px; border-radius:8px; font-style:italic; color:var(--charcoal); font-size:0.9rem;">

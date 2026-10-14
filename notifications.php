@@ -112,13 +112,25 @@ require 'includes/header.php';
                         <a href="conversation.php?id=<?= (int)$n['conversation_id'] ?>" style="font-weight:600;">
                             <?= __('messages_view_thread') ?>
                         </a>
+
+                    <?php elseif ($n['type'] === 'report_resolved'): ?>
+                        Your report led to action.
+                        <a href="my_reports.php" style="font-weight:600;">See details →</a>
+
+                    <?php elseif ($n['type'] === 'report_dismissed'): ?>
+                        Your report was reviewed.
+                        <a href="my_reports.php" style="font-weight:600;">See details →</a>
+
+                    <?php elseif ($n['type'] === 'verification_result'): ?>
+                        Your verification application has an update.
+                        <a href="verify_apply_status.php" style="font-weight:600;">See status →</a>
                     <?php endif; ?>
 
                     <?php if ($n['type'] === 'message' && !empty($n['last_message_body'])): ?>
                         <div class="notification-preview">
                             "<?= htmlspecialchars(mb_substr($n['last_message_body'], 0, 80)) ?><?= mb_strlen($n['last_message_body']) > 80 ? '…' : '' ?>"
                         </div>
-                    <?php elseif ($n['post_content']): ?>
+                    <?php elseif (!empty($n['post_content'])): ?>
                         <div class="notification-preview">
                             "<?= htmlspecialchars(mb_substr($n['post_content'], 0, 80)) ?><?= mb_strlen($n['post_content']) > 80 ? '…' : '' ?>"
                         </div>

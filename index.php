@@ -106,6 +106,12 @@ $page_title = 'Qarota — Africa\'s social network';
                 <div class="hero-label">Public moderation log</div>
             </div>
         </div>
+
+        <p style="margin-top: var(--space-5); font-size: 0.9rem;">
+            <a href="transparency.php" style="color: var(--terracotta); font-weight:600;">
+                Read our live transparency report →
+            </a>
+        </p>
     </div>
 </section>
 
@@ -143,6 +149,12 @@ $page_title = 'Qarota — Africa\'s social network';
                 </ul>
             </div>
         </div>
+
+        <p style="text-align:center; margin-top: var(--space-5);">
+            <a href="transparency.php" class="landing-btn-ghost">
+                See every number on our transparency report →
+            </a>
+        </p>
     </div>
 </section>
 
@@ -212,6 +224,12 @@ $page_title = 'Qarota — Africa\'s social network';
         <p class="mission-text mission-emphasis">
             We're not trying to beat anyone. We're trying to build something that belongs to us.
         </p>
+
+        <p style="margin-top: var(--space-5); text-align:center;">
+            <a href="transparency.php" style="color: var(--terracotta); font-weight:600;">
+                We publish our own numbers. Read the report →
+            </a>
+        </p>
     </div>
 </section>
 
@@ -243,6 +261,7 @@ $page_title = 'Qarota — Africa\'s social network';
 
         <div class="landing-footer-links">
             <a href="privacy.php">Privacy</a>
+            <a href="transparency.php">Transparency</a>
             <a href="moderation.php">Moderation log</a>
             <a href="terms.php">Terms</a>
             <a href="about.php">About</a>

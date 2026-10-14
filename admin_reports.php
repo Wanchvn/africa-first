@@ -8,6 +8,7 @@ require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require_once __DIR__ . '/includes/crypto.php';
+require_once __DIR__ . '/includes/reports.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -24,13 +25,15 @@ if (!$is_admin) {
 }
 
 $admin_id = (int)$_SESSION['user_id'];
-$message = '';
+$message  = '';
+$is_error = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_verify();
     rate_limit_enforce($pdo, client_ip(), 'admin_reports', 100, 3600);
+
     $report_id = (int)($_POST['report_id'] ?? 0);
-    $action = $_POST['admin_action'] ?? '';
+    $action    = $_POST['admin_action'] ?? '';
 
     if ($report_id > 0 && in_array($action, ['dismiss', 'remove'], true)) {
         $stmt = $pdo->prepare(
@@ -41,95 +44,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $report = $stmt->fetch();
 
         if ($report) {
-            $report_reason = $report['reason'] ?? null;
+            $report_reason   = $report['reason'] ?? null;
             $safe_categories = ['spam', 'misinformation', 'harassment', 'other'];
 
-            // ---- Remove: Post ----
-            if ($action === 'remove' && !empty($report['post_id'])) {
-                $stmt = $pdo->prepare("SELECT content, visibility FROM posts WHERE id = :id");
-                $stmt->execute([':id' => $report['post_id']]);
-                $post = $stmt->fetch();
-                $post_content = $post['content'] ?? null;
+            try {
+                // ---- Remove: Post ----
+                if ($action === 'remove' && !empty($report['post_id'])) {
+                    // Load post first for excerpt + media cleanup
+                    $stmt = $pdo->prepare("SELECT content, visibility, media_path FROM posts WHERE id = :id");
+                    $stmt->execute([':id' => $report['post_id']]);
+                    $post = $stmt->fetch();
 
-                $excerpt = (
-                    $post_content
-                    && ($post['visibility'] ?? 'public') === 'public'
-                    && in_array($report_reason, $safe_categories, true)
-                )
-                    ? mb_substr($post_content, 0, 200)
-                    : null;
+                    $excerpt = (
+                        $post
+                        && $post['content']
+                        && ($post['visibility'] ?? 'public') === 'public'
+                        && in_array($report_reason, $safe_categories, true)
+                    ) ? mb_substr($post['content'], 0, 200) : null;
 
-                $stmt = $pdo->prepare("DELETE FROM posts WHERE id = :id");
-                $stmt->execute([':id' => $report['post_id']]);
+                    // Clean up media file (best-effort)
+                    if (!empty($post['media_path'])) {
+                        $abs = __DIR__ . '/' . $post['media_path'];
+                        if (is_file($abs)) @unlink($abs);
+                    }
 
-                $stmt = $pdo->prepare("
-                    INSERT INTO moderation_log
-                        (action_type, post_excerpt, policy_category, admin_id)
-                    VALUES ('post_removed', :excerpt, :category, :admin)
-                ");
-                $stmt->execute([
-                    ':excerpt'  => $excerpt,
-                    ':category' => $report_reason,
-                    ':admin'    => $admin_id,
-                ]);
-            }
+                    // Delete dependent rows + post
+                    foreach (['post_topics','post_views','likes','comments','bookmarks'] as $t) {
+                        $pdo->prepare("DELETE FROM $t WHERE post_id = :id")->execute([':id' => $report['post_id']]);
+                    }
+                    $pdo->prepare("DELETE FROM posts WHERE id = :id")->execute([':id' => $report['post_id']]);
 
-            // ---- Remove: DM message ----
-            if ($action === 'remove' && !empty($report['message_id'])) {
-                $stmt = $pdo->prepare("SELECT body FROM messages WHERE id = :id");
-                $stmt->execute([':id' => $report['message_id']]);
-                $msg_body = $stmt->fetchColumn();
-                if ($msg_body !== false) {
-                    $msg_body = crypto_decrypt($msg_body);
+                    // Public log
+                    $pdo->prepare("
+                        INSERT INTO moderation_log (action_type, post_excerpt, policy_category, admin_id)
+                        VALUES ('post_removed', :excerpt, :category, :admin)
+                    ")->execute([
+                        ':excerpt'  => $excerpt,
+                        ':category' => $report_reason,
+                        ':admin'    => $admin_id,
+                    ]);
                 }
 
-                $excerpt = ($msg_body && in_array($report_reason, $safe_categories, true))
-                    ? mb_substr($msg_body, 0, 200)
-                    : null;
+                // ---- Remove: DM message ----
+                if ($action === 'remove' && !empty($report['message_id'])) {
+                    $stmt = $pdo->prepare("SELECT body FROM messages WHERE id = :id");
+                    $stmt->execute([':id' => $report['message_id']]);
+                    $msg_body = $stmt->fetchColumn();
+                    if ($msg_body !== false && $msg_body !== null) {
+                        $msg_body = crypto_decrypt($msg_body);
+                    }
 
-                $stmt = $pdo->prepare("DELETE FROM messages WHERE id = :id");
-                $stmt->execute([':id' => $report['message_id']]);
+                    $excerpt = ($msg_body && in_array($report_reason, $safe_categories, true))
+                        ? mb_substr($msg_body, 0, 200) : null;
 
-                // ✅ Correct column names + correct action type + correct variables
-                $stmt = $pdo->prepare("
-                    INSERT INTO moderation_log
-                        (action_type, post_excerpt, policy_category, admin_id)
-                    VALUES ('message_removed', :excerpt, :category, :admin)
-                ");
-                $stmt->execute([
-                    ':excerpt'  => $excerpt,
-                    ':category' => $report_reason,
-                    ':admin'    => $admin_id,
-                ]);
+                    $pdo->prepare("DELETE FROM messages WHERE id = :id")->execute([':id' => $report['message_id']]);
+
+                    $pdo->prepare("
+                        INSERT INTO moderation_log (action_type, post_excerpt, policy_category, admin_id)
+                        VALUES ('message_reported', :excerpt, :category, :admin)
+                    ")->execute([
+                        ':excerpt'  => $excerpt,
+                        ':category' => $report_reason,
+                        ':admin'    => $admin_id,
+                    ]);
+                }
+
+                // ---- Dismiss ----
+                if ($action === 'dismiss') {
+                    $pdo->prepare("
+                        INSERT INTO moderation_log (action_type, policy_category, admin_id)
+                        VALUES ('report_dismissed', :category, :admin)
+                    ")->execute([
+                        ':category' => $report_reason,
+                        ':admin'    => $admin_id,
+                    ]);
+                }
+
+                // ---- Resolve report + notify reporter (uses helper) ----
+                $new_status = $action === 'remove' ? 'actioned' : 'dismissed';
+                $note = $action === 'remove'
+                    ? 'Reviewed and confirmed a violation. The content has been removed.'
+                    : 'Reviewed and found no violation of Qarota\'s policies.';
+
+                resolve_report($pdo, $report_id, $admin_id, $new_status, $note);
+
+                $message = $action === 'remove' ? 'Content removed.' : 'Report dismissed.';
+            } catch (Throwable $e) {
+                error_log('admin_reports resolve error: ' . $e->getMessage());
+                $message  = 'Could not complete the action: ' . $e->getMessage();
+                $is_error = true;
             }
-
-            // ---- Dismiss ----
-            if ($action === 'dismiss') {
-                $stmt = $pdo->prepare("
-                    INSERT INTO moderation_log
-                        (action_type, policy_category, admin_id)
-                    VALUES ('report_dismissed', :category, :admin)
-                ");
-                $stmt->execute([
-                    ':category' => $report_reason,
-                    ':admin'    => $admin_id,
-                ]);
-            }
-
-            // ---- Update report status ----
-            $new_status = $action === 'remove' ? 'actioned' : 'dismissed';
-            $stmt = $pdo->prepare("
-                UPDATE reports
-                SET status = :status, reviewed_by = :admin, reviewed_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':status' => $new_status,
-                ':admin'  => $admin_id,
-                ':id'     => $report_id,
-            ]);
-
-            $message = $action === 'remove' ? 'Content removed.' : 'Report dismissed.';
         }
     }
 }
@@ -196,7 +200,9 @@ require 'includes/header.php';
     (<?= count($reports) + count($dm_reports) ?>)</h1>
 
 <?php if ($message): ?>
-    <div class="message"><?= htmlspecialchars($message) ?></div>
+    <div class="message" style="<?= $is_error ? 'border-left-color: var(--danger); background:#FDECEA;' : '' ?>">
+        <?= htmlspecialchars($message) ?>
+    </div>
 <?php endif; ?>
 
 <?php if (empty($reports) && empty($dm_reports)): ?>
@@ -231,7 +237,6 @@ require 'includes/header.php';
                 <hr style="border: none; border-top: 1px solid var(--border); margin: 12px 0;">
 
                 <?php if ($r['message_id'] && !empty($r['message_deleted_at'])): ?>
-                    <!-- Message was deleted by its sender after the report -->
                     <div class="meta" style="margin-bottom: 6px;">
                         Message from <strong><?= htmlspecialchars($sender_name) ?></strong>
                     </div>

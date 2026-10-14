@@ -73,6 +73,25 @@ $page_title = __('messages_title');
 require 'includes/header.php';
 ?>
 
+<!-- ============================================================
+     MESSAGE SEARCH
+     ============================================================ -->
+<div class="message-search-card">
+    <div class="message-search-input-wrap">
+        <i data-lucide="search" class="message-search-icon"></i>
+        <input type="text"
+               id="messageSearch"
+               class="message-search-input"
+               placeholder="Search your messages…"
+               autocomplete="off"
+               maxlength="100">
+        <button type="button" id="messageSearchClear" class="message-search-clear" hidden aria-label="Clear">
+            <i data-lucide="x"></i>
+        </button>
+    </div>
+    <div id="messageSearchResults" class="message-search-results" hidden></div>
+</div>
+
 <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-3);">
         <h2 style="margin:0;"><?= __('messages_title') ?></h2>
@@ -131,5 +150,7 @@ require 'includes/header.php';
         </ul>
     <?php endif; ?>
 </div>
+
+<script src="assets/js/message-search.js?v=<?= filemtime(__DIR__ . '/assets/js/message-search.js') ?>" defer></script>
 
 <?php require 'includes/footer.php'; ?>
