@@ -84,12 +84,65 @@ function start_secure_session() {
     // Fails open: DB errors never lock everyone out.
     // ============================================================
     enforce_ban_redirect();
+
+    // ============================================================
+    // SESSION TRACKING
+    // ------------------------------------------------------------
+    // Registers each login in user_sessions and enforces revocation.
+    // A revoked session is destroyed on its next request.
+    // ============================================================
+    enforce_session_tracking();
 }
 
 /**
- * If the current logged-in user is banned, redirect them to appeal.php.
- * Skips exempt pages and unauthenticated users.
+ * Load the DB (if needed) and run session tracking checks.
  */
+function enforce_session_tracking() {
+    if (empty($_SESSION['user_id'])) {
+        return;
+    }
+
+    // Exempt pages that must work even when a session is revoked
+    $exempt = ['logout.php', 'login.php', 'register.php', 'login_2fa.php'];
+    $current_script = basename($_SERVER['PHP_SELF'] ?? '');
+    if (in_array($current_script, $exempt, true)) {
+        return;
+    }
+
+    try {
+        if (!isset($GLOBALS['pdo'])) {
+            $db_path = __DIR__ . '/../config/db.php';
+            if (!is_file($db_path)) {
+                return;
+            }
+            $pdo_check = (static function () use ($db_path) {
+                require $db_path;
+                return $pdo ?? null;
+            })();
+        } else {
+            $pdo_check = $GLOBALS['pdo'];
+        }
+
+        if (!$pdo_check instanceof PDO) {
+            return;   // fail open
+        }
+
+        require_once __DIR__ . '/sessions_tracker.php';
+
+        // Register on first request after login
+        if (empty($_SESSION['_session_registered'])) {
+            register_current_session($pdo_check, (int)$_SESSION['user_id']);
+            $_SESSION['_session_registered'] = true;
+        }
+
+        // Enforce revocation on every request
+        enforce_session_validity($pdo_check, (int)$_SESSION['user_id']);
+    } catch (Throwable $e) {
+        // Fail open — never lock everyone out over a tracking bug
+        error_log('session tracking error: ' . $e->getMessage());
+    }
+}
+
 /**
  * If the current logged-in user is banned, redirect them to appeal.php.
  * Skips exempt pages and unauthenticated users.
@@ -158,6 +211,9 @@ function regenerate_session_on_login() {
 
     // Rotate CSRF token on login
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+    // Force re-registration of the session under its new ID
+    unset($_SESSION['_session_registered']);
 }
 
 /**

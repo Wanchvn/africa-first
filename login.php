@@ -7,6 +7,7 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
+require_once __DIR__ . '/includes/sessions_tracker.php';
 
 if (isset($_SESSION['user_id'])) {
     header('Location: profile.php');
@@ -38,11 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password'])) {
             // ---- 2FA branch ----
             if ((int)($user['totp_enabled'] ?? 0) === 1) {
-                // Don't log in yet — stash pending state and redirect to 2FA prompt
                 $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
                 $_SESSION['pending_2fa_started'] = time();
 
-                // Regenerate session ID for the pre-auth state too (prevents fixation)
                 session_regenerate_id(true);
 
                 header('Location: login_2fa.php');
@@ -55,6 +54,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['is_admin'] = (int)($user['is_admin'] ?? 0);
 
             regenerate_session_on_login();
+
+            // ---- Session tracking: register this login + housekeeping ----
+            register_current_session($pdo, (int)$user['id']);
+            $_SESSION['_session_registered'] = true;
+            cleanup_old_sessions($pdo);
 
             header('Location: profile.php');
             exit;

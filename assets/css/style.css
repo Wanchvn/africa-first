@@ -5957,3 +5957,137 @@ body.dark-mode .feed-lang-banner {
         grid-template-columns: 1fr !important;
     }
 }
+
+
+
+
+/* ============================================================
+   ACTIVE SESSIONS
+   ============================================================ */
+
+.sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.session-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--ivory);
+    transition: background var(--transition);
+}
+
+.session-row:hover {
+    background: var(--sand);
+}
+
+.session-current {
+    border-color: var(--terracotta);
+    background: #FFF9F5;
+}
+
+.session-revoked {
+    opacity: 0.55;
+}
+
+.session-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--sand);
+    color: var(--deep-brown);
+    flex-shrink: 0;
+}
+
+.session-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2;
+}
+
+.session-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.session-device {
+    font-weight: 600;
+    color: var(--deep-brown);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.session-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--terracotta);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
+.session-badge-revoked {
+    background: var(--muted);
+}
+
+.session-meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.session-meta-sep {
+    margin: 0 var(--space-1);
+    opacity: 0.6;
+}
+
+.session-actions {
+    flex-shrink: 0;
+}
+
+/* Dark mode */
+body.dark-mode .session-row {
+    background: var(--ivory);
+    border-color: var(--border);
+}
+body.dark-mode .session-row:hover {
+    background: #2A2219;
+}
+body.dark-mode .session-current {
+    background: #2A2219;
+    border-color: var(--terracotta);
+}
+body.dark-mode .session-icon {
+    background: #2A2219;
+    color: var(--charcoal);
+}
+body.dark-mode .session-device {
+    color: var(--charcoal);
+}
+
+@media (max-width: 520px) {
+    .session-row {
+        flex-wrap: wrap;
+    }
+    .session-actions {
+        width: 100%;
+        margin-top: var(--space-2);
+    }
+    .session-actions form button {
+        width: 100%;
+    }
+}
