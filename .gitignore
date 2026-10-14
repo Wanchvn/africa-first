@@ -12,3 +12,5 @@ logs/*.log
 config/mail.php
 storage/
 vendor/
+storage/exports/*
+!storage/exports/.gitkeep
