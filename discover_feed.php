@@ -18,7 +18,7 @@ $stmt = $pdo->prepare("SELECT location, languages FROM users WHERE id = :id");
 $stmt->execute([':id' => $user_id]);
 $me = $stmt->fetch();
 $my_location = trim($me['location'] ?? '');
-$my_languages = trim($me['languages'] ?? '');
+$my_languages_raw = trim($me['languages'] ?? '');
 
 $suggestions = [];
 
@@ -82,8 +82,8 @@ if ($my_location !== '') {
 }
 
 // Reason 3: Shared language
-if ($my_languages !== '') {
-    $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages)));
+if ($my_languages_raw !== '') {
+    $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages_raw)));
 
     if (!empty($my_lang_tokens)) {
         $lang_conditions = [];

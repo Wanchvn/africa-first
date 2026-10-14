@@ -10,6 +10,7 @@ require 'includes/rate_limit.php';
 require_once __DIR__ . '/includes/posts.php';
 require_once __DIR__ . '/includes/voice_upload.php';
 require_once __DIR__ . '/includes/badge.php';
+require_once __DIR__ . '/includes/language.php';
 require 'includes/messages.php';
 require 'includes/blocks.php';
 
@@ -171,15 +172,19 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (empty($message)) {
+            // Detect the post's language from its content
+            $post_lang = detect_post_language($content, $profile_user['languages'] ?? null);
+
             $stmt = $pdo->prepare(
                 "INSERT INTO posts
-                    (user_id, content, media_path, media_type, media_duration, media_mime, visibility)
+                    (user_id, content, lang, media_path, media_type, media_duration, media_mime, visibility)
                  VALUES
-                    (:user_id, :content, :media, :mtype, :mdur, :mmime, :visibility)"
+                    (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime, :visibility)"
             );
             $stmt->execute([
                 ':user_id'    => $_SESSION['user_id'],
                 ':content'    => $content,
+                ':lang'       => $post_lang,
                 ':media'      => $media_path,
                 ':mtype'      => $media_type,
                 ':mdur'       => $media_duration,

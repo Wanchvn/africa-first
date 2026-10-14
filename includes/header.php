@@ -198,6 +198,11 @@ $og_description = "Africa's social network. Your data stays home.";
                             <span>Data</span>
                         </a>
 
+                        <a href="settings_feed.php" class="profile-menu-item">
+                            <i data-lucide="list"></i>
+                            <span>Feed</span>
+                        </a>
+
                         <?php if (($_SESSION['verification_type'] ?? 'none') !== 'none'): ?>
                             <a href="verify_apply_status.php" class="profile-menu-item">
                                 <i data-lucide="badge-check"></i>

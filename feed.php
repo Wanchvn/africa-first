@@ -8,6 +8,7 @@ require 'lang/init.php';
 require 'includes/blocks.php';
 require_once __DIR__ . '/includes/posts.php';
 require_once __DIR__ . '/includes/badge.php';
+require_once __DIR__ . '/includes/language.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -20,10 +21,42 @@ $flash_error   = $_SESSION['flash_error']   ?? '';
 $flash_success = $_SESSION['flash_success'] ?? '';
 unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 
+// ---- Load the viewer's language preferences ----
+$stmt = $pdo->prepare("SELECT languages, feed_language_boost FROM users WHERE id = :id LIMIT 1");
+$stmt->execute([':id' => $user_id]);
+$me_prefs = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$my_languages_raw       = parse_user_languages($me_prefs['languages'] ?? '');
+$language_boost     = (int)($me_prefs['feed_language_boost'] ?? 1) === 1;
+$use_language_boost = $language_boost && !empty($my_languages_raw);
+
 $feed_visibility_sql = post_visibility_filter('posts', 'feed_visibility');
+
+// ---- Build the language ranking clause ----
+if ($use_language_boost) {
+    $lang_placeholders = [];
+    $lang_params = [];
+    foreach ($my_languages_raw as $i => $code) {
+        $key = ":feed_lang_$i";
+        $lang_placeholders[] = $key;
+        $lang_params[$key] = $code;
+    }
+    $lang_in = implode(',', $lang_placeholders);
+
+    $order_clause = "
+        ORDER BY
+            CASE WHEN posts.lang IN ($lang_in) THEN 0 ELSE 1 END,
+            posts.created_at DESC
+        LIMIT 50
+    ";
+} else {
+    $order_clause = "ORDER BY posts.created_at DESC LIMIT 50";
+    $lang_params  = [];
+}
+
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+        posts.id, posts.content, posts.lang, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
         users.username, users.avatar, users.display_name, users.verification_type,
@@ -37,8 +70,7 @@ $stmt = $pdo->prepare("
     INNER JOIN users ON posts.user_id = users.id
     WHERE (follows.following_id IS NOT NULL OR posts.user_id = :feed_owner)
       AND $feed_visibility_sql
-    ORDER BY posts.created_at DESC
-    LIMIT 50
+    $order_clause
 ");
 $stmt->execute(array_merge(
     [
@@ -46,7 +78,8 @@ $stmt->execute(array_merge(
         ':feed_owner' => $user_id,
         ':me_like' => $user_id,
     ],
-    post_visibility_params($user_id, 'feed_visibility')
+    post_visibility_params($user_id, 'feed_visibility'),
+    $lang_params
 ));
 $feed = $stmt->fetchAll();
 
@@ -88,7 +121,7 @@ if ($following_count < $min_follows) {
     $stmt->execute([':id' => $user_id]);
     $me_info = $stmt->fetch();
     $my_location  = trim($me_info['location'] ?? '');
-    $my_languages = trim($me_info['languages'] ?? '');
+    $my_languages_raw_raw = trim($me_info['languages'] ?? '');
 
     $stmt = $pdo->prepare("
         SELECT u.id, u.username, u.display_name, u.avatar,
@@ -115,8 +148,8 @@ if ($following_count < $min_follows) {
         $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
-    if ($my_languages !== '' && count($suggestions) < 4) {
-        $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages)));
+    if ($my_languages_raw !== '' && count($suggestions) < 4) {
+        $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages_raw)));
         if (!empty($my_lang_tokens)) {
             $lang_conditions = [];
             $lang_params = [':me' => $user_id];
@@ -187,6 +220,15 @@ require 'includes/header.php';
 <?php if ($flash_success): ?>
     <div class="message" style="border-left-color: var(--baobab-green); background: #E8F5E9;">
         <?= htmlspecialchars($flash_success) ?>
+    </div>
+<?php endif; ?>
+
+<?php if ($use_language_boost): ?>
+    <div class="feed-lang-banner">
+        <i data-lucide="languages" style="width:14px;height:14px;vertical-align:middle;"></i>
+        Prioritizing posts in
+        <strong><?= htmlspecialchars(implode(', ', array_map('language_label', $my_languages_raw))) ?></strong>
+        · <a href="settings_feed.php">Change</a>
     </div>
 <?php endif; ?>
 
