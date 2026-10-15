@@ -178,48 +178,52 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // ---- Video ----
-        if (empty($message) && $has_video) {
-            $duration = (int)($_POST['video_duration'] ?? 0);
-            try {
-                $v = handle_video_upload($_FILES['video'], max(1, $duration));
+     if (empty($message) && $has_video) {
+    $duration = (int)($_POST['video_duration'] ?? 0);
+    try {
+        $v = handle_video_upload($_FILES['video'], max(1, $duration));
 
-                if ($visibility !== 'public') {
-                    $v = move_post_video_to_private($v);
-                }
-
-                $media_path     = $v['path'];
-                $media_type     = 'video';
-                $media_duration = $v['duration'];
-                $media_mime     = $v['mime'];
-                $video_thumb    = $v['thumb'];
-            } catch (Throwable $e) {
-                $message = $e->getMessage();
-            }
+        if ($visibility !== 'public') {
+            $v = move_post_video_to_private($v);
         }
+
+        $media_path     = $v['path'];
+        $media_type     = 'video';
+        $media_duration = $v['duration'];
+        $media_mime     = $v['mime'];
+        $video_thumb    = $v['thumb'];
+        $video_width    = $v['width']  ?? null;
+        $video_height   = $v['height'] ?? null;
+    } catch (Throwable $e) {
+        $message = $e->getMessage();
+    }
+}
 
         if (empty($message)) {
             $post_lang = detect_post_language($content, $profile_user['languages'] ?? null);
 
             $stmt = $pdo->prepare(
-                "INSERT INTO posts
-                    (user_id, content, lang, media_path, media_type, media_duration, media_mime,
-                     video_duration, video_thumb, visibility)
-                 VALUES
-                    (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime,
-                     :vdur, :vthumb, :visibility)"
-            );
-            $stmt->execute([
-                ':user_id'    => $_SESSION['user_id'],
-                ':content'    => $content,
-                ':lang'       => $post_lang,
-                ':media'      => $media_path,
-                ':mtype'      => $media_type,
-                ':mdur'       => $media_duration,
-                ':mmime'      => $media_mime,
-                ':vdur'       => $media_type === 'video' ? $media_duration : null,
-                ':vthumb'     => $video_thumb,
-                ':visibility' => $visibility,
-            ]);
+    "INSERT INTO posts
+        (user_id, content, lang, media_path, media_type, media_duration, media_mime,
+         video_duration, video_thumb, video_width, video_height, visibility)
+     VALUES
+        (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime,
+         :vdur, :vthumb, :vwidth, :vheight, :visibility)"
+);
+$stmt->execute([
+    ':user_id'    => $_SESSION['user_id'],
+    ':content'    => $content,
+    ':lang'       => $post_lang,
+    ':media'      => $media_path,
+    ':mtype'      => $media_type,
+    ':mdur'       => $media_duration,
+    ':mmime'      => $media_mime,
+    ':vdur'       => $media_type === 'video' ? $media_duration : null,
+    ':vthumb'     => $video_thumb,
+    ':vwidth'     => $video_width,
+    ':vheight'    => $video_height,
+    ':visibility' => $visibility,
+]);
             $new_post_id = (int)$pdo->lastInsertId();
 
             $topic_id = (int)($_POST['topic_id'] ?? 0);
@@ -296,7 +300,7 @@ $stmt = $pdo->prepare("
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
-        posts.video_duration, posts.video_thumb,
+        posts.video_duration, posts.video_thumb, posts.video_width, posts.video_height,
         users.avatar, users.verification_type,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -717,14 +721,22 @@ require 'includes/header.php';
                         <span>Tap to load video</span>
                     </div>
                 <?php else: ?>
-                    <video class="post-video"
-                           controls
-                           preload="metadata"
-                           playsinline
-                           <?php if (!empty($post['video_thumb'])): ?>
-                               poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
-                           <?php endif; ?>
-                           data-video-id="<?= (int)$post['id'] ?>">
+                    <?php
+$vw = (int)($post['video_width']  ?? 0);
+$vh = (int)($post['video_height'] ?? 0);
+$orientation = ($vw > 0 && $vh > 0)
+    ? ($vw >= $vh ? 'landscape' : 'portrait')
+    : 'unknown';
+?>
+<video class="post-video post-video-<?= $orientation ?>"
+       controls
+       preload="metadata"
+       playsinline
+       <?php if (!empty($post['video_thumb'])): ?>
+           poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
+       <?php endif; ?>
+       data-video-id="<?= (int)$post['id'] ?>"
+       data-orientation="<?= $orientation ?>">
                         <source src="post_video.php?id=<?= (int)$post['id'] ?>"
                                 type="<?= htmlspecialchars($post['media_mime'] ?: 'video/mp4') ?>">
                     </video>

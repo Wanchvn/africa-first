@@ -6126,3 +6126,53 @@ body.dark-mode .post-video {
     margin: var(--space-3) 0;
     object-fit: contain;   /* ← add this */
 }
+
+
+/* ============================================================
+   POST VIDEOS — orientation-aware layout
+   ============================================================ */
+
+.post-video {
+    display: block;
+    margin: var(--space-3) auto;
+    background: #000;
+    border-radius: var(--radius-md);
+    max-height: 640px;
+}
+
+/* Landscape videos fill the container width */
+.post-video-landscape {
+    width: 100%;
+    height: auto;
+}
+
+/* Portrait videos shrink to a reasonable width and center */
+.post-video-portrait {
+    width: auto;
+    max-width: 360px;
+    max-height: 640px;
+    /* On narrow screens, fill available space */
+}
+
+/* Unknown dimensions (ffprobe missing) — conservative default */
+.post-video-unknown {
+    width: 100%;
+    max-width: 480px;
+    max-height: 480px;
+}
+
+/* Dark mode */
+body.dark-mode .post-video {
+    background: #000;
+}
+
+/* Mobile: portrait videos can be slightly wider */
+@media (max-width: 600px) {
+    .post-video-portrait {
+        max-width: 100%;
+        max-height: 70vh;
+    }
+    .post-video-landscape {
+        max-height: 60vh;
+    }
+}

@@ -57,7 +57,7 @@ $stmt = $pdo->prepare("
         posts.id, posts.content, posts.lang, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
-        posts.video_duration, posts.video_thumb,
+        posts.video_duration, posts.video_thumb, posts.video_width, posts.video_height,
         users.username, users.avatar, users.display_name, users.verification_type,
         users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
@@ -330,14 +330,22 @@ require 'includes/header.php';
                         <span>Tap to load video</span>
                     </div>
                 <?php else: ?>
-                    <video class="post-video"
-                           controls
-                           preload="metadata"
-                           playsinline
-                           <?php if (!empty($post['video_thumb'])): ?>
-                               poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
-                           <?php endif; ?>
-                           data-video-id="<?= (int)$post['id'] ?>">
+                    <?php
+$vw = (int)($post['video_width']  ?? 0);
+$vh = (int)($post['video_height'] ?? 0);
+$orientation = ($vw > 0 && $vh > 0)
+    ? ($vw >= $vh ? 'landscape' : 'portrait')
+    : 'unknown';
+?>
+<video class="post-video post-video-<?= $orientation ?>"
+       controls
+       preload="metadata"
+       playsinline
+       <?php if (!empty($post['video_thumb'])): ?>
+           poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
+       <?php endif; ?>
+       data-video-id="<?= (int)$post['id'] ?>"
+       data-orientation="<?= $orientation ?>">
                         <source src="post_video.php?id=<?= (int)$post['id'] ?>"
                                 type="<?= htmlspecialchars($post['media_mime'] ?: 'video/mp4') ?>">
                     </video>
