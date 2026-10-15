@@ -22,16 +22,22 @@ $my_languages_raw = trim($me['languages'] ?? '');
 
 $suggestions = [];
 
+$select_cols = "
+    posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
+    posts.visibility,
+    posts.media_type, posts.media_duration, posts.media_mime,
+    posts.video_duration, posts.video_thumb,
+    users.username, users.display_name, users.avatar, users.id AS author_id,
+    (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
+    (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
+    (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count
+";
+
 // Reason 1: Friends of friends
 $friends_visibility_sql = post_visibility_filter('posts', 'discover_friends');
 $stmt = $pdo->prepare("
     SELECT DISTINCT
-        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
-        posts.visibility,
-        users.username, users.display_name, users.avatar, users.id AS author_id,
-        (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
-        (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
-        (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count,
+        $select_cols,
         (SELECT u2.display_name FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id WHERE f2.following_id = posts.user_id AND f2.follower_id IN (SELECT following_id FROM follows WHERE follower_id = :me) LIMIT 1) AS reason_via,
         (SELECT u2.username FROM users u2 INNER JOIN follows f2 ON f2.follower_id = u2.id WHERE f2.following_id = posts.user_id AND f2.follower_id IN (SELECT following_id FROM follows WHERE follower_id = :me) LIMIT 1) AS reason_via_username,
         'friends_of_friends' AS source
@@ -58,12 +64,7 @@ if ($my_location !== '') {
     $location_visibility_sql = post_visibility_filter('posts', 'discover_location');
     $stmt = $pdo->prepare("
         SELECT
-            posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
-            posts.visibility,
-            users.username, users.display_name, users.avatar, users.id AS author_id,
-            (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
-            (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
-            (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count,
+            $select_cols,
             'same_location' AS source
         FROM posts
         INNER JOIN users ON posts.user_id = users.id
@@ -101,12 +102,7 @@ if ($my_languages_raw !== '') {
 
         $stmt = $pdo->prepare("
             SELECT
-                posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
-                posts.visibility,
-                users.username, users.display_name, users.avatar, users.id AS author_id,
-                (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
-                (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
-                (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count,
+                $select_cols,
                 'shared_language' AS source
             FROM posts
             INNER JOIN users ON posts.user_id = users.id
@@ -126,12 +122,7 @@ if ($my_languages_raw !== '') {
 $trending_visibility_sql = post_visibility_filter('posts', 'discover_trending');
 $stmt = $pdo->prepare("
     SELECT
-        posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
-        posts.visibility,
-        users.username, users.display_name, users.avatar, users.id AS author_id,
-        (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
-        (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
-        (SELECT COUNT(*) FROM comments WHERE post_id = posts.id) AS comment_count,
+        $select_cols,
         'trending' AS source
     FROM posts
     INNER JOIN users ON posts.user_id = users.id
@@ -236,6 +227,11 @@ require 'includes/header.php';
                 $reason_text = 'Trending on Qarota today';
                 break;
         }
+
+        $media_type = $post['media_type'] ?? 'text';
+        $has_voice  = $media_type === 'voice' && !empty($post['media_path']);
+        $has_image  = $media_type === 'image' && !empty($post['media_path']);
+        $has_video  = $media_type === 'video' && !empty($post['media_path']);
         ?>
         <div class="card">
             <?php if ($reason_text): ?>
@@ -272,9 +268,44 @@ require 'includes/header.php';
                 <?php endif; ?>
             </div>
 
-            <div class="content"><?= htmlspecialchars($post['content']) ?></div>
+            <?php if (trim((string)$post['content']) !== ''): ?>
+                <div class="content"><?= nl2br(htmlspecialchars($post['content'])) ?></div>
+            <?php endif; ?>
 
-                      <?php if ($post['media_path']): ?>
+            <?php if ($has_video): ?>
+                <?php if (!empty($_SESSION['low_data_mode'])): ?>
+                    <div class="img-placeholder video-placeholder"
+                         data-video-src="post_video.php?id=<?= (int)$post['id'] ?>">
+                        <i data-lucide="video"></i>
+                        <span>Tap to load video</span>
+                    </div>
+                <?php else: ?>
+                    <video class="post-video"
+                           controls
+                           preload="metadata"
+                           playsinline
+                           <?php if (!empty($post['video_thumb'])): ?>
+                               poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
+                           <?php endif; ?>
+                           data-video-id="<?= (int)$post['id'] ?>">
+                        <source src="post_video.php?id=<?= (int)$post['id'] ?>"
+                                type="<?= htmlspecialchars($post['media_mime'] ?: 'video/mp4') ?>">
+                    </video>
+                <?php endif; ?>
+
+            <?php elseif ($has_voice): ?>
+                <div class="post-voice" data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
+                    <button type="button" class="post-voice-play" aria-label="Play voice note">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <polygon points="6 4 20 12 6 20 6 4"/>
+                        </svg>
+                    </button>
+                    <div class="post-voice-wave" aria-hidden="true"></div>
+                    <span class="post-voice-time"><?= gmdate('i:s', (int)($post['media_duration'] ?? 0)) ?></span>
+                    <audio preload="none" src="voice_serve.php?type=post&id=<?= (int)$post['id'] ?>"></audio>
+                </div>
+
+            <?php elseif ($has_image): ?>
                 <?php if (!empty($_SESSION['low_data_mode'])): ?>
                     <div class="img-placeholder" data-src="post_media.php?id=<?= (int)$post['id'] ?>">
                         <i data-lucide="image"></i>

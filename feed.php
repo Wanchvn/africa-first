@@ -21,18 +21,16 @@ $flash_error   = $_SESSION['flash_error']   ?? '';
 $flash_success = $_SESSION['flash_success'] ?? '';
 unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 
-// ---- Load the viewer's language preferences ----
 $stmt = $pdo->prepare("SELECT languages, feed_language_boost FROM users WHERE id = :id LIMIT 1");
 $stmt->execute([':id' => $user_id]);
 $me_prefs = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$my_languages_raw       = parse_user_languages($me_prefs['languages'] ?? '');
+$my_languages_raw   = parse_user_languages($me_prefs['languages'] ?? '');
 $language_boost     = (int)($me_prefs['feed_language_boost'] ?? 1) === 1;
 $use_language_boost = $language_boost && !empty($my_languages_raw);
 
 $feed_visibility_sql = post_visibility_filter('posts', 'feed_visibility');
 
-// ---- Build the language ranking clause ----
 if ($use_language_boost) {
     $lang_placeholders = [];
     $lang_params = [];
@@ -59,6 +57,7 @@ $stmt = $pdo->prepare("
         posts.id, posts.content, posts.lang, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
+        posts.video_duration, posts.video_thumb,
         users.username, users.avatar, users.display_name, users.verification_type,
         users.id AS author_id,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
@@ -315,6 +314,7 @@ require 'includes/header.php';
             $media_type = $post['media_type'] ?? 'text';
             $has_voice  = $media_type === 'voice' && !empty($post['media_path']);
             $has_image  = $media_type === 'image' && !empty($post['media_path']);
+            $has_video  = $media_type === 'video' && !empty($post['media_path']);
             $has_text   = trim((string)$post['content']) !== '';
             ?>
 
@@ -322,7 +322,28 @@ require 'includes/header.php';
                 <div class="content"><?= nl2br(htmlspecialchars($post['content'])) ?></div>
             <?php endif; ?>
 
-            <?php if ($has_voice): ?>
+            <?php if ($has_video): ?>
+                <?php if (!empty($_SESSION['low_data_mode'])): ?>
+                    <div class="img-placeholder video-placeholder"
+                         data-video-src="post_video.php?id=<?= (int)$post['id'] ?>">
+                        <i data-lucide="video"></i>
+                        <span>Tap to load video</span>
+                    </div>
+                <?php else: ?>
+                    <video class="post-video"
+                           controls
+                           preload="metadata"
+                           playsinline
+                           <?php if (!empty($post['video_thumb'])): ?>
+                               poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
+                           <?php endif; ?>
+                           data-video-id="<?= (int)$post['id'] ?>">
+                        <source src="post_video.php?id=<?= (int)$post['id'] ?>"
+                                type="<?= htmlspecialchars($post['media_mime'] ?: 'video/mp4') ?>">
+                    </video>
+                <?php endif; ?>
+
+            <?php elseif ($has_voice): ?>
                 <div class="post-voice"
                      data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
                     <button type="button"
