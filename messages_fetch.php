@@ -54,6 +54,26 @@ foreach ($messages as &$m) {
 }
 unset($m);
 
+// Mark incoming as read BEFORE we compute unread_total, otherwise the
+// count will include messages we're about to consider read.
+mark_conversation_read($pdo, $conv, $me);
+
+// ---- Unread total across ALL of the user's conversations ----
+// interact.js only clears the nav badge when this is exactly 0.
+$unreadStmt = $pdo->prepare("
+    SELECT COUNT(*) AS c
+    FROM messages m
+    INNER JOIN conversation_members cm
+        ON cm.conversation_id = m.conversation_id
+       AND cm.user_id = :me
+    WHERE m.sender_id <> :me
+      AND m.is_read = 0
+      AND m.deleted_at IS NULL
+");
+$unreadStmt->execute([':me' => $me]);
+$unreadTotal = (int) $unreadStmt->fetchColumn();
+
+// ---- Reactions ----
 $reactionStates = fetch_message_reaction_states($pdo, $conv, $me);
 foreach ($messages as &$m) {
     $m['reactions'] = empty($m['deleted_at'])
@@ -70,9 +90,7 @@ foreach ($reactionStates as $messageId => $reactions) {
     ];
 }
 
-// Mark incoming as read (clears the bell badge while the thread is open)
-mark_conversation_read($pdo, $conv, $me);
-
+// ---- Typing indicators ----
 $typingUsers = [];
 $tStmt = $pdo->prepare(
     "SELECT ti.user_id, u.display_name, u.username
@@ -93,33 +111,46 @@ foreach ($tStmt->fetchAll() as $tu) {
     ];
 }
 
-
 // ---- Read receipt: has the partner read my LAST outgoing message? ----
 // We look at the very last message in the conversation. If it's mine
 // and is_read is set, the partner has "seen" up to and including it.
+//
+// For 1:1 conversations this is correct because the partner's
+// mark_conversation_read flips is_read on every message addressed to them.
+//
+// For GROUP conversations, is_read on a single message only means "at
+// least one other member read it", not "everyone read it". The JS side
+// already has a separate group path (seen_count) it can use instead;
+// we return null here so the client doesn't show a misleading "Seen".
 $readInfo = ['last_own_id' => null, 'last_own_seen' => false];
 
-$lastMsg = $pdo->prepare(
-    "SELECT id, sender_id, is_read
-     FROM messages
-     WHERE conversation_id = :c
-     ORDER BY id DESC
-     LIMIT 1"
-);
-$lastMsg->execute([':c' => $conv]);
-$lm = $lastMsg->fetch();
+$isGroup = function_exists('is_group_conversation')
+    ? is_group_conversation($pdo, $conv)
+    : false;
 
-if ($lm && (int)$lm['sender_id'] === $me) {
-    // The last message in the thread is mine — is it read?
-    $readInfo['last_own_id']   = (int)$lm['id'];
-    $readInfo['last_own_seen'] = ((int)$lm['is_read'] === 1);
+if (!$isGroup) {
+    $lastMsg = $pdo->prepare(
+        "SELECT id, sender_id, is_read
+         FROM messages
+         WHERE conversation_id = :c
+         ORDER BY id DESC
+         LIMIT 1"
+    );
+    $lastMsg->execute([':c' => $conv]);
+    $lm = $lastMsg->fetch();
+
+    if ($lm && (int)$lm['sender_id'] === $me) {
+        $readInfo['last_own_id']   = (int)$lm['id'];
+        $readInfo['last_own_seen'] = ((int)$lm['is_read'] === 1);
+    }
 }
 
 echo json_encode([
-    'success'        => true,
-    'messages'       => $messages,
+    'success'         => true,
+    'messages'        => $messages,
     'reaction_states' => $reactionUpdates,
-    'typing_users'   => $typingUsers,
-    'last_own_id'    => $readInfo['last_own_id'],
-    'last_own_seen'  => $readInfo['last_own_seen'],
+    'typing_users'    => $typingUsers,
+    'last_own_id'     => $readInfo['last_own_id'],
+    'last_own_seen'   => $readInfo['last_own_seen'],
+    'unread_total'    => $unreadTotal,
 ]);

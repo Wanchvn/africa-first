@@ -126,6 +126,8 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $media_duration = null;
         $media_mime     = null;
         $video_thumb    = null;
+        $video_width    = null;
+        $video_height   = null;
 
         // ---- Image ----
         if ($has_image) {
@@ -178,52 +180,52 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // ---- Video ----
-     if (empty($message) && $has_video) {
-    $duration = (int)($_POST['video_duration'] ?? 0);
-    try {
-        $v = handle_video_upload($_FILES['video'], max(1, $duration));
+        if (empty($message) && $has_video) {
+            $duration = (int)($_POST['video_duration'] ?? 0);
+            try {
+                $v = handle_video_upload($_FILES['video'], $duration);
 
-        if ($visibility !== 'public') {
-            $v = move_post_video_to_private($v);
+                if ($visibility !== 'public') {
+                    $v = move_post_video_to_private($v);
+                }
+
+                $media_path     = $v['path'];
+                $media_type     = 'video';
+                $media_duration = $v['duration'];
+                $media_mime     = $v['mime'];
+                $video_thumb    = $v['thumb'];
+                $video_width    = $v['width']  ?? null;
+                $video_height   = $v['height'] ?? null;
+            } catch (Throwable $e) {
+                $message = $e->getMessage();
+            }
         }
-
-        $media_path     = $v['path'];
-        $media_type     = 'video';
-        $media_duration = $v['duration'];
-        $media_mime     = $v['mime'];
-        $video_thumb    = $v['thumb'];
-        $video_width    = $v['width']  ?? null;
-        $video_height   = $v['height'] ?? null;
-    } catch (Throwable $e) {
-        $message = $e->getMessage();
-    }
-}
 
         if (empty($message)) {
             $post_lang = detect_post_language($content, $profile_user['languages'] ?? null);
 
             $stmt = $pdo->prepare(
-    "INSERT INTO posts
-        (user_id, content, lang, media_path, media_type, media_duration, media_mime,
-         video_duration, video_thumb, video_width, video_height, visibility)
-     VALUES
-        (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime,
-         :vdur, :vthumb, :vwidth, :vheight, :visibility)"
-);
-$stmt->execute([
-    ':user_id'    => $_SESSION['user_id'],
-    ':content'    => $content,
-    ':lang'       => $post_lang,
-    ':media'      => $media_path,
-    ':mtype'      => $media_type,
-    ':mdur'       => $media_duration,
-    ':mmime'      => $media_mime,
-    ':vdur'       => $media_type === 'video' ? $media_duration : null,
-    ':vthumb'     => $video_thumb,
-    ':vwidth'     => $video_width,
-    ':vheight'    => $video_height,
-    ':visibility' => $visibility,
-]);
+                "INSERT INTO posts
+                    (user_id, content, lang, media_path, media_type, media_duration, media_mime,
+                     video_duration, video_thumb, video_width, video_height, visibility)
+                 VALUES
+                    (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime,
+                     :vdur, :vthumb, :vwidth, :vheight, :visibility)"
+            );
+            $stmt->execute([
+                ':user_id'    => $_SESSION['user_id'],
+                ':content'    => $content,
+                ':lang'       => $post_lang,
+                ':media'      => $media_path,
+                ':mtype'      => $media_type,
+                ':mdur'       => $media_duration,
+                ':mmime'      => $media_mime,
+                ':vdur'       => $media_type === 'video' ? $media_duration : null,
+                ':vthumb'     => $video_thumb,
+                ':vwidth'     => $video_width,
+                ':vheight'    => $video_height,
+                ':visibility' => $visibility,
+            ]);
             $new_post_id = (int)$pdo->lastInsertId();
 
             $topic_id = (int)($_POST['topic_id'] ?? 0);
@@ -276,7 +278,13 @@ $stmt->execute([
                 }
             }
 
-            $message = __('post_published');
+            $_SESSION['flash_success'] = __('post_published');
+            header('Location: profile.php' . ($is_own_profile ? '' : '?u=' . urlencode($profile_user['username'])));
+            exit;
+        } else {
+            $_SESSION['flash_error'] = $message;
+            header('Location: profile.php' . ($is_own_profile ? '' : '?u=' . urlencode($profile_user['username'])));
+            exit;
         }
     }
 }
@@ -488,6 +496,8 @@ require 'includes/header.php';
                         <?= __('profile_message_button') ?>
                     </a>
                 <?php endif; ?>
+
+                <!-- Block form: handleBlock() in interact.js shows the qarotaConfirm itself -->
                 <form method="POST" action="block.php" class="block-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="target_id" value="<?= $profile_id ?>">
@@ -496,18 +506,19 @@ require 'includes/header.php';
                     <input type="hidden" name="redirect"
                            value="profile.php?u=<?= urlencode($profile_user['username']) ?>">
                     <button type="submit"
-                            class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?>"
-                            <?php if (!$i_blocked_them): ?>
-                                onclick="return confirm('<?= htmlspecialchars(__('block_confirm'), ENT_QUOTES) ?>');"
-                            <?php endif; ?>>
+                            class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?>">
                         <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
                     </button>
                 </form>
 
                 <?php if ($viewer_is_admin && !$profile_is_admin && !$i_blocked_them): ?>
                     <?php if ($profile_is_verified): ?>
+                        <!-- Generic confirm dispatcher handles data-confirm -->
                         <form method="POST" action="admin_verify.php" style="display:inline;"
-                              onsubmit="return confirm('Remove verification from @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?');">
+                              data-confirm="Remove verification from @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?"
+                              data-confirm-title="Remove verification"
+                              data-confirm-ok="Remove"
+                              data-confirm-danger="1">
                             <?= csrf_field() ?>
                             <input type="hidden" name="target_id" value="<?= $profile_id ?>">
                             <input type="hidden" name="action" value="revoke">
@@ -528,7 +539,10 @@ require 'includes/header.php';
 
                     <?php if ($profile_is_banned): ?>
                         <form method="POST" action="admin_ban.php" style="display:inline;"
-                              onsubmit="return confirm('Unban @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?');">
+                              data-confirm="Unban @<?= htmlspecialchars($profile_user['username'], ENT_QUOTES) ?>?"
+                              data-confirm-title="Unban user"
+                              data-confirm-ok="Unban"
+                              data-confirm-danger="1">
                             <?= csrf_field() ?>
                             <input type="hidden" name="target_id" value="<?= $profile_id ?>">
                             <input type="hidden" name="action" value="unban">
@@ -562,10 +576,6 @@ require 'includes/header.php';
     <div class="message" style="border-left-color: var(--baobab-green); background: #E8F5E9;">
         <?= htmlspecialchars($flash_success) ?>
     </div>
-<?php endif; ?>
-
-<?php if ($message): ?>
-    <div class="message"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
 
 <?php if ($avatar_message): ?>
@@ -640,7 +650,8 @@ require 'includes/header.php';
                        name="video"
                        accept="video/mp4,video/webm,video/quicktime"
                        class="file-picker-input"
-                       onchange="var n = this.files[0] ? this.files[0].name : ''; document.getElementById('postVideoName').textContent = n; var v = document.createElement('video'); v.preload = 'metadata'; v.onloadedmetadata = function(){ document.getElementById('postVideoDuration').value = Math.round(v.duration) || 0; }; v.src = URL.createObjectURL(this.files[0]);">
+                       onchange="handlePostVideoPick(this);">
+
                 <input type="hidden" name="video_duration" id="postVideoDuration" value="0">
 
                 <button type="button"
@@ -670,6 +681,29 @@ require 'includes/header.php';
 
             <button type="submit"><?= __('post_button') ?></button>
         </form>
+    </div>
+
+    <!-- Upload progress overlay: OUTSIDE the form, NOT inside any hidden wrapper. -->
+    <div id="videoUploadOverlay" class="upload-overlay" hidden>
+        <div class="upload-card">
+            <h3 id="videoUploadTitle">Uploading video…</h3>
+
+            <div class="upload-progress-track">
+                <div class="upload-progress-fill" id="videoUploadFill"></div>
+            </div>
+            <div class="upload-progress-meta">
+                <span id="videoUploadPct">0%</span>
+                <span id="videoUploadSpeed"></span>
+            </div>
+
+            <p class="upload-hint" id="videoUploadHint">
+                Keep this tab open. Don't close the app.
+            </p>
+
+            <div class="upload-actions">
+                <button type="button" id="videoUploadCancel" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
     </div>
 <?php endif; ?>
 
@@ -722,21 +756,21 @@ require 'includes/header.php';
                     </div>
                 <?php else: ?>
                     <?php
-$vw = (int)($post['video_width']  ?? 0);
-$vh = (int)($post['video_height'] ?? 0);
-$orientation = ($vw > 0 && $vh > 0)
-    ? ($vw >= $vh ? 'landscape' : 'portrait')
-    : 'unknown';
-?>
-<video class="post-video post-video-<?= $orientation ?>"
-       controls
-       preload="metadata"
-       playsinline
-       <?php if (!empty($post['video_thumb'])): ?>
-           poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
-       <?php endif; ?>
-       data-video-id="<?= (int)$post['id'] ?>"
-       data-orientation="<?= $orientation ?>">
+                    $vw = (int)($post['video_width']  ?? 0);
+                    $vh = (int)($post['video_height'] ?? 0);
+                    $orientation = ($vw > 0 && $vh > 0)
+                        ? ($vw >= $vh ? 'landscape' : 'portrait')
+                        : 'unknown';
+                    ?>
+                    <video class="post-video post-video-<?= $orientation ?>"
+                           controls
+                           preload="metadata"
+                           playsinline
+                           <?php if (!empty($post['video_thumb'])): ?>
+                               poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
+                           <?php endif; ?>
+                           data-video-id="<?= (int)$post['id'] ?>"
+                           data-orientation="<?= $orientation ?>">
                         <source src="post_video.php?id=<?= (int)$post['id'] ?>"
                                 type="<?= htmlspecialchars($post['media_mime'] ?: 'video/mp4') ?>">
                     </video>
@@ -831,10 +865,10 @@ $orientation = ($vw > 0 && $vh > 0)
                             <i data-lucide="pencil" style="width:14px;height:14px;"></i>
                             Edit
                         </a>
+                        <!-- Delete-post: handleDeletePostSubmit() in interact.js shows the qarotaConfirm itself -->
                         <form method="POST"
                               action="delete_post.php"
                               class="delete-post-form"
-                              onsubmit="return confirm('Delete this post permanently? This cannot be undone.');"
                               style="display:inline; margin:0;">
                             <?= csrf_field() ?>
                             <input type="hidden" name="post_id" value="<?= (int)$post['id'] ?>">
@@ -975,5 +1009,306 @@ $orientation = ($vw > 0 && $vh > 0)
         </form>
     </dialog>
 <?php endif; ?>
+
+
+<script>
+/* ============================================================
+   POST VIDEO — pick handler + upload with progress overlay
+   ============================================================ */
+
+var postVideoState = {
+    picked: false,
+    duration: 0
+};
+
+function handlePostVideoPick(input) {
+    var label = document.getElementById('postVideoName');
+    var durIn = document.getElementById('postVideoDuration');
+    var file  = input.files && input.files[0];
+
+    if (!file) {
+        if (label) label.textContent = '';
+        if (durIn) durIn.value = 0;
+        postVideoState.picked = false;
+        postVideoState.duration = 0;
+        return;
+    }
+
+    var MAX_MB    = 650;
+    var MAX_BYTES = MAX_MB * 1024 * 1024;
+
+    if (file.size > MAX_BYTES) {
+        qarotaAlert(
+            'That video is too large to upload (max ' + MAX_MB + ' MB).\n\nTry a shorter clip.',
+            { title: 'Video too large' }
+        );
+        input.value = '';
+        if (label) label.textContent = '';
+        if (durIn) durIn.value = 0;
+        postVideoState.picked = false;
+        postVideoState.duration = 0;
+        return;
+    }
+
+    if (label) label.textContent = file.name;
+
+    var probe = document.createElement('video');
+    probe.preload = 'metadata';
+    probe.onloadedmetadata = function () {
+        var dur = Math.round(probe.duration) || 0;
+        if (durIn) durIn.value = dur;
+        postVideoState.duration = dur;
+        URL.revokeObjectURL(probe.src);
+
+        var MAX_SEC = 1200;
+        if (probe.duration > MAX_SEC + 1) {
+            var totalSec    = Math.round(probe.duration);
+            var mins        = Math.floor(totalSec / 60);
+            var secs        = totalSec % 60;
+            var durationStr = mins + ':' + ('0' + secs).slice(-2);
+
+            var overBySec = totalSec - MAX_SEC;
+            var overMin   = Math.floor(overBySec / 60);
+            var overSec   = overBySec % 60;
+            var overStr   = overMin > 0
+                ? overMin + ' min ' + overSec + ' sec'
+                : overSec + ' sec';
+
+            qarotaAlert(
+                'This video is ' + durationStr + ' long.\n\n' +
+                'Videos can be up to 20:00 on Qarota. ' +
+                'You need to trim about ' + overStr + '.\n\n' +
+                'Tip: use your phone\'s built-in trimmer or a free tool like CapCut to shorten it, then try again.',
+                { title: 'Video is too long' }
+            );
+            input.value = '';
+            if (label) label.textContent = '';
+            if (durIn) durIn.value = 0;
+            postVideoState.picked = false;
+            postVideoState.duration = 0;
+            return;
+        }
+
+        postVideoState.picked = true;
+    };
+    probe.onerror = function () {
+        URL.revokeObjectURL(probe.src);
+        postVideoState.picked = true;
+    };
+    probe.src = URL.createObjectURL(file);
+}
+
+/* ============================================================
+   VIDEO UPLOAD — with progress + speed + cancel
+   Only runs when a video is attached. Text/image/voice posts
+   continue to use the browser's native form POST.
+   ============================================================ */
+(function () {
+    var form = document.getElementById('compose-form');
+    if (!form) return;
+
+    var videoInput = document.getElementById('post-video');
+    if (!videoInput) return;
+
+    form.addEventListener('submit', function (e) {
+        if (!postVideoState.picked) return;
+        var file = videoInput.files && videoInput.files[0];
+        if (!file) return;
+
+        e.preventDefault();
+        uploadVideoPost(file);
+    });
+
+    function uploadVideoPost(file) {
+        var overlay   = document.getElementById('videoUploadOverlay');
+        var fill      = document.getElementById('videoUploadFill');
+        var pctEl     = document.getElementById('videoUploadPct');
+        var speedEl   = document.getElementById('videoUploadSpeed');
+        var titleEl   = document.getElementById('videoUploadTitle');
+        var hintEl    = document.getElementById('videoUploadHint');
+        var cancelBtn = document.getElementById('videoUploadCancel');
+
+        var xhr = new XMLHttpRequest();
+        var lastLoaded = 0;
+        var lastTime   = 0;
+        var cancelled  = false;
+        var processingTimer = null;
+
+        function startProcessingAnimation() {
+            if (processingTimer) return;
+            var pct = 95;
+            processingTimer = setInterval(function () {
+                // Never cross 99 — we go to 100 only when the server actually responds.
+                if (pct < 99) {
+                    pct += (99 - pct) * 0.08;
+                    setProgress(pct);
+                }
+            }, 400);
+        }
+        function stopProcessingAnimation() {
+            if (processingTimer) {
+                clearInterval(processingTimer);
+                processingTimer = null;
+            }
+        }
+
+        function show() {
+            if (overlay) overlay.hidden = false;
+            if (fill) fill.style.width = '0%';
+            if (pctEl) pctEl.textContent = '0%';
+            if (speedEl) speedEl.textContent = '';
+            if (titleEl) titleEl.textContent = 'Uploading video…';
+            if (hintEl) hintEl.textContent = "Keep this tab open. Don't close the app.";
+            if (cancelBtn) cancelBtn.disabled = false;
+            document.body.style.overflow = 'hidden';
+        }
+        function hide() {
+            if (overlay) overlay.hidden = true;
+            document.body.style.overflow = '';
+        }
+        function setProgress(pct) {
+            if (fill) fill.style.width = pct + '%';
+            if (pctEl) pctEl.textContent = Math.floor(pct) + '%';
+        }
+        function fmtSpeed(bps) {
+            if (bps < 1024) return bps.toFixed(0) + ' B/s';
+            if (bps < 1024 * 1024) return (bps / 1024).toFixed(1) + ' KB/s';
+            return (bps / (1024 * 1024)).toFixed(1) + ' MB/s';
+        }
+
+        function onCancel() {
+            if (cancelled) return;
+            cancelled = true;
+            stopProcessingAnimation();
+            if (cancelBtn) cancelBtn.disabled = true;
+            if (titleEl) titleEl.textContent = 'Cancelling…';
+            try { xhr.abort(); } catch (err) {}
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', onCancel, { once: true });
+        }
+
+        var fd = new FormData(form);
+
+        xhr.open('POST', window.location.href, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        xhr.upload.onprogress = function (e) {
+            if (!e.lengthComputable) return;
+            var pct = (e.loaded / e.total) * 90;
+            setProgress(pct);
+
+            var now = performance.now();
+            if (lastTime > 0 && e.loaded > lastLoaded) {
+                var dt = (now - lastTime) / 1000;
+                var db = e.loaded - lastLoaded;
+                if (dt > 0.25 && speedEl) {
+                    speedEl.textContent = fmtSpeed(db / dt);
+                }
+            }
+            lastLoaded = e.loaded;
+            lastTime = now;
+
+            if (e.loaded >= e.total && titleEl) {
+                titleEl.textContent = 'Processing video…';
+                if (hintEl) hintEl.textContent = "Preparing your video for playback. This can take up to a minute.";
+            }
+        };
+
+        xhr.upload.onload = function () {
+            if (cancelled) return;
+            setProgress(95);
+            startProcessingAnimation();
+
+            if (titleEl) titleEl.textContent = 'Processing video…';
+            if (hintEl) hintEl.textContent = 'Preparing your video for playback. This can take up to a minute.';
+
+            var messages = [
+                'Compressing video…',
+                'Generating thumbnail…',
+                'Still working — larger videos take longer…',
+                'Almost done…'
+            ];
+            var idx = 0;
+            var rotator = setInterval(function () {
+                idx++;
+                if (idx >= messages.length) idx = messages.length - 1;
+                if (hintEl) hintEl.textContent = messages[idx];
+            }, 6000);
+
+            var stopRotator = function () { clearInterval(rotator); };
+            xhr.addEventListener('load', stopRotator, { once: true });
+            xhr.addEventListener('error', stopRotator, { once: true });
+            xhr.addEventListener('abort', stopRotator, { once: true });
+            xhr.addEventListener('timeout', stopRotator, { once: true });
+        };
+
+        xhr.onload = function () {
+            if (cancelled) return;
+            stopProcessingAnimation();
+            setProgress(100);
+
+            setTimeout(function () {
+                hide();
+                window.location.reload();
+            }, 300);
+        };
+
+        xhr.onerror = function () {
+            if (cancelled) return;
+            stopProcessingAnimation();
+            hide();
+            qarotaAlert(
+                'Network error during upload. Check your connection and try again.',
+                { title: 'Upload failed' }
+            );
+        };
+
+        xhr.onabort = function () {
+            stopProcessingAnimation();
+            hide();
+        };
+
+        xhr.ontimeout = function () {
+            if (cancelled) return;
+            stopProcessingAnimation();
+            hide();
+            qarotaAlert(
+                'Upload timed out. Try a smaller video or a stronger connection.',
+                { title: 'Upload timed out' }
+            );
+        };
+
+        xhr.timeout = 0;
+
+        show();
+        xhr.send(fd);
+    }
+})();
+
+/* ============================================================
+   GENERIC CONFIRM DISPATCHER
+   Any <form data-confirm="..."> is intercepted, confirmed via
+   qarotaConfirm(), and submitted natively if the user agrees.
+   ============================================================ */
+document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form || !form.dataset || !form.dataset.confirm) return;
+    if (form.dataset.confirmHandled === '1') return;
+
+    e.preventDefault();
+    form.dataset.confirmHandled = '1';
+
+    qarotaConfirm(form.dataset.confirm, {
+        title:      form.dataset.confirmTitle || 'Are you sure?',
+        okText:     form.dataset.confirmOk    || 'Confirm',
+        cancelText: 'Cancel',
+        danger:     form.dataset.confirmDanger === '1'
+    }).then(function (ok) {
+        form.dataset.confirmHandled = '0';
+        if (ok) form.submit();
+    });
+});
+</script>
 
 <?php require 'includes/footer.php'; ?>

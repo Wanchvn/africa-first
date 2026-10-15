@@ -82,22 +82,27 @@ $i_blocked_them  = $partner ? is_blocked($pdo, $me, (int)$partner['id']) : false
 $they_blocked_me = $partner ? is_blocked($pdo, (int)$partner['id'], $me) : false;
 $blocked_either  = $i_blocked_them || $they_blocked_me;
 
+// Mark read BEFORE loading messages, so unread counts from other
+// conversations are accurate and this thread's messages flip to read.
 mark_conversation_read($pdo, $conv, $me);
 
 // -----------------------------------------------------------------------------
-// Load messages
+// Load messages — cap the tail, not the head
 // -----------------------------------------------------------------------------
+// We grab the LAST 500 messages (DESC + reverse) rather than the first 500.
+// For long threads, the recent messages are what matters; the first 500 would
+// silently hide the newest.
 $mStmt = $pdo->prepare(
     "SELECT id, sender_id, body, message_type, voice_path, voice_duration,
             image_path, video_path, video_duration, video_thumb,
             created_at, deleted_at
      FROM messages
      WHERE conversation_id = :c
-     ORDER BY id ASC
+     ORDER BY id DESC
      LIMIT 500"
 );
 $mStmt->execute([':c' => $conv]);
-$messages = $mStmt->fetchAll();
+$messages = array_reverse($mStmt->fetchAll());
 
 require_once __DIR__ . '/includes/crypto.php';
 foreach ($messages as &$m) {
@@ -116,8 +121,8 @@ unset($m);
 // ---- Read receipt for initial render ----
 $lastOwnId   = null;
 $lastOwnSeen = false;
-$lastOwnAt = null;
-$seenCount = 0;
+$lastOwnAt   = null;
+$seenCount   = 0;
 
 $lastMsgQ = $pdo->prepare(
     "SELECT id, sender_id, is_read, created_at
@@ -132,8 +137,13 @@ $lm = $lastMsgQ->fetch();
 if ($lm && (int)$lm['sender_id'] === $me) {
     $lastOwnId   = (int)$lm['id'];
     $lastOwnSeen = ((int)$lm['is_read'] === 1);
-    $lastOwnAt = $lm['created_at'];
+    $lastOwnAt   = $lm['created_at'];
 }
+
+// For 1:1, "last_own_seen" only makes sense if the partner actually read it.
+// But is_read on a message is set by mark_conversation_read() — which runs
+// when the PARTNER opens this thread. We can't infer partner state from
+// our own view; the server-side flag is what we trust. Leave as-is.
 
 if ($isGroup && $lastOwnAt) {
     $lrStmt = $pdo->prepare(
@@ -175,11 +185,13 @@ require 'includes/header.php';
 <div class="card" id="conversationCard"
      data-conv="<?= $conv ?>"
      data-me="<?= $me ?>"
+     data-is-group="<?= $isGroup ? '1' : '0' ?>"
      data-report-label="<?= htmlspecialchars(__('report_title'), ENT_QUOTES, 'UTF-8') ?>"
      data-react-label="<?= htmlspecialchars(__('react_add'), ENT_QUOTES, 'UTF-8') ?>"
      data-seen-label="<?= htmlspecialchars(__('seen')) ?>"
      data-last-own-id="<?= $lastOwnId ?: '' ?>"
-     data-last-own-seen="<?= $lastOwnSeen ? '1' : '0' ?>">
+     data-last-own-seen="<?= $lastOwnSeen ? '1' : '0' ?>"
+     data-seen-count="<?= (int)$seenCount ?>">
     <p style="margin-top:0;">
         <a href="messages.php">← <?= __('messages_back_to_inbox') ?></a>
     </p>
@@ -323,9 +335,9 @@ require 'includes/header.php';
             <form method="POST" action="group_leave.php" class="group-leave-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="conversation_id" value="<?= $conv ?>">
-                <button type="submit" class="btn btn-secondary" onclick="return confirm('<?= htmlspecialchars(__('group_leave_confirm'), ENT_QUOTES, 'UTF-8') ?>');">
-                    <?= __('group_leave') ?>
-                </button>
+                <button type="submit" class="btn btn-secondary group-leave-btn" data-confirm="<?= htmlspecialchars(__('group_leave_confirm'), ENT_QUOTES, 'UTF-8') ?>">
+    <?= __('group_leave') ?>
+</button>
             </form>
         </div>
     <?php elseif ($partner): ?>
@@ -356,12 +368,9 @@ require 'includes/header.php';
                     <input type="hidden" name="redirect"
                            value="conversation.php?id=<?= $conv ?>">
                     <button type="submit"
-                            class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?> btn-small"
-                            <?php if (!$i_blocked_them): ?>
-                                onclick="return confirm('<?= htmlspecialchars(__('block_confirm'), ENT_QUOTES) ?>');"
-                            <?php endif; ?>>
-                        <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
-                    </button>
+        class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?> btn-small">
+    <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
+</button>
                 </form>
 
                 <a href="report_message.php?conversation_id=<?= $conv ?>"
@@ -446,9 +455,14 @@ require 'includes/header.php';
 
                     <?php elseif ($is_video): ?>
                         <div class="video-message">
+                            <?php
+                            // video_thumb may be a stored path (legacy) or a flag.
+                            // Prefer the serving endpoint for consistent auth checks.
+                            $posterUrl = 'video_thumb_serve.php?id=' . (int)$m['id'];
+                            ?>
                             <video controls preload="metadata" class="dm-video"
                                    <?php if (!empty($m['video_thumb'])): ?>
-                                       poster="<?= htmlspecialchars($m['video_thumb']) ?>"
+                                       poster="<?= htmlspecialchars($posterUrl, ENT_QUOTES, 'UTF-8') ?>"
                                    <?php endif; ?>>
                                 <source src="video_serve.php?id=<?= (int)$m['id'] ?>">
                                 Your browser does not support video.
@@ -656,6 +670,25 @@ require 'includes/header.php';
         if (attempts > 20) clearInterval(interval);
     }, 200);
 })();
+
+
+
+
+/* Group leave button — uses qarotaConfirm */
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.group-leave-btn');
+    if (!btn) return;
+    e.preventDefault();
+    var form = btn.closest('form');
+    qarotaConfirm(btn.dataset.confirm || 'Leave this group?', {
+        title: 'Leave group',
+        okText: 'Leave',
+        cancelText: 'Cancel',
+        danger: true
+    }).then(function (ok) {
+        if (ok && form) form.submit();
+    });
+});
 </script>
 
 <?php require 'includes/footer.php'; ?>

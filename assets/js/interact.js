@@ -2,276 +2,234 @@
    QAROTA — AJAX Interactions
    ======================================== */
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.like-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleLike(form);
-        });
-    });
-
-    document.querySelectorAll('.follow-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleFollow(form);
-        });
-    });
-
-    document.querySelectorAll('.bookmark-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleBookmark(form);
-        });
-    });
-
-    // NEW: wire up comment forms
-    document.querySelectorAll('.comment-form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            handleComment(form);
-        });
-    });
-});
-
-// Toggle the group info panel
-(function () {
-    var btn = document.getElementById('groupInfoBtn');
-    var panel = document.getElementById('groupPanel');
-    if (!btn || !panel) return;
-    btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        panel.hidden = !panel.hidden;
-        btn.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    });
-})();
+/* ---- Shared fetch helper with timeout ---- */
+function fetchWithTimeout(url, options, ms) {
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, ms || 15000);
+    options = options || {};
+    options.signal = controller.signal;
+    return fetch(url, options).finally(function () { clearTimeout(timer); });
+}
 
 /* ---- LIKE HANDLER ---- */
 function handleLike(form) {
-    const button = form.querySelector('button');
-    const postId = form.querySelector('input[name="post_id"]').value;
-    const csrfToken = form.querySelector('input[name="csrf_token"]').value;
-
+    var button = form.querySelector('button');
+    var postId = form.querySelector('input[name="post_id"]').value;
+    var csrfToken = form.querySelector('input[name="csrf_token"]').value;
     button.disabled = true;
 
-    fetch('interact.php', {
+    return fetchWithTimeout('interact.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-Requested-With': 'XMLHttpRequest'
         },
         body: new URLSearchParams({
-            action: 'like',
-            post_id: postId,
-            csrf_token: csrfToken,
+            action: 'like', post_id: postId, csrf_token: csrfToken,
             redirect: window.location.pathname + window.location.search
         })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
         if (data.success) {
-            const heart = button.querySelector('.like-heart');
-            const count = button.querySelector('.like-count');
-
+            var heart = button.querySelector('.like-heart');
+            var count = button.querySelector('.like-count');
             if (data.liked) {
                 button.classList.add('liked');
-                heart.textContent = '♥';
+                if (heart) heart.textContent = '♥';
             } else {
                 button.classList.remove('liked');
-                heart.textContent = '♡';
+                if (heart) heart.textContent = '♡';
             }
-
-            count.textContent = data.like_count;
-        } else {
-            alert(data.error || 'Something went wrong');
+            if (count) count.textContent = data.like_count;
+            return data.liked;
         }
-        button.disabled = false;
+        qarotaAlert(data.error || 'Something went wrong', { title: 'Like failed' });
+        return null;
     })
-    .catch(error => {
-        console.error('Error:', error);
-        button.disabled = false;
-        form.submit();
-    });
+    .catch(function (err) {
+        console.error('Like error:', err);
+        qarotaAlert('Could not update like. Please try again.', { title: 'Like failed' });
+        return null;
+    })
+    .finally(function () { button.disabled = false; });
 }
 
 /* ---- FOLLOW HANDLER ---- */
 function handleFollow(form) {
-    const button = form.querySelector('button');
-    const targetId = form.querySelector('input[name="target_id"]').value;
-    const csrfToken = form.querySelector('input[name="csrf_token"]').value;
-
+    var button = form.querySelector('button');
+    var targetId = form.querySelector('input[name="target_id"]').value;
+    var csrfToken = form.querySelector('input[name="csrf_token"]').value;
     button.disabled = true;
-    const originalText = button.textContent;
+    var originalText = button.textContent;
 
-    fetch('follow.php', {
+    return fetchWithTimeout('follow.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-Requested-With': 'XMLHttpRequest'
         },
         body: new URLSearchParams({
-            target_id: targetId,
-            csrf_token: csrfToken,
+            target_id: targetId, csrf_token: csrfToken,
             redirect: window.location.pathname + window.location.search
         })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
         if (data.success) {
+            var isFollowing;
             if (data.state === 'followed') {
                 button.textContent = button.dataset.unfollowText || 'Unfollow';
                 button.classList.add('btn-secondary');
+                isFollowing = true;
             } else {
                 button.textContent = button.dataset.followText || 'Follow';
                 button.classList.remove('btn-secondary');
+                isFollowing = false;
             }
-        } else {
-            alert(data.error || 'Something went wrong');
-            button.textContent = originalText;
+            return isFollowing;
         }
-        button.disabled = false;
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        button.disabled = false;
+        qarotaAlert(data.error || 'Something went wrong', { title: 'Follow failed' });
         button.textContent = originalText;
-        form.submit();
-    });
+        return null;
+    })
+    .catch(function (err) {
+        console.error('Follow error:', err);
+        button.textContent = originalText;
+        qarotaAlert('Could not update follow. Please try again.', { title: 'Follow failed' });
+        return null;
+    })
+    .finally(function () { button.disabled = false; });
 }
 
 /* ---- BOOKMARK HANDLER ---- */
 function handleBookmark(form) {
-    const button = form.querySelector('button');
-    const postId = form.querySelector('input[name="post_id"]').value;
-    const csrfToken = form.querySelector('input[name="csrf_token"]').value;
-
+    var button = form.querySelector('button');
+    var postId = form.querySelector('input[name="post_id"]').value;
+    var csrfToken = form.querySelector('input[name="csrf_token"]').value;
     button.disabled = true;
 
-    fetch('interact.php', {
+    return fetchWithTimeout('interact.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-Requested-With': 'XMLHttpRequest'
         },
         body: new URLSearchParams({
-            action: 'bookmark',
-            post_id: postId,
-            csrf_token: csrfToken,
+            action: 'bookmark', post_id: postId, csrf_token: csrfToken,
             redirect: window.location.pathname + window.location.search
         })
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
         if (data.success) {
-            if (data.bookmarked) {
-                button.classList.add('bookmarked');
-            } else {
-                button.classList.remove('bookmarked');
-            }
+            if (data.bookmarked) button.classList.add('bookmarked');
+            else button.classList.remove('bookmarked');
+            return data.bookmarked;
         }
-        button.disabled = false;
+        qarotaAlert(data.error || 'Could not update bookmark.', { title: 'Bookmark failed' });
+        return null;
     })
-    .catch(error => {
-        console.error('Error:', error);
-        button.disabled = false;
-        form.submit();
-    });
+    .catch(function (err) {
+        console.error('Bookmark error:', err);
+        qarotaAlert('Could not update bookmark. Please try again.', { title: 'Bookmark failed' });
+        return null;
+    })
+    .finally(function () { button.disabled = false; });
 }
 
 /* ---- COMMENT HANDLER ---- */
 function handleComment(form) {
-    const button = form.querySelector('button');
-    const postId = form.querySelector('input[name="post_id"]').value;
-    const contentInput = form.querySelector('input[name="content"]');
-    const content = contentInput.value.trim();
+    var button = form.querySelector('button');
+    var postId = form.querySelector('input[name="post_id"]').value;
+    var contentInput = form.querySelector('input[name="content"]');
+    var content = contentInput.value.trim();
+    if (!content) return Promise.resolve(null);
 
-    if (!content) return;
-
-    const csrfInput = form.querySelector('input[name="csrf_token"]');
-    const csrfToken = csrfInput ? csrfInput.value : '';
-
+    var csrfInput = form.querySelector('input[name="csrf_token"]');
+    var csrfToken = csrfInput ? csrfInput.value : '';
     button.disabled = true;
 
-    fetch('interact.php', {
+    return fetchWithTimeout('interact.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'X-Requested-With': 'XMLHttpRequest'
         },
         body: new URLSearchParams({
-            action: 'comment',
-            post_id: postId,
-            content: content,
-            csrf_token: csrfToken
+            action: 'comment', post_id: postId, content: content, csrf_token: csrfToken
         })
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
         if (!data.success || !data.comment) {
-            alert(data.error || 'Something went wrong');
-            button.disabled = false;
-            return;
+            qarotaAlert(data.error || 'Something went wrong', { title: 'Comment failed' });
+            return null;
         }
-
-        const c = data.comment;
+        var c = data.comment;
         contentInput.value = '';
 
-        // Append the new comment inline (no page reload)
-        const card = form.closest('.card');
-        if (!card) { button.disabled = false; return; }
+        var card = form.closest('.card');
+        if (!card) return null;
 
-        let comments = card.querySelector('.comments');
+        var comments = card.querySelector('.comments');
         if (!comments) {
             comments = document.createElement('div');
             comments.className = 'comments';
-            form.parentNode.insertBefore(comments, form);
+            var actions = card.querySelector('.actions');
+            if (actions && actions.parentNode) {
+                actions.parentNode.insertBefore(comments, actions.nextSibling);
+            } else {
+                form.parentNode.insertBefore(comments, form);
+            }
         }
 
-        const comment = document.createElement('div');
+        var comment = document.createElement('div');
         comment.className = 'comment';
 
-        const header = document.createElement('div');
+        var header = document.createElement('div');
         header.className = 'comment-header';
 
+        var nameForInitial = (c.display_name || c.username || '?');
         if (c.avatar) {
-            const img = document.createElement('img');
+            var img = document.createElement('img');
             img.className = 'avatar avatar-tiny';
             img.src = c.avatar;
             img.alt = '';
             header.appendChild(img);
         } else {
-            const av = document.createElement('div');
+            var av = document.createElement('div');
             av.className = 'avatar avatar-tiny avatar-placeholder';
-            av.textContent = (c.display_name || c.username || '?').charAt(0).toUpperCase();
+            av.textContent = nameForInitial.charAt(0).toUpperCase();
             header.appendChild(av);
         }
 
-        const nameLink = document.createElement('a');
+        var nameLink = document.createElement('a');
         nameLink.href = 'profile.php?u=' + encodeURIComponent(c.username);
         nameLink.dataset.userId = c.user_id;
-        const strong = document.createElement('strong');
+        var strong = document.createElement('strong');
         strong.textContent = c.display_name || c.username;
         nameLink.appendChild(strong);
         header.appendChild(nameLink);
 
-        const body = document.createElement('div');
+        var body = document.createElement('div');
         body.className = 'comment-body';
         body.textContent = c.content;
 
-        const meta = document.createElement('div');
+        var meta = document.createElement('div');
         meta.className = 'meta comment-meta';
         meta.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
-        const timeSpan = document.createElement('span');
+        var timeSpan = document.createElement('span');
         timeSpan.textContent = c.created_at;
         meta.appendChild(timeSpan);
 
-        const editBtn = document.createElement('button');
+        var editBtn = document.createElement('button');
         editBtn.type = 'button';
         editBtn.className = 'comment-edit-btn';
         editBtn.dataset.commentId = c.id;
         editBtn.style.cssText = 'background:none;border:none;color:var(--muted);font-size:0.75rem;cursor:pointer;padding:0;text-decoration:underline;';
         editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', function(e) {
+        editBtn.addEventListener('click', function (e) {
             e.preventDefault();
             startEditComment(editBtn);
         });
@@ -282,78 +240,234 @@ function handleComment(form) {
         comment.appendChild(meta);
         comments.appendChild(comment);
 
-        // Bump comment count in the actions row
-        const countEl = card.querySelector('.comment-count');
+        var countEl = card.querySelector('.comment-count');
         if (countEl) {
-            const countText = Array.from(countEl.childNodes).reverse().find(function(node) {
-                return node.nodeType === Node.TEXT_NODE && /\d+/.test(node.textContent);
-            });
-            if (countText) {
-                const current = parseInt(countText.textContent.match(/\d+/)[0], 10);
-                countText.textContent = countText.textContent.replace(/\d+/, current + 1);
+            var match = countEl.textContent.match(/\d+/);
+            if (match) {
+                var current = parseInt(match[0], 10);
+                countEl.textContent = countEl.textContent.replace(/\d+/, current + 1);
             }
         }
 
-        button.disabled = false;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return c;
     })
-    .catch(err => {
+    .catch(function (err) {
         console.error('Comment error:', err);
-        button.disabled = false;
-        alert('Unable to send your comment. Please try again.');
+        qarotaAlert('Unable to send your comment. Please try again.', { title: 'Comment failed' });
+        return null;
+    })
+    .finally(function () { button.disabled = false; });
+}
+
+/* ---- BLOCK HANDLER ---- */
+function handleBlock(form) {
+    var button = form.querySelector('button');
+    var targetId = form.querySelector('input[name="target_id"]').value;
+    var action = form.querySelector('input[name="block_action"]').value;
+    var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+    var redirectInput = form.querySelector('input[name="redirect"]');
+    var redirect = (redirectInput && redirectInput.value)
+                 || (window.location.pathname + window.location.search);
+
+    function doBlock() {
+        button.disabled = true;
+
+        fetchWithTimeout('block.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams({
+                target_id: targetId, block_action: action,
+                csrf_token: csrfToken, redirect: redirect
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                window.location.href = redirect || 'feed.php';
+            } else {
+                qarotaAlert(data.error || 'Something went wrong', { title: 'Block failed' });
+                button.disabled = false;
+            }
+        })
+        .catch(function (err) {
+            console.error('Block error:', err);
+            button.disabled = false;
+            qarotaAlert('Could not update block. Please try again.', { title: 'Block failed' });
+        });
+    }
+
+    if (action === 'block') {
+        qarotaConfirm("Block this user? They won't be able to see your posts or message you.", {
+            title: 'Block user',
+            okText: 'Block',
+            cancelText: 'Cancel',
+            danger: true
+        }).then(function (ok) {
+            if (ok) doBlock();
+        });
+    } else {
+        doBlock();
+    }
+}
+
+/* ---- DELETE POST HANDLER ---- */
+function handleDeletePostSubmit(form) {
+    qarotaConfirm('Delete this post permanently? This cannot be undone.', {
+        title: 'Delete post',
+        okText: 'Delete',
+        cancelText: 'Cancel',
+        danger: true
+    }).then(function (ok) {
+        if (!ok) return;
+        performDeletePost(form);
     });
 }
 
+function performDeletePost(form) {
+    var button = form.querySelector('button[type="submit"]');
+    var postId = form.querySelector('input[name="post_id"]').value;
+    var csrfToken = form.querySelector('input[name="csrf_token"]').value;
+    if (button) button.disabled = true;
 
-/* ========================================
+    fetchWithTimeout('delete_post.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new URLSearchParams({ post_id: postId, csrf_token: csrfToken })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (!data.success) {
+            qarotaAlert(data.error || 'Could not delete the post.', { title: 'Delete failed' });
+            if (button) button.disabled = false;
+            return;
+        }
+        var card = form.closest('.card');
+        if (card) {
+            card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.98)';
+            setTimeout(function () {
+                card.remove();
+                var anyCards = document.querySelectorAll('.card:not(.suggestions-card)');
+                if (anyCards.length === 0) {
+                    var emptyEl = document.createElement('div');
+                    emptyEl.className = 'empty';
+                    emptyEl.textContent = 'No posts yet.';
+                    var container = document.getElementById('main') || document.body;
+                    container.appendChild(emptyEl);
+                }
+            }, 200);
+        }
+    })
+    .catch(function (err) {
+        console.error('Delete error:', err);
+        qarotaAlert('Could not delete the post. Please try again.', { title: 'Delete failed' });
+        if (button) button.disabled = false;
+    });
+}
+
+/* ---- COMMENT EDITING ---- */
+function startEditComment(btn) {
+    var comment = btn.closest('.comment');
+    if (!comment) return;
+    var commentId = btn.dataset.commentId;
+    var bodyEl = comment.querySelector('.comment-body');
+    if (!bodyEl) return;
+    var originalContent = bodyEl.textContent.trim();
+
+    bodyEl.innerHTML =
+        '<form class="comment-edit-form" onsubmit="return false;">' +
+            '<textarea maxlength="500" required>' + escapeHtmlText(originalContent) + '</textarea>' +
+            '<div class="comment-edit-actions">' +
+                '<button type="button" class="btn btn-small comment-save-btn">Save</button>' +
+                '<button type="button" class="btn-secondary btn-small comment-cancel-btn">Cancel</button>' +
+                '<span class="comment-edit-error" style="color: var(--danger); font-size: 0.8rem; margin-left: auto;"></span>' +
+            '</div>' +
+        '</form>';
+
+    var textarea = bodyEl.querySelector('textarea');
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+    var saveBtn = bodyEl.querySelector('.comment-save-btn');
+    var cancelBtn = bodyEl.querySelector('.comment-cancel-btn');
+    var errorEl = bodyEl.querySelector('.comment-edit-error');
+
+    saveBtn.addEventListener('click', function () {
+        var newContent = textarea.value.trim();
+        if (newContent === '') { errorEl.textContent = 'Comment cannot be empty'; return; }
+        if (newContent === originalContent) { errorEl.textContent = 'No changes made'; return; }
+
+        saveBtn.disabled = true;
+        errorEl.textContent = '';
+
+        var csrfInput = document.querySelector('input[name="csrf_token"]');
+        var csrfToken = csrfInput ? csrfInput.value : '';
+
+        fetchWithTimeout('edit_comment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ comment_id: commentId, content: newContent, csrf_token: csrfToken })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                bodyEl.textContent = data.content;
+                var meta = comment.querySelector('.comment-meta');
+                if (meta && !meta.querySelector('.edited-label')) {
+                    var editedSpan = document.createElement('span');
+                    editedSpan.className = 'edited-label';
+                    editedSpan.title = 'Edited ' + data.edited_at;
+                    editedSpan.textContent = ' · Edited';
+                    meta.appendChild(editedSpan);
+                } else if (meta) {
+                    var existing = meta.querySelector('.edited-label');
+                    if (existing) existing.title = 'Edited ' + data.edited_at;
+                }
+            } else {
+                errorEl.textContent = data.error || 'Could not save';
+                saveBtn.disabled = false;
+            }
+        })
+        .catch(function () { errorEl.textContent = 'Network error'; saveBtn.disabled = false; });
+    });
+
+    cancelBtn.addEventListener('click', function () { bodyEl.textContent = originalContent; });
+}
+
+function escapeHtmlText(text) {
+    if (text === null || text === undefined) return '';
+    var div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+/* ============================================================
    HOVER CARDS
-   ======================================== */
-
+   ============================================================ */
 (function() {
-    const cardCache = {};
-    let hoverTimer = null;
-    let hideTimer = null;
-    let currentCard = null;
-    let currentUserId = null;
+    var cardCache = {};
+    var hoverTimer = null;
+    var hideTimer = null;
+    var currentCard = null;
+    var currentUserId = null;
 
     function getCardElement() {
         if (currentCard) return currentCard;
-        const card = document.createElement('div');
+        var card = document.createElement('div');
         card.className = 'user-hover-card';
         card.style.display = 'none';
         document.body.appendChild(card);
         currentCard = card;
         return card;
     }
-
-    document.addEventListener('mouseover', function(e) {
-        const link = e.target.closest('a[data-user-id]');
-        if (!link) return;
-        const userId = link.dataset.userId;
-        if (!userId) return;
-        if (currentUserId === userId && currentCard && currentCard.style.display === 'block') return;
-
-        clearTimeout(hideTimer);
-        clearTimeout(hoverTimer);
-        hoverTimer = setTimeout(function() { showCard(userId, link); }, 300);
-    });
-
-    document.addEventListener('mouseout', function(e) {
-        const link = e.target.closest('a[data-user-id]');
-        if (!link) return;
-        clearTimeout(hoverTimer);
-        hideTimer = setTimeout(function() { hideCard(); }, 200);
-    });
-
-    document.addEventListener('mouseover', function(e) {
-        if (currentCard && currentCard.contains(e.target)) clearTimeout(hideTimer);
-    });
-
-    document.addEventListener('mouseout', function(e) {
-        if (currentCard && currentCard.contains(e.target)) {
-            const toElement = e.relatedTarget;
-            if (!currentCard.contains(toElement)) hideTimer = setTimeout(hideCard, 200);
-        }
-    });
 
     function hideCard() {
         if (currentCard) currentCard.style.display = 'none';
@@ -364,113 +478,111 @@ function handleComment(form) {
         currentUserId = userId;
         if (cardCache[userId]) { renderCard(cardCache[userId], anchorEl); return; }
 
-        const card = getCardElement();
+        var card = getCardElement();
         card.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--muted);">Loading…</div>';
         positionCard(card, anchorEl);
         card.style.display = 'block';
 
-        fetch('user_card.php?id=' + userId)
-            .then(r => r.json())
-            .then(data => {
+        fetchWithTimeout('user_card.php?id=' + encodeURIComponent(userId), {}, 10000)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
                 if (!data.success) { hideCard(); return; }
                 cardCache[userId] = data.user;
                 if (currentUserId === userId) renderCard(data.user, anchorEl);
             })
-            .catch(() => { hideCard(); });
+            .catch(function () { hideCard(); });
+    }
+
+    function safeInitial(user) {
+        var s = (user && (user.display_name || user.username)) || '?';
+        return String(s).charAt(0).toUpperCase();
+    }
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        var div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+
+    function getCsrfToken() {
+        var input = document.querySelector('input[name="csrf_token"]');
+        return input ? input.value : '';
     }
 
     function renderCard(user, anchorEl) {
-        const card = getCardElement();
+        var card = getCardElement();
+
+        var avatarHtml = user.avatar
+            ? '<img src="' + escapeHtml(user.avatar) + '" alt="" class="user-hover-avatar">'
+            : '<div class="user-hover-avatar user-hover-avatar-placeholder">' + escapeHtml(safeInitial(user)) + '</div>';
 
         if (user.is_blocked) {
-            const avatarHtmlB = user.avatar
-                ? `<img src="${escapeHtml(user.avatar)}" alt="" class="user-hover-avatar">`
-                : `<div class="user-hover-avatar user-hover-avatar-placeholder">${escapeHtml(user.display_name[0].toUpperCase())}</div>`;
-
-            card.innerHTML = `
-                <div class="user-hover-header">
-                    ${avatarHtmlB}
-                    <div class="user-hover-info">
-                        <a href="profile.php?u=${encodeURIComponent(user.username)}" class="user-hover-name">
-                            ${escapeHtml(user.display_name)}
-                        </a>
-                        <div class="user-hover-handle">@${escapeHtml(user.username)}</div>
-                    </div>
-                </div>
-                <p class="user-hover-bio" style="font-style:italic;">
-                    You cannot interact with this user.
-                </p>
-            `;
+            card.innerHTML =
+                '<div class="user-hover-header">' + avatarHtml +
+                    '<div class="user-hover-info">' +
+                        '<a href="profile.php?u=' + encodeURIComponent(user.username) + '" class="user-hover-name">' +
+                            escapeHtml(user.display_name || user.username) +
+                        '</a>' +
+                        '<div class="user-hover-handle">@' + escapeHtml(user.username) + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<p class="user-hover-bio" style="font-style:italic;">You cannot interact with this user.</p>';
             positionCard(card, anchorEl);
             card.style.display = 'block';
             return;
         }
 
-        const avatarHtml = user.avatar
-            ? `<img src="${escapeHtml(user.avatar)}" alt="" class="user-hover-avatar">`
-            : `<div class="user-hover-avatar user-hover-avatar-placeholder">${escapeHtml(user.display_name[0].toUpperCase())}</div>`;
+        var bioHtml = user.bio ? '<p class="user-hover-bio">' + escapeHtml(user.bio) + '</p>' : '';
 
-        const bioHtml = user.bio ? `<p class="user-hover-bio">${escapeHtml(user.bio)}</p>` : '';
+        var buttonHtml = user.is_self ? '' :
+            '<form method="POST" action="follow.php" class="follow-form user-hover-follow-form">' +
+                '<input type="hidden" name="csrf_token" value="' + getCsrfToken() + '">' +
+                '<input type="hidden" name="target_id" value="' + user.id + '">' +
+                '<input type="hidden" name="redirect" value="' + escapeHtml(window.location.pathname + window.location.search) + '">' +
+                '<button type="submit" class="' + (user.is_following ? 'btn-secondary' : 'btn') + ' btn-small" ' +
+                        'data-follow-text="Follow" data-unfollow-text="Unfollow">' +
+                    (user.is_following ? 'Unfollow' : 'Follow') +
+                '</button>' +
+            '</form>';
 
-        const buttonHtml = user.is_self ? '' : `
-            <form method="POST" action="follow.php" class="follow-form user-hover-follow-form">
-                <input type="hidden" name="csrf_token" value="${getCsrfToken()}">
-                <input type="hidden" name="target_id" value="${user.id}">
-                <input type="hidden" name="redirect" value="${escapeHtml(window.location.pathname + window.location.search)}">
-                <button type="submit"
-                        class="${user.is_following ? 'btn-secondary' : 'btn'} btn-small"
-                        data-follow-text="Follow"
-                        data-unfollow-text="Unfollow">
-                    ${user.is_following ? 'Unfollow' : 'Follow'}
-                </button>
-            </form>
-        `;
-
-        card.innerHTML = `
-            <div class="user-hover-header">
-                ${avatarHtml}
-                <div class="user-hover-info">
-                    <a href="profile.php?u=${encodeURIComponent(user.username)}" class="user-hover-name">
-                        ${escapeHtml(user.display_name)}
-                    </a>
-                    <div class="user-hover-handle">@${escapeHtml(user.username)}</div>
-                </div>
-            </div>
-            <div class="user-hover-stats">
-                <strong>${user.follower_count}</strong> ${user.follower_count == 1 ? 'follower' : 'followers'}
-                · <strong>${user.following_count}</strong> following
-            </div>
-            ${bioHtml}
-            ${buttonHtml}
-        `;
+        card.innerHTML =
+            '<div class="user-hover-header">' + avatarHtml +
+                '<div class="user-hover-info">' +
+                    '<a href="profile.php?u=' + encodeURIComponent(user.username) + '" class="user-hover-name">' +
+                        escapeHtml(user.display_name || user.username) +
+                    '</a>' +
+                    '<div class="user-hover-handle">@' + escapeHtml(user.username) + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="user-hover-stats">' +
+                '<strong>' + user.follower_count + '</strong> ' + (user.follower_count == 1 ? 'follower' : 'followers') +
+                ' · <strong>' + user.following_count + '</strong> following' +
+            '</div>' +
+            bioHtml +
+            buttonHtml;
 
         positionCard(card, anchorEl);
         card.style.display = 'block';
 
-        const form = card.querySelector('.follow-form');
+        var form = card.querySelector('.follow-form');
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                handleFollow(form);
-                const btn = form.querySelector('button');
-                setTimeout(function() {
-                    const wasFollowing = btn.classList.contains('btn-secondary');
-                    if (wasFollowing) {
-                        btn.classList.remove('btn-secondary'); btn.classList.add('btn'); btn.textContent = 'Follow';
-                    } else {
-                        btn.classList.add('btn-secondary'); btn.classList.remove('btn'); btn.textContent = 'Unfollow';
+                handleFollow(form).then(function (isFollowing) {
+                    if (cardCache[user.id] && isFollowing !== null) {
+                        cardCache[user.id].is_following = isFollowing;
                     }
-                    if (cardCache[user.id]) cardCache[user.id].is_following = !wasFollowing;
-                }, 100);
+                });
             });
         }
     }
 
     function positionCard(card, anchorEl) {
-        const rect = anchorEl.getBoundingClientRect();
-        const cardWidth = 300;
-        let left = rect.left + window.scrollX;
-        let top = rect.bottom + window.scrollY + 8;
+        var rect = anchorEl.getBoundingClientRect();
+        var cardWidth = 300;
+        var left = rect.left + window.scrollX;
+        var top = rect.bottom + window.scrollY + 8;
         if (left + cardWidth > window.scrollX + window.innerWidth - 16) left = window.scrollX + window.innerWidth - cardWidth - 16;
         if (left < window.scrollX + 16) left = window.scrollX + 16;
         card.style.left = left + 'px';
@@ -478,116 +590,44 @@ function handleComment(form) {
         card.style.width = cardWidth + 'px';
     }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    document.addEventListener('mouseover', function(e) {
+        var link = e.target.closest('a[data-user-id]');
+        if (!link) return;
+        var userId = link.dataset.userId;
+        if (!userId) return;
+        if (currentUserId === userId && currentCard && currentCard.style.display === 'block') return;
 
-    function getCsrfToken() {
-        const input = document.querySelector('input[name="csrf_token"]');
-        return input ? input.value : '';
-    }
+        clearTimeout(hideTimer);
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(function() { showCard(userId, link); }, 300);
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        var link = e.target.closest('a[data-user-id]');
+        if (!link) return;
+        clearTimeout(hoverTimer);
+        hideTimer = setTimeout(hideCard, 200);
+    });
+
+    document.addEventListener('mouseover', function(e) {
+        if (currentCard && currentCard.contains(e.target)) clearTimeout(hideTimer);
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        if (currentCard && currentCard.contains(e.target)) {
+            if (!currentCard.contains(e.relatedTarget)) {
+                hideTimer = setTimeout(hideCard, 200);
+            }
+        }
+    });
+
+    window.addEventListener('scroll', hideCard, { passive: true });
+    window.addEventListener('resize', hideCard);
 })();
 
-
-/* ========================================
-   COMMENT EDITING
-   ======================================== */
-
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.comment-edit-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            startEditComment(btn);
-        });
-    });
-});
-
-function startEditComment(btn) {
-    const comment = btn.closest('.comment');
-    if (!comment) return;
-
-    const commentId = btn.dataset.commentId;
-    const bodyEl = comment.querySelector('.comment-body');
-    if (!bodyEl) return;
-
-    const originalContent = bodyEl.textContent.trim();
-
-    bodyEl.innerHTML = `
-        <form class="comment-edit-form" onsubmit="return false;">
-            <textarea maxlength="500" required>${escapeHtmlJs(originalContent)}</textarea>
-            <div class="comment-edit-actions">
-                <button type="button" class="btn btn-small comment-save-btn">Save</button>
-                <button type="button" class="btn-secondary btn-small comment-cancel-btn">Cancel</button>
-                <span class="comment-edit-error" style="color: var(--danger); font-size: 0.8rem; margin-left: auto;"></span>
-            </div>
-        </form>
-    `;
-
-    const textarea = bodyEl.querySelector('textarea');
-    textarea.focus();
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-
-    const saveBtn = bodyEl.querySelector('.comment-save-btn');
-    const cancelBtn = bodyEl.querySelector('.comment-cancel-btn');
-    const errorEl = bodyEl.querySelector('.comment-edit-error');
-
-    saveBtn.addEventListener('click', function() {
-        const newContent = textarea.value.trim();
-        if (newContent === '') { errorEl.textContent = 'Comment cannot be empty'; return; }
-        if (newContent === originalContent) { errorEl.textContent = 'No changes made'; return; }
-
-        saveBtn.disabled = true;
-        errorEl.textContent = '';
-
-        const csrfInput = document.querySelector('input[name="csrf_token"]');
-        const csrfToken = csrfInput ? csrfInput.value : '';
-
-        fetch('edit_comment.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-            body: new URLSearchParams({ comment_id: commentId, content: newContent, csrf_token: csrfToken })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                bodyEl.innerHTML = escapeHtmlJs(data.content);
-                const meta = comment.querySelector('.comment-meta');
-                if (meta && !meta.querySelector('.edited-label')) {
-                    const editedSpan = document.createElement('span');
-                    editedSpan.className = 'edited-label';
-                    editedSpan.title = 'Edited ' + data.edited_at;
-                    editedSpan.textContent = ' · Edited';
-                    meta.appendChild(editedSpan);
-                } else if (meta) {
-                    const existing = meta.querySelector('.edited-label');
-                    if (existing) existing.title = 'Edited ' + data.edited_at;
-                }
-            } else {
-                errorEl.textContent = data.error || 'Could not save';
-                saveBtn.disabled = false;
-            }
-        })
-        .catch(function() { errorEl.textContent = 'Network error'; saveBtn.disabled = false; });
-    });
-
-    cancelBtn.addEventListener('click', function() { bodyEl.innerHTML = escapeHtmlJs(originalContent); });
-}
-
-function escapeHtmlJs(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-
-/* ========================================
-   MESSAGES — AJAX send + poll + typing + read receipts + voice + images + video
-   ======================================== */
-
+/* ============================================================
+   MESSAGES — conversation page only
+   ============================================================ */
 (function () {
     var card = document.getElementById('conversationCard');
     if (!card) return;
@@ -599,7 +639,6 @@ function escapeHtmlJs(text) {
     var form   = document.getElementById('messageForm');
     var bodyEl = document.getElementById('messageBody');
     var btn    = document.getElementById('sendBtn');
-
     if (!form || !thread) return;
 
     var seenLabel = card.dataset.seenLabel || 'Seen';
@@ -617,14 +656,10 @@ function escapeHtmlJs(text) {
         var existing = thread.querySelector('.seen-pill');
         if (existing) existing.remove();
         if (!lastOwnId || !lastOwnSeen) return;
-
         var bubble = thread.querySelector('.bubble[data-id="' + lastOwnId + '"]');
-        if (!bubble) return;
-        if (bubble.classList.contains('bubble-deleted')) return;
-
+        if (!bubble || bubble.classList.contains('bubble-deleted')) return;
         var timeEl = bubble.querySelector('.bubble-time');
         if (!timeEl) return;
-
         var pill = document.createElement('span');
         pill.className = 'seen-pill';
         pill.textContent = ' · ' + seenLabel;
@@ -639,14 +674,12 @@ function escapeHtmlJs(text) {
             chip.className = 'reaction-chip' + (r.mine ? ' reaction-mine' : '');
             chip.dataset.messageId = messageId;
             chip.dataset.emoji = r.emoji;
-
             var emoji = document.createElement('span');
             emoji.className = 'reaction-emoji';
             emoji.textContent = r.emoji;
             var count = document.createElement('span');
             count.className = 'reaction-count';
             count.textContent = r.count;
-
             chip.appendChild(emoji);
             chip.appendChild(count);
             container.appendChild(chip);
@@ -657,24 +690,18 @@ function escapeHtmlJs(text) {
         (updates || []).forEach(function (state) {
             var messageId = parseInt(state.message_id, 10);
             if (isNaN(messageId)) return;
-
             var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
             if (!bubble || bubble.classList.contains('bubble-deleted')) return;
-
             var container = bubble.querySelector('.bubble-reactions');
-            if (container) {
-                renderReactionChips(container, messageId, state.reactions);
-            }
+            if (container) renderReactionChips(container, messageId, state.reactions);
         });
     }
 
     function renderMessage(m) {
         var mine = (parseInt(m.sender_id, 10) === me);
         var isDeleted = !!m.deleted_at;
-
         var div = document.createElement('div');
-        div.className = 'bubble ' + (mine ? 'bubble-mine' : 'bubble-theirs')
-                      + (isDeleted ? ' bubble-deleted' : '');
+        div.className = 'bubble ' + (mine ? 'bubble-mine' : 'bubble-theirs') + (isDeleted ? ' bubble-deleted' : '');
         if (m.id) div.dataset.id = m.id;
 
         var bodyDiv = document.createElement('div');
@@ -692,7 +719,6 @@ function escapeHtmlJs(text) {
         } else if (isVoice) {
             var wrap = document.createElement('div');
             wrap.className = 'voice-message';
-
             var audio = document.createElement('audio');
             audio.controls = true;
             audio.preload = 'metadata';
@@ -701,13 +727,11 @@ function escapeHtmlJs(text) {
             src.src = 'voice_serve.php?id=' + encodeURIComponent(m.id);
             audio.appendChild(src);
             wrap.appendChild(audio);
-
             var dur = parseInt(m.voice_duration, 10) || 0;
             var durEl = document.createElement('div');
             durEl.className = 'voice-duration';
             durEl.textContent = Math.floor(dur / 60) + ':' + ('0' + (dur % 60)).slice(-2);
             wrap.appendChild(durEl);
-
             bodyDiv.appendChild(wrap);
         } else if (isImage) {
             var link = document.createElement('a');
@@ -715,30 +739,25 @@ function escapeHtmlJs(text) {
             link.href = 'image_serve.php?id=' + encodeURIComponent(m.id);
             link.target = '_blank';
             link.rel = 'noopener';
-
             var img = document.createElement('img');
             img.className = 'dm-image';
             img.src = 'image_serve.php?id=' + encodeURIComponent(m.id);
             img.alt = 'Image';
             img.loading = 'lazy';
-
             link.appendChild(img);
             bodyDiv.appendChild(link);
         } else if (isVideo) {
             var vwrap = document.createElement('div');
             vwrap.className = 'video-message';
-
             var vid = document.createElement('video');
             vid.controls = true;
             vid.preload = 'metadata';
             vid.className = 'dm-video';
             if (m.video_thumb) vid.poster = 'video_thumb_serve.php?id=' + encodeURIComponent(m.id);
-
             var vsrc = document.createElement('source');
             vsrc.src = 'video_serve.php?id=' + encodeURIComponent(m.id);
             vid.appendChild(vsrc);
             vwrap.appendChild(vid);
-
             var vdur = parseInt(m.video_duration, 10) || 0;
             if (vdur > 0) {
                 var vdurEl = document.createElement('div');
@@ -746,7 +765,6 @@ function escapeHtmlJs(text) {
                 vdurEl.textContent = Math.floor(vdur / 60) + ':' + ('0' + (vdur % 60)).slice(-2);
                 vwrap.appendChild(vdurEl);
             }
-
             bodyDiv.appendChild(vwrap);
         } else {
             var lines = String(m.body).split('\n');
@@ -759,7 +777,6 @@ function escapeHtmlJs(text) {
         var timeDiv = document.createElement('div');
         timeDiv.className = 'bubble-time';
         timeDiv.textContent = m.created_at;
-
         div.appendChild(bodyDiv);
         div.appendChild(timeDiv);
 
@@ -784,13 +801,13 @@ function escapeHtmlJs(text) {
             picker.dataset.messageId = m.id;
             picker.hidden = true;
             ['👍', '❤️', '😂', '😮', '😢', '🙏'].forEach(function (emoji) {
-                var pickerButton = document.createElement('button');
-                pickerButton.type = 'button';
-                pickerButton.className = 'reaction-picker-btn';
-                pickerButton.dataset.messageId = m.id;
-                pickerButton.dataset.emoji = emoji;
-                pickerButton.textContent = emoji;
-                picker.appendChild(pickerButton);
+                var pb = document.createElement('button');
+                pb.type = 'button';
+                pb.className = 'reaction-picker-btn';
+                pb.dataset.messageId = m.id;
+                pb.dataset.emoji = emoji;
+                pb.textContent = emoji;
+                picker.appendChild(pb);
             });
             div.appendChild(picker);
         }
@@ -798,8 +815,7 @@ function escapeHtmlJs(text) {
         if (!mine && !isDeleted) {
             var rep = document.createElement('a');
             rep.className = 'bubble-report';
-            rep.href = 'report_message.php?conversation_id=' + encodeURIComponent(conv)
-                     + '&message_id=' + encodeURIComponent(m.id);
+            rep.href = 'report_message.php?conversation_id=' + encodeURIComponent(conv) + '&message_id=' + encodeURIComponent(m.id);
             rep.title = card.dataset.reportLabel || 'Report';
             rep.setAttribute('aria-label', rep.title);
             rep.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>';
@@ -821,8 +837,7 @@ function escapeHtmlJs(text) {
     }
 
     function poll() {
-        fetch('messages_fetch.php?id=' + encodeURIComponent(conv)
-              + '&after=' + encodeURIComponent(lastId), {
+        fetch('messages_fetch.php?id=' + encodeURIComponent(conv) + '&after=' + encodeURIComponent(lastId), {
             credentials: 'same-origin'
         })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -837,13 +852,9 @@ function escapeHtmlJs(text) {
                 } else {
                     var names = tu.map(function (u) { return u.display_name || u.username; });
                     var text = '';
-                    if (names.length === 1) {
-                        text = names[0] + ' is typing…';
-                    } else if (names.length === 2) {
-                        text = names[0] + ' and ' + names[1] + ' are typing…';
-                    } else {
-                        text = names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' others are typing…';
-                    }
+                    if (names.length === 1) text = names[0] + ' is typing…';
+                    else if (names.length === 2) text = names[0] + ' and ' + names[1] + ' are typing…';
+                    else text = names[0] + ', ' + names[1] + ' and ' + (names.length - 2) + ' others are typing…';
                     var nameEl = typingEl.querySelector('.typing-name');
                     if (nameEl) nameEl.textContent = text;
                     var textEl = typingEl.querySelector('.typing-text');
@@ -861,6 +872,9 @@ function escapeHtmlJs(text) {
                 });
                 scrollToBottom();
                 if (typingEl) typingEl.style.display = 'none';
+            }
+
+            if (typeof data.unread_total !== 'undefined' && data.unread_total === 0) {
                 var badge = document.querySelector('a[href="messages.php"] .badge');
                 if (badge) badge.remove();
             }
@@ -871,20 +885,18 @@ function escapeHtmlJs(text) {
                 updateSeenPill(data.last_own_id, data.last_own_seen);
             }
         })
-        .catch(function () { /* silent */ });
+        .catch(function () {});
     }
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         var text = bodyEl.value.trim();
         if (!text) return;
-
         var csrfToken = form.querySelector('input[name="csrf_token"]').value;
-        var convId    = form.querySelector('input[name="conversation_id"]').value;
-
+        var convId = form.querySelector('input[name="conversation_id"]').value;
         btn.disabled = true;
 
-        fetch('message_send.php', {
+        fetchWithTimeout('message_send.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
             body: new URLSearchParams({ conversation_id: convId, body: text, csrf_token: csrfToken })
@@ -893,33 +905,27 @@ function escapeHtmlJs(text) {
         .then(function (data) {
             if (data.success && data.message) {
                 bodyEl.value = '';
-
-                var csrfToken2 = form.querySelector('input[name="csrf_token"]').value;
-                var convId2    = form.querySelector('input[name="conversation_id"]').value;
                 fetch('typing_ping.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-                    body: new URLSearchParams({ conversation_id: convId2, csrf_token: csrfToken2, clear: '1' })
+                    body: new URLSearchParams({ conversation_id: convId, csrf_token: csrfToken, clear: '1' })
                 }).catch(function () {});
-
                 if (empty) empty.style.display = 'none';
                 renderMessage(data.message);
                 var id = parseInt(data.message.id, 10);
                 if (!isNaN(id) && id > lastId) lastId = id;
                 scrollToBottom();
-
                 var stalePill = thread.querySelector('.seen-pill');
                 if (stalePill) stalePill.remove();
             } else {
-                alert(data.error || 'Something went wrong');
+                qarotaAlert(data.error || 'Something went wrong', { title: 'Message failed' });
             }
             btn.disabled = false;
         })
         .catch(function (err) {
             console.error('Send error:', err);
             btn.disabled = false;
-            if (err instanceof TypeError && /fetch|network/i.test(err.message)) form.submit();
-            else alert('Something went wrong sending your message. Check the console.');
+            qarotaAlert('Could not send your message. Please try again.', { title: 'Message failed' });
         });
     });
 
@@ -927,51 +933,57 @@ function escapeHtmlJs(text) {
         var btn2 = e.target.closest('.bubble-delete');
         if (!btn2) return;
         e.preventDefault();
-
         var messageId = btn2.dataset.messageId;
         if (!messageId) return;
-        if (!confirm('Delete this message?')) return;
 
-        var csrfInput = form.querySelector('input[name="csrf_token"]');
-        var csrfToken = csrfInput ? csrfInput.value : '';
+        qarotaConfirm('Delete this message?', {
+            title: 'Delete message',
+            okText: 'Delete',
+            cancelText: 'Cancel',
+            danger: true
+        }).then(function (ok) {
+            if (!ok) return;
 
-        btn2.disabled = true;
+            var csrfInput = form.querySelector('input[name="csrf_token"]');
+            var csrfToken = csrfInput ? csrfInput.value : '';
+            btn2.disabled = true;
 
-        fetch('message_delete.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-            body: new URLSearchParams({ message_id: messageId, csrf_token: csrfToken })
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (data.success) {
-                var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
-                if (bubble) {
-                    bubble.classList.add('bubble-deleted');
-                    var bodyEl2 = bubble.querySelector('.bubble-body');
-                    if (bodyEl2) {
-                        bodyEl2.innerHTML = '';
-                        var em = document.createElement('em');
-                        em.className = 'bubble-deleted-text';
-                        em.textContent = 'Message deleted';
-                        bodyEl2.appendChild(em);
+            fetchWithTimeout('message_delete.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: new URLSearchParams({ message_id: messageId, csrf_token: csrfToken })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
+                    if (bubble) {
+                        bubble.classList.add('bubble-deleted');
+                        var bodyEl2 = bubble.querySelector('.bubble-body');
+                        if (bodyEl2) {
+                            bodyEl2.innerHTML = '';
+                            var em = document.createElement('em');
+                            em.className = 'bubble-deleted-text';
+                            em.textContent = 'Message deleted';
+                            bodyEl2.appendChild(em);
+                        }
+                        var db = bubble.querySelector('.bubble-delete'); if (db) db.remove();
+                        var rb = bubble.querySelector('.bubble-report'); if (rb) rb.remove();
+                        var reactions = bubble.querySelector('.bubble-reactions'); if (reactions) reactions.remove();
+                        var reactTrigger = bubble.querySelector('.bubble-react-trigger'); if (reactTrigger) reactTrigger.remove();
+                        var reactionPicker = bubble.querySelector('.reaction-picker'); if (reactionPicker) reactionPicker.remove();
+                        var pill = bubble.querySelector('.seen-pill'); if (pill) pill.remove();
                     }
-                    var db = bubble.querySelector('.bubble-delete'); if (db) db.remove();
-                    var rb = bubble.querySelector('.bubble-report'); if (rb) rb.remove();
-                    var reactions = bubble.querySelector('.bubble-reactions'); if (reactions) reactions.remove();
-                    var reactTrigger = bubble.querySelector('.bubble-react-trigger'); if (reactTrigger) reactTrigger.remove();
-                    var reactionPicker = bubble.querySelector('.reaction-picker'); if (reactionPicker) reactionPicker.remove();
-                    var pill = bubble.querySelector('.seen-pill'); if (pill) pill.remove();
+                } else {
+                    qarotaAlert(data.error || 'Could not delete message.', { title: 'Delete failed' });
+                    btn2.disabled = false;
                 }
-            } else {
-                alert(data.error || 'Could not delete message.');
+            })
+            .catch(function (err) {
+                console.error('Delete error:', err);
+                qarotaAlert('Could not delete message.', { title: 'Delete failed' });
                 btn2.disabled = false;
-            }
-        })
-        .catch(function (err) {
-            console.error('Delete error:', err);
-            alert('Could not delete message.');
-            btn2.disabled = false;
+            });
         });
     });
 
@@ -983,20 +995,16 @@ function escapeHtmlJs(text) {
             thread.querySelectorAll('.reaction-picker').forEach(function (picker) {
                 if (picker.dataset.messageId !== messageId) picker.hidden = true;
             });
-            var picker = thread.querySelector(
-                '.reaction-picker[data-message-id="' + messageId + '"]'
-            );
+            var picker = thread.querySelector('.reaction-picker[data-message-id="' + messageId + '"]');
             if (picker) picker.hidden = !picker.hidden;
             return;
         }
-
         var pickerButton = e.target.closest('.reaction-picker-btn');
         if (pickerButton) {
             e.preventDefault();
             sendReaction(pickerButton.dataset.messageId, pickerButton.dataset.emoji);
             return;
         }
-
         var chip = e.target.closest('.reaction-chip');
         if (chip) {
             e.preventDefault();
@@ -1016,41 +1024,29 @@ function escapeHtmlJs(text) {
         var csrfInput = form.querySelector('input[name="csrf_token"]');
         var csrfToken = csrfInput ? csrfInput.value : '';
 
-        fetch('message_react.php', {
+        fetchWithTimeout('message_react.php', {
             method: 'POST',
             credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: new URLSearchParams({
-                message_id: messageId,
-                emoji: emoji,
-                csrf_token: csrfToken
-            })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ message_id: messageId, emoji: emoji, csrf_token: csrfToken })
         })
         .then(function (response) {
             return response.json().then(function (data) {
-                if (!response.ok || !data.success) {
-                    throw new Error(data.error || 'Could not update reaction.');
-                }
+                if (!response.ok || !data.success) throw new Error(data.error || 'Could not update reaction.');
                 return data;
             });
         })
         .then(function (data) {
             var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
             if (!bubble) return;
-
             var container = bubble.querySelector('.bubble-reactions');
-            if (container) {
-                renderReactionChips(container, messageId, data.reactions);
-            }
+            if (container) renderReactionChips(container, messageId, data.reactions);
             var picker = bubble.querySelector('.reaction-picker');
             if (picker) picker.hidden = true;
         })
         .catch(function (error) {
             console.error('Reaction error:', error);
-            alert(error.message || 'Could not update reaction.');
+            qarotaAlert(error.message || 'Could not update reaction.', { title: 'Reaction failed' });
         });
     }
 
@@ -1061,10 +1057,8 @@ function escapeHtmlJs(text) {
             var now = Date.now();
             if (now - lastPingAt < 1500) return;
             lastPingAt = now;
-
             var csrfToken = form.querySelector('input[name="csrf_token"]').value;
-            var convId    = form.querySelector('input[name="conversation_id"]').value;
-
+            var convId = form.querySelector('input[name="conversation_id"]').value;
             fetch('typing_ping.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
@@ -1073,23 +1067,14 @@ function escapeHtmlJs(text) {
         });
     }
 
-    var initialLastOwnId   = card.dataset.lastOwnId ? parseInt(card.dataset.lastOwnId, 10) : 0;
+    var initialLastOwnId = card.dataset.lastOwnId ? parseInt(card.dataset.lastOwnId, 10) : 0;
     var initialLastOwnSeen = card.dataset.lastOwnSeen === '1';
     updateSeenPill(initialLastOwnId, initialLastOwnSeen);
 
-
-    /* ============================================================
-       IMAGE ATTACHMENTS
-       ============================================================ */
-    var imageBtn   = document.getElementById('imageBtn');
+    var imageBtn = document.getElementById('imageBtn');
     var imageInput = document.getElementById('imageInput');
-
     if (imageBtn && imageInput) {
-        imageBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            imageInput.click();
-        });
-
+        imageBtn.addEventListener('click', function (e) { e.preventDefault(); imageInput.click(); });
         imageInput.addEventListener('change', function () {
             if (!imageInput.files || !imageInput.files.length) return;
             uploadImageMessage(imageInput.files[0]);
@@ -1098,26 +1083,23 @@ function escapeHtmlJs(text) {
 
     function uploadImageMessage(file) {
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image must be smaller than 5 MB.');
+            qarotaAlert('Image must be smaller than 5 MB.', { title: 'Image too large' });
             if (imageInput) imageInput.value = '';
             return;
         }
-
         var csrfToken = form.querySelector('input[name="csrf_token"]').value;
-        var convId    = form.querySelector('input[name="conversation_id"]').value;
-
+        var convId = form.querySelector('input[name="conversation_id"]').value;
         var fd = new FormData();
         fd.append('conversation_id', convId);
         fd.append('csrf_token', csrfToken);
         fd.append('image', file, file.name);
-
         if (imageBtn) imageBtn.disabled = true;
 
-        fetch('message_image_send.php', {
+        fetchWithTimeout('message_image_send.php', {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: fd
-        })
+        }, 60000)
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.success && data.message) {
@@ -1127,32 +1109,23 @@ function escapeHtmlJs(text) {
                 if (!isNaN(id) && id > lastId) lastId = id;
                 scrollToBottom();
             } else {
-                alert(data.error || 'Could not send image.');
+                qarotaAlert(data.error || 'Could not send image.', { title: 'Upload failed' });
             }
             if (imageBtn) imageBtn.disabled = false;
             if (imageInput) imageInput.value = '';
         })
         .catch(function (err) {
             console.error('Image upload error:', err);
-            alert('Could not send image.');
+            qarotaAlert('Could not send image.', { title: 'Upload failed' });
             if (imageBtn) imageBtn.disabled = false;
             if (imageInput) imageInput.value = '';
         });
     }
 
-
-    /* ============================================================
-       VIDEO ATTACHMENTS
-       ============================================================ */
-    var videoBtn   = document.getElementById('videoBtn');
+    var videoBtn = document.getElementById('videoBtn');
     var videoInput = document.getElementById('videoInput');
-
     if (videoBtn && videoInput) {
-        videoBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            videoInput.click();
-        });
-
+        videoBtn.addEventListener('click', function (e) { e.preventDefault(); videoInput.click(); });
         videoInput.addEventListener('change', function () {
             if (!videoInput.files || !videoInput.files.length) return;
             uploadVideoMessage(videoInput.files[0]);
@@ -1161,23 +1134,19 @@ function escapeHtmlJs(text) {
 
     function uploadVideoMessage(file) {
         if (file.size > 25 * 1024 * 1024) {
-            alert('Video must be smaller than 25 MB.');
+            qarotaAlert('Video must be smaller than 25 MB.', { title: 'Video too large' });
             if (videoInput) videoInput.value = '';
             return;
         }
-
         var csrfToken = form.querySelector('input[name="csrf_token"]').value;
-        var convId    = form.querySelector('input[name="conversation_id"]').value;
-
+        var convId = form.querySelector('input[name="conversation_id"]').value;
         var probe = document.createElement('video');
         probe.preload = 'metadata';
         probe.onloadedmetadata = function () {
             window.URL.revokeObjectURL(probe.src);
             doVideoUpload(file, csrfToken, convId, Math.round(probe.duration) || 0);
         };
-        probe.onerror = function () {
-            doVideoUpload(file, csrfToken, convId, 0);
-        };
+        probe.onerror = function () { doVideoUpload(file, csrfToken, convId, 0); };
         probe.src = URL.createObjectURL(file);
     }
 
@@ -1187,14 +1156,13 @@ function escapeHtmlJs(text) {
         fd.append('csrf_token', csrfToken);
         fd.append('duration', duration);
         fd.append('video', file, file.name);
-
         if (videoBtn) videoBtn.disabled = true;
 
-        fetch('message_video_send.php', {
+        fetchWithTimeout('message_video_send.php', {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: fd
-        })
+        }, 120000)
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.success && data.message) {
@@ -1204,89 +1172,75 @@ function escapeHtmlJs(text) {
                 if (!isNaN(id) && id > lastId) lastId = id;
                 scrollToBottom();
             } else {
-                alert(data.error || 'Could not send video.');
+                qarotaAlert(data.error || 'Could not send video.', { title: 'Upload failed' });
             }
             if (videoBtn) videoBtn.disabled = false;
             if (videoInput) videoInput.value = '';
         })
         .catch(function (err) {
             console.error('Video upload error:', err);
-            alert('Could not send video.');
+            qarotaAlert('Could not send video.', { title: 'Upload failed' });
             if (videoBtn) videoBtn.disabled = false;
             if (videoInput) videoInput.value = '';
         });
     }
 
-
-    /* ============================================================
-       VOICE RECORDER — race-condition-safe
-       ============================================================ */
-    var micBtn         = document.getElementById('micBtn');
-    var voiceRecorder  = document.getElementById('voiceRecorder');
-    var voiceRecTime   = document.getElementById('voiceRecTime');
+    var micBtn = document.getElementById('micBtn');
+    var voiceRecorder = document.getElementById('voiceRecorder');
+    var voiceRecTime = document.getElementById('voiceRecTime');
     var voiceCancelBtn = document.getElementById('voiceCancelBtn');
-    var voiceSendBtn   = document.getElementById('voiceSendBtn');
-
-    var mediaRecorder   = null;
-    var recordedChunks  = [];
+    var voiceSendBtn = document.getElementById('voiceSendBtn');
+    var mediaRecorder = null;
+    var recordedChunks = [];
     var recordStartTime = 0;
-    var recordTimerId   = null;
+    var recordTimerId = null;
     var maxVoiceSeconds = parseInt(form.dataset.voiceMax || '60', 10);
-    var isUploading     = false;
+    var isUploading = false;
 
     function clearRecorderUI() {
         if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
         if (voiceRecorder) voiceRecorder.style.display = 'none';
-        if (voiceRecTime)  voiceRecTime.textContent = '0:00';
-        if (micBtn)        micBtn.disabled = false;
-        if (voiceSendBtn)  voiceSendBtn.disabled = false;
+        if (voiceRecTime) voiceRecTime.textContent = '0:00';
+        if (micBtn) micBtn.disabled = false;
+        if (voiceSendBtn) voiceSendBtn.disabled = false;
     }
 
     function startRecording() {
         if (isUploading) return;
-
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('Voice recording is not supported in this browser.');
+            qarotaAlert('Voice recording is not supported in this browser.', { title: 'Not supported' });
             return;
         }
-
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(function (stream) {
-                recordedChunks = [];
-                mediaRecorder = new MediaRecorder(stream);
-
-                mediaRecorder.ondataavailable = function (e) {
-                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
-                };
-
-                mediaRecorder.onstop = function () {
-                    stream.getTracks().forEach(function (t) { t.stop(); });
-                };
-
-                mediaRecorder.start(1000);
-
-                recordStartTime = Date.now();
-                if (voiceRecorder) voiceRecorder.style.display = 'flex';
-                if (micBtn) micBtn.disabled = true;
-
-                recordTimerId = setInterval(function () {
-                    var elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
-                    if (voiceRecTime) {
-                        voiceRecTime.textContent = Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = function (e) {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+            mediaRecorder.onstop = function () {
+                stream.getTracks().forEach(function (t) { t.stop(); });
+            };
+            mediaRecorder.start(1000);
+            recordStartTime = Date.now();
+            if (voiceRecorder) voiceRecorder.style.display = 'flex';
+            if (micBtn) micBtn.disabled = true;
+            recordTimerId = setInterval(function () {
+                var elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+                if (voiceRecTime) {
+                    voiceRecTime.textContent = Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
+                }
+                if (elapsed >= maxVoiceSeconds) {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        try { mediaRecorder.stop(); } catch (e) {}
                     }
-                    if (elapsed >= maxVoiceSeconds) {
-                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                            try { mediaRecorder.stop(); } catch (e) {}
-                        }
-                        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
-                    }
-                }, 250);
-            })
-            .catch(function (err) {
-                console.error('Mic denied:', err);
-                alert('Microphone access is needed to record voice messages.');
-                clearRecorderUI();
-            });
+                    if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+                }
+            }, 250);
+        }).catch(function (err) {
+            console.error('Mic denied:', err);
+            qarotaAlert('Microphone access is needed to record voice messages.', { title: 'Microphone blocked' });
+            clearRecorderUI();
+        });
     }
 
     function cancelRecording() {
@@ -1301,62 +1255,42 @@ function escapeHtmlJs(text) {
 
     function sendRecording() {
         if (isUploading) return;
-
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             var duration = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
             if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
-
             var originalOnStop = mediaRecorder.onstop;
             mediaRecorder.onstop = function () {
                 if (originalOnStop) originalOnStop.call(mediaRecorder);
                 uploadVoiceRecording(duration);
             };
-
-            try {
-                mediaRecorder.stop();
-            } catch (e) {
-                uploadVoiceRecording(duration);
-            }
+            try { mediaRecorder.stop(); } catch (e) { uploadVoiceRecording(duration); }
             return;
         }
-
         var durationFallback = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
         uploadVoiceRecording(durationFallback);
     }
 
     function uploadVoiceRecording(duration) {
-        if (!recordedChunks.length) {
-            mediaRecorder = null;
-            clearRecorderUI();
-            return;
-        }
-
+        if (!recordedChunks.length) { mediaRecorder = null; clearRecorderUI(); return; }
         isUploading = true;
         duration = Math.max(1, duration || 1);
-
         var mimeType = 'audio/webm';
-        try {
-            mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
-        } catch (e) { /* ignore */ }
-
+        try { mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm'; } catch (e) {}
         var blob = new Blob(recordedChunks, { type: mimeType });
-
         var csrfToken = form.querySelector('input[name="csrf_token"]').value;
-        var convId    = form.querySelector('input[name="conversation_id"]').value;
-
+        var convId = form.querySelector('input[name="conversation_id"]').value;
         var fd = new FormData();
         fd.append('conversation_id', convId);
         fd.append('csrf_token', csrfToken);
         fd.append('duration', duration);
         fd.append('voice', blob, 'voice.webm');
-
         if (voiceSendBtn) voiceSendBtn.disabled = true;
 
-        fetch('message_voice_send.php', {
+        fetchWithTimeout('message_voice_send.php', {
             method: 'POST',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
             body: fd
-        })
+        }, 60000)
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.success && data.message) {
@@ -1366,7 +1300,7 @@ function escapeHtmlJs(text) {
                 if (!isNaN(id) && id > lastId) lastId = id;
                 scrollToBottom();
             } else {
-                alert(data.error || 'Could not send voice message.');
+                qarotaAlert(data.error || 'Could not send voice message.', { title: 'Upload failed' });
             }
             recordedChunks = [];
             mediaRecorder = null;
@@ -1375,7 +1309,7 @@ function escapeHtmlJs(text) {
         })
         .catch(function (err) {
             console.error('Voice send error:', err);
-            alert('Could not send voice message.');
+            qarotaAlert('Could not send voice message.', { title: 'Upload failed' });
             recordedChunks = [];
             mediaRecorder = null;
             isUploading = false;
@@ -1383,171 +1317,358 @@ function escapeHtmlJs(text) {
         });
     }
 
-    if (micBtn) {
-        micBtn.addEventListener('click', function (e) { e.preventDefault(); startRecording(); });
-    }
-    if (voiceCancelBtn) {
-        voiceCancelBtn.addEventListener('click', function (e) { e.preventDefault(); cancelRecording(); });
-    }
-    if (voiceSendBtn) {
-        voiceSendBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            sendRecording();
-        });
-    }
+    if (micBtn) micBtn.addEventListener('click', function (e) { e.preventDefault(); startRecording(); });
+    if (voiceCancelBtn) voiceCancelBtn.addEventListener('click', function (e) { e.preventDefault(); cancelRecording(); });
+    if (voiceSendBtn) voiceSendBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        sendRecording();
+    });
 
     scrollToBottom();
     setInterval(poll, 4000);
 })();
 
+/* ============================================================
+   POST VOICE PLAYER
+   ============================================================ */
+function attachVoicePlayer(wrapper) {
+    var audio = wrapper.querySelector('audio');
+    var btn = wrapper.querySelector('.post-voice-play');
+    var wave = wrapper.querySelector('.post-voice-wave');
+    var time = wrapper.querySelector('.post-voice-time');
+    if (!audio || !btn || !wave) return;
 
-/* ========================================
-   BLOCK / UNBLOCK — AJAX
-   ======================================== */
+    var tooltip = document.createElement('span');
+    tooltip.className = 'post-voice-seek-tooltip';
+    tooltip.setAttribute('aria-hidden', 'true');
+    wave.appendChild(tooltip);
+    wave.setAttribute('role', 'slider');
+    wave.setAttribute('tabindex', '0');
+    wave.setAttribute('aria-label', 'Seek voice note');
+    wave.setAttribute('aria-valuemin', '0');
+    wave.setAttribute('aria-valuemax', '100');
+    wave.setAttribute('aria-valuenow', '0');
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.block-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            handleBlock(form);
+    var dragging = false;
+    var resumeAfterDrag = false;
+
+    function fmt(s) {
+        s = Math.max(0, Math.floor(s || 0));
+        return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+    }
+
+    function duration() {
+        var length = audio.duration || parseFloat(wrapper.dataset.duration) || 0;
+        return Number.isFinite(length) ? length : 0;
+    }
+
+    function updateProgress() {
+        var length = duration();
+        var pct = length > 0 ? Math.max(0, Math.min(100, (audio.currentTime / length) * 100)) : 0;
+        wave.style.setProperty('--progress', pct + '%');
+        wave.setAttribute('aria-valuenow', String(Math.round(pct)));
+        if (time) time.textContent = fmt(audio.currentTime);
+    }
+
+    function seekFromClientX(clientX) {
+        var bounds = wave.getBoundingClientRect();
+        var length = duration();
+        if (!length || bounds.width <= 0) return;
+        var fraction = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+        audio.currentTime = fraction * length;
+        updateProgress();
+    }
+
+    function setTooltip(clientX) {
+        var bounds = wave.getBoundingClientRect();
+        var length = duration();
+        if (bounds.width <= 0 || !length) return;
+        var fraction = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+        tooltip.textContent = fmt(fraction * length);
+        tooltip.style.left = (fraction * 100) + '%';
+    }
+
+    function play() {
+        document.querySelectorAll('.post-voice audio').forEach(function (otherAudio) {
+            if (otherAudio !== audio) otherAudio.pause();
         });
+        audio.play();
+    }
+
+    btn.addEventListener('click', function () {
+        if (audio.paused) play();
+        else audio.pause();
     });
-});
 
-function handleBlock(form) {
-    const button = form.querySelector('button');
-    const targetId = form.querySelector('input[name="target_id"]').value;
-    const action   = form.querySelector('input[name="block_action"]').value;
-    const csrfToken = form.querySelector('input[name="csrf_token"]').value;
-    const redirect = form.querySelector('input[name="redirect"]')?.value
-                   || (window.location.pathname + window.location.search);
+    audio.addEventListener('play', function () {
+        btn.classList.add('playing');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    });
 
-    button.disabled = true;
+    audio.addEventListener('pause', function () {
+        if (dragging) return;
+        btn.classList.remove('playing');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+    });
 
-    fetch('block.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
-        body: new URLSearchParams({
-            target_id: targetId, block_action: action,
-            csrf_token: csrfToken, redirect: redirect
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) window.location.href = redirect;
-        else { alert(data.error || 'Something went wrong'); button.disabled = false; }
-    })
-    .catch(error => {
-        console.error('Block error:', error);
-        button.disabled = false;
-        form.submit();
+    audio.addEventListener('ended', function () {
+        btn.classList.remove('playing');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+        updateProgress();
+    });
+
+    audio.addEventListener('timeupdate', function () {
+        if (!dragging) updateProgress();
+    });
+
+    audio.addEventListener('loadedmetadata', function () { updateProgress(); });
+
+    wave.addEventListener('pointerdown', function (event) {
+        if (!duration()) return;
+        event.preventDefault();
+        dragging = true;
+        resumeAfterDrag = !audio.paused;
+        if (resumeAfterDrag) audio.pause();
+        wave.setPointerCapture(event.pointerId);
+        seekFromClientX(event.clientX);
+        setTooltip(event.clientX);
+        tooltip.classList.add('visible');
+    });
+
+    wave.addEventListener('pointermove', function (event) {
+        setTooltip(event.clientX);
+        if (dragging) seekFromClientX(event.clientX);
+    });
+
+    function finishScrub(event) {
+        if (!dragging) return;
+        if (typeof event.clientX === 'number') {
+            seekFromClientX(event.clientX);
+            setTooltip(event.clientX);
+        }
+        dragging = false;
+        var length = duration();
+        var atEnd = length > 0 && audio.currentTime >= length - 0.05;
+        if (resumeAfterDrag && !atEnd) play();
+        resumeAfterDrag = false;
+    }
+
+    wave.addEventListener('pointerup', finishScrub);
+    wave.addEventListener('pointercancel', finishScrub);
+    wave.addEventListener('pointerenter', function (event) {
+        setTooltip(event.clientX);
+        tooltip.classList.add('visible');
+    });
+    wave.addEventListener('pointerleave', function () {
+        if (!dragging) tooltip.classList.remove('visible');
+    });
+    wave.addEventListener('keydown', function (event) {
+        var length = duration();
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            if (!length) return;
+            audio.currentTime = Math.max(0, Math.min(length, audio.currentTime + (event.key === 'ArrowRight' ? 5 : -5)));
+            updateProgress();
+        } else if (event.key === 'Home' || event.key === 'End') {
+            event.preventDefault();
+            if (!length) return;
+            audio.currentTime = event.key === 'Home' ? 0 : length;
+            updateProgress();
+        } else if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            if (audio.paused) play();
+            else audio.pause();
+        }
+    });
+
+    updateProgress();
+}
+
+/* ============================================================
+   PAGE INIT
+   ============================================================ */
+function initLikeForms() {
+    document.querySelectorAll('.like-form').forEach(function (form) {
+        if (form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', function (e) { e.preventDefault(); handleLike(form); });
     });
 }
 
+function initFollowForms() {
+    document.querySelectorAll('.follow-form').forEach(function (form) {
+        if (form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', function (e) { e.preventDefault(); handleFollow(form); });
+    });
+}
 
-/* ========================================
-   HEADER — mobile nav toggle + profile menu
-   ======================================== */
+function initBookmarkForms() {
+    document.querySelectorAll('.bookmark-form').forEach(function (form) {
+        if (form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', function (e) { e.preventDefault(); handleBookmark(form); });
+    });
+}
+
+function initCommentForms() {
+    document.querySelectorAll('.comment-form').forEach(function (form) {
+        if (form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', function (e) { e.preventDefault(); handleComment(form); });
+    });
+}
+
+function initCommentEditButtons() {
+    document.querySelectorAll('.comment-edit-btn').forEach(function (btn) {
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', function (e) { e.preventDefault(); startEditComment(btn); });
+    });
+}
+
+function initBlockForms() {
+    document.querySelectorAll('.block-form').forEach(function (form) {
+        if (form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', function (e) { e.preventDefault(); handleBlock(form); });
+    });
+}
+
+function initDeletePostForms() {
+    document.querySelectorAll('.delete-post-form').forEach(function (form) {
+        if (form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+        form.addEventListener('submit', function (e) { e.preventDefault(); handleDeletePostSubmit(form); });
+    });
+}
+
+function initPostVoicePlayers() {
+    document.querySelectorAll('.post-voice').forEach(function (wrapper) {
+        if (wrapper.dataset.voiceBound === '1') return;
+        wrapper.dataset.voiceBound = '1';
+        attachVoicePlayer(wrapper);
+    });
+}
+
+function initProfileMenu() {
+    var btn = document.getElementById('profileMenuBtn');
+    var dropdown = document.getElementById('profileMenuDropdown');
+    var settingsBtn = document.getElementById('settingsToggle');
+    var settingsSub = document.getElementById('settingsSubmenu');
+    if (!btn || !dropdown) return;
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+
+    function closeAll() {
+        dropdown.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        if (settingsSub) settingsSub.hidden = true;
+        if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = !dropdown.hidden;
+        if (isOpen) {
+            closeAll();
+        } else {
+            dropdown.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    });
+
+    if (settingsBtn && settingsSub) {
+        settingsBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = !settingsSub.hidden;
+            settingsSub.hidden = isOpen;
+            settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        });
+    }
+}
+
+function initMobileNavCloseOnClick() {
+    var navLinks = document.getElementById('navLinks');
+    if (!navLinks || navLinks.dataset.bound === '1') return;
+    navLinks.dataset.bound = '1';
+    navLinks.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+            navLinks.classList.remove('open');
+            var ov = document.getElementById('navOverlay');
+            if (ov) ov.classList.remove('open');
+        });
+    });
+}
 
 (function () {
-    'use strict';
+    if (window.__qarotaDocBound) return;
+    window.__qarotaDocBound = true;
 
-    window.toggleNav = function () {
-        var nav = document.getElementById('navLinks');
-        var overlay = document.getElementById('navOverlay');
-        if (!nav || !overlay) return;
-        var isOpen = nav.classList.toggle('open');
-        overlay.classList.toggle('open', isOpen);
-    };
-
-    document.addEventListener('DOMContentLoaded', function () {
-
-        var navLinks = document.getElementById('navLinks');
-        if (navLinks) {
-            navLinks.querySelectorAll('a').forEach(function (link) {
-                link.addEventListener('click', function () {
-                    navLinks.classList.remove('open');
-                    var ov = document.getElementById('navOverlay');
-                    if (ov) ov.classList.remove('open');
-                });
-            });
+    document.addEventListener('click', function (e) {
+        var d = document.getElementById('profileMenuDropdown');
+        var b = document.getElementById('profileMenuBtn');
+        if (!d || !b) return;
+        if (d.hidden) return;
+        if (!d.contains(e.target) && !b.contains(e.target)) {
+            d.hidden = true;
+            b.setAttribute('aria-expanded', 'false');
+            var ss = document.getElementById('settingsSubmenu');
+            if (ss) ss.hidden = true;
+            var st = document.getElementById('settingsToggle');
+            if (st) st.setAttribute('aria-expanded', 'false');
         }
+    });
 
-        var btn         = document.getElementById('profileMenuBtn');
-        var dropdown    = document.getElementById('profileMenuDropdown');
-        var settingsBtn = document.getElementById('settingsToggle');
-        var settingsSub = document.getElementById('settingsSubmenu');
-
-        if (!btn || !dropdown) return;
-
-        function closeAll() {
-            dropdown.hidden = true;
-            btn.setAttribute('aria-expanded', 'false');
-            if (settingsSub) settingsSub.hidden = true;
-            if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
-        }
-
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var isOpen = !dropdown.hidden;
-            if (isOpen) {
-                closeAll();
-            } else {
-                dropdown.hidden = false;
-                btn.setAttribute('aria-expanded', 'true');
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
-        });
-
-        if (settingsBtn && settingsSub) {
-            settingsBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                var isOpen = !settingsSub.hidden;
-                settingsSub.hidden = isOpen;
-                settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-            });
-        }
-
-        document.addEventListener('click', function (e) {
-            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-                closeAll();
-            }
-        });
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closeAll();
-        });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var d = document.getElementById('profileMenuDropdown');
+        var b = document.getElementById('profileMenuBtn');
+        if (d) d.hidden = true;
+        if (b) b.setAttribute('aria-expanded', 'false');
+        var ss = document.getElementById('settingsSubmenu');
+        if (ss) ss.hidden = true;
     });
 })();
 
+function runAllPageInits() {
+    initLikeForms();
+    initFollowForms();
+    initBookmarkForms();
+    initCommentForms();
+    initCommentEditButtons();
+    initBlockForms();
+    initDeletePostForms();
+    initPostVoicePlayers();
+    initProfileMenu();
+    initMobileNavCloseOnClick();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
 
-/* ========================================
-   NAV BADGE POLLING — notifications + messages
-   ======================================== */
+window.runAllPageInits = runAllPageInits;
+document.addEventListener('DOMContentLoaded', runAllPageInits);
 
+/* ============================================================
+   NAV BADGE POLLING
+   ============================================================ */
 (function () {
     var notifBadge = document.getElementById('notifBadge');
-    var msgBadge   = document.getElementById('msgBadge');
-
+    var msgBadge = document.getElementById('msgBadge');
     if (!notifBadge && !msgBadge) return;
 
     var notifCount = notifBadge && !notifBadge.hidden
-        ? parseInt(notifBadge.textContent, 10) || 0
-        : 0;
+        ? parseInt(notifBadge.textContent, 10) || 0 : 0;
 
     function renderBadge(el, count) {
         if (!el) return;
-        if (count > 0) {
-            el.textContent = count;
-            el.hidden = false;
-        } else {
-            el.hidden = true;
-        }
+        if (count > 0) { el.textContent = count; el.hidden = false; }
+        else { el.hidden = true; }
     }
 
     function pollNotifications() {
-        if (!notifBadge) return;
+        if (!notifBadge || document.visibilityState !== 'visible') return;
         fetch('notifications_count.php', { credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
@@ -1555,36 +1676,30 @@ function handleBlock(form) {
                 if (data.count !== notifCount) {
                     renderBadge(notifBadge, data.count);
                     notifCount = data.count;
-
                     if (data.count > 0) {
                         notifBadge.animate(
-                            [
-                                { transform: 'scale(1)' },
-                                { transform: 'scale(1.25)' },
-                                { transform: 'scale(1)' }
-                            ],
+                            [{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }],
                             { duration: 400, easing: 'ease-in-out' }
                         );
                     }
                 }
             })
-            .catch(function () { /* silent */ });
+            .catch(function () {});
     }
 
     function pollMessages() {
-        if (!msgBadge) return;
+        if (!msgBadge || document.visibilityState !== 'visible') return;
         fetch('messages_count.php', { credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
                 if (!data || !data.success) return;
                 renderBadge(msgBadge, data.count);
             })
-            .catch(function () { /* silent */ });
+            .catch(function () {});
     }
 
     pollNotifications();
     pollMessages();
-
     setInterval(pollNotifications, 15000);
     setInterval(pollMessages, 15000);
 
@@ -1596,106 +1711,85 @@ function handleBlock(form) {
     });
 })();
 
-
 /* ============================================================
-   POST VOICE RECORDER
-   Mirrors the DM recorder pattern. Targets #compose-form.
+   POST VOICE RECORDER (compose-form)
    ============================================================ */
-
 (function () {
     var form = document.getElementById('compose-form');
     if (!form) return;
 
-    var micBtn         = document.getElementById('postMicBtn');
-    var voiceRecorder  = document.getElementById('postVoiceRecorder');
-    var voiceRecTime   = document.getElementById('postVoiceRecTime');
+    var micBtn = document.getElementById('postMicBtn');
+    var voiceRecorder = document.getElementById('postVoiceRecorder');
+    var voiceRecTime = document.getElementById('postVoiceRecTime');
     var voiceCancelBtn = document.getElementById('postVoiceCancelBtn');
-    var voiceSendBtn   = document.getElementById('postVoiceSendBtn');
-    var statusEl       = document.getElementById('postRecStatus');
-
+    var voiceSendBtn = document.getElementById('postVoiceSendBtn');
     var hiddenVoiceInput = document.getElementById('postVoiceFile');
-    var durationInput    = document.getElementById('postVoiceDuration');
-    var previewWrap      = document.getElementById('postVoicePreview');
-    var previewAudio     = document.getElementById('postVoiceAudio');
-    var discardBtn       = document.getElementById('postVoiceDiscard');
-
+    var durationInput = document.getElementById('postVoiceDuration');
+    var previewWrap = document.getElementById('postVoicePreview');
+    var previewAudio = document.getElementById('postVoiceAudio');
+    var discardBtn = document.getElementById('postVoiceDiscard');
     if (!micBtn || !hiddenVoiceInput) return;
 
-    var mediaRecorder   = null;
-    var recordedChunks  = [];
+    var mediaRecorder = null;
+    var recordedChunks = [];
     var recordStartTime = 0;
-    var recordTimerId   = null;
+    var recordTimerId = null;
     var maxVoiceSeconds = parseInt(form.dataset.voiceMax || '180', 10);
-    var isUploading     = false;
+    var isUploading = false;
 
     function clearRecorderUI() {
         if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
         if (voiceRecorder) voiceRecorder.style.display = 'none';
-        if (voiceRecTime)  voiceRecTime.textContent = '0:00';
-        if (statusEl)      statusEl.textContent = '';
-        if (micBtn)        micBtn.disabled = false;
-        if (voiceSendBtn)  voiceSendBtn.disabled = false;
+        if (voiceRecTime) voiceRecTime.textContent = '0:00';
+        if (micBtn) micBtn.disabled = false;
+        if (voiceSendBtn) voiceSendBtn.disabled = false;
     }
 
     function pickMime() {
         var candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
         for (var i = 0; i < candidates.length; i++) {
-            if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) {
-                return candidates[i];
-            }
+            if (window.MediaRecorder && MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
         }
         return '';
     }
 
     function startRecording() {
         if (isUploading) return;
-
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            alert('Voice recording is not supported in this browser.');
+            qarotaAlert('Voice recording is not supported in this browser.', { title: 'Not supported' });
             return;
         }
-
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(function (stream) {
-                recordedChunks = [];
-                var mime = pickMime();
-                mediaRecorder = mime
-                    ? new MediaRecorder(stream, { mimeType: mime })
-                    : new MediaRecorder(stream);
-
-                mediaRecorder.ondataavailable = function (e) {
-                    if (e.data && e.data.size > 0) recordedChunks.push(e.data);
-                };
-
-                mediaRecorder.onstop = function () {
-                    stream.getTracks().forEach(function (t) { t.stop(); });
-                };
-
-                mediaRecorder.start(1000);
-
-                recordStartTime = Date.now();
-                if (voiceRecorder) voiceRecorder.style.display = 'flex';
-                if (micBtn) micBtn.disabled = true;
-
-                recordTimerId = setInterval(function () {
-                    var elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
-                    if (voiceRecTime) {
-                        voiceRecTime.textContent =
-                            Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+            recordedChunks = [];
+            var mime = pickMime();
+            mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = function (e) {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+            mediaRecorder.onstop = function () {
+                stream.getTracks().forEach(function (t) { t.stop(); });
+            };
+            mediaRecorder.start(1000);
+            recordStartTime = Date.now();
+            if (voiceRecorder) voiceRecorder.style.display = 'flex';
+            if (micBtn) micBtn.disabled = true;
+            recordTimerId = setInterval(function () {
+                var elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+                if (voiceRecTime) {
+                    voiceRecTime.textContent = Math.floor(elapsed / 60) + ':' + ('0' + (elapsed % 60)).slice(-2);
+                }
+                if (elapsed >= maxVoiceSeconds) {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        try { mediaRecorder.stop(); } catch (e) {}
                     }
-                    if (elapsed >= maxVoiceSeconds) {
-                        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                            try { mediaRecorder.stop(); } catch (e) {}
-                        }
-                        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
-                    }
-                }, 250);
-            })
-            .catch(function (err) {
-                console.error('Mic denied:', err);
-                alert('Microphone access is needed to record voice notes.');
-                clearRecorderUI();
-            });
+                    if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+                }
+            }, 250);
+        }).catch(function (err) {
+            console.error('Mic denied:', err);
+            qarotaAlert('Microphone access is needed to record voice notes.', { title: 'Microphone blocked' });
+            clearRecorderUI();
+        });
     }
 
     function cancelRecording() {
@@ -1710,365 +1804,83 @@ function handleBlock(form) {
 
     function finishRecording() {
         if (isUploading) return;
-
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             var duration = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
             if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
-
             var originalOnStop = mediaRecorder.onstop;
             mediaRecorder.onstop = function () {
                 if (originalOnStop) originalOnStop.call(mediaRecorder);
                 stageVoicePreview(duration);
             };
-
-            try {
-                mediaRecorder.stop();
-            } catch (e) {
-                stageVoicePreview(duration);
-            }
+            try { mediaRecorder.stop(); } catch (e) { stageVoicePreview(duration); }
             return;
         }
-
         var fallback = Math.max(1, Math.floor((Date.now() - recordStartTime) / 1000));
         stageVoicePreview(fallback);
     }
 
-function stageVoicePreview(duration) {
-    if (!recordedChunks.length) {
+    function stageVoicePreview(duration) {
+        if (!recordedChunks.length) { mediaRecorder = null; clearRecorderUI(); return; }
+        duration = Math.max(1, duration || 1);
+        var mimeType = 'audio/webm';
+        try { mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm'; } catch (e) {}
+        var blob = new Blob(recordedChunks, { type: mimeType });
+        var ext = mimeType.indexOf('mp4') !== -1 ? 'm4a' : mimeType.indexOf('ogg') !== -1 ? 'ogg' : 'webm';
+
+        try {
+            var file = new File([blob], 'voice.' + ext, { type: blob.type });
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            hiddenVoiceInput.files = dt.files;
+        } catch (e) {
+            console.warn('DataTransfer not supported; storing blob reference on form.');
+            form._pendingVoiceBlob = blob;
+            form._pendingVoiceExt = ext;
+        }
+        if (durationInput) durationInput.value = duration;
+        if (previewWrap) previewWrap.hidden = false;
+        recordedChunks = [];
         mediaRecorder = null;
         clearRecorderUI();
-        return;
     }
-
-    duration = Math.max(1, duration || 1);
-
-    var mimeType = 'audio/webm';
-    try {
-        mimeType = (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm';
-    } catch (e) {}
-
-    var blob = new Blob(recordedChunks, { type: mimeType });
-    var ext = mimeType.indexOf('mp4') !== -1 ? 'm4a'
-            : mimeType.indexOf('ogg') !== -1 ? 'ogg'
-            : 'webm';
-
-    var file = new File([blob], 'voice.' + ext, { type: blob.type });
-    var dt = new DataTransfer();
-    dt.items.add(file);
-    hiddenVoiceInput.files = dt.files;
-
-    if (durationInput) durationInput.value = duration;
-
-  /*  if (previewAudio) {
-        var objectUrl = URL.createObjectURL(blob);
-        previewAudio.src = objectUrl;
-
-        // Force-load metadata so the native player shows the real duration
-        previewAudio.load();
-
-        // When metadata loads, if the browser reports a duration, trust it
-        // (some browsers give fractional times — round up)
-        previewAudio.addEventListener('loadedmetadata', function onMeta() {
-            previewAudio.removeEventListener('loadedmetadata', onMeta);
-            var realDur = Math.max(1, Math.round(previewAudio.duration || duration));
-            if (durationInput) durationInput.value = realDur;
-        });
-    } */
-    if (previewWrap) previewWrap.hidden = false;
-
-    recordedChunks = [];
-    mediaRecorder = null;
-    clearRecorderUI();
-}
 
     function discardPreview() {
         hiddenVoiceInput.value = '';
         if (durationInput) durationInput.value = 0;
         if (previewAudio) previewAudio.src = '';
         if (previewWrap) previewWrap.hidden = true;
+        form._pendingVoiceBlob = null;
     }
 
     micBtn.addEventListener('click', function (e) { e.preventDefault(); startRecording(); });
     if (voiceCancelBtn) voiceCancelBtn.addEventListener('click', function (e) { e.preventDefault(); cancelRecording(); });
-    if (voiceSendBtn)   voiceSendBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); finishRecording(); });
-    if (discardBtn)     discardBtn.addEventListener('click', function (e) { e.preventDefault(); discardPreview(); });
+    if (voiceSendBtn) voiceSendBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        finishRecording();
+    });
+    if (discardBtn) discardBtn.addEventListener('click', function (e) { e.preventDefault(); discardPreview(); });
 
-    // Prevent submitting while a recording is in progress
     form.addEventListener('submit', function (e) {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             e.preventDefault();
-            alert('Please stop or cancel the recording first.');
+            qarotaAlert('Please stop or cancel the recording first.', { title: 'Still recording' });
         }
     });
 })();
 
-
-
 /* ============================================================
-   POST VOICE PLAYER — play/pause + seekable progress
-   FIXED: auto-resume edge case, ended progress reset, scrub flicker
-   ============================================================ */
-
-(function () {
-    function attachVoicePlayer(wrapper) {
-        var audio = wrapper.querySelector('audio');
-        var btn   = wrapper.querySelector('.post-voice-play');
-        var wave  = wrapper.querySelector('.post-voice-wave');
-        var time  = wrapper.querySelector('.post-voice-time');
-        if (!audio || !btn || !wave) return;
-
-        var tooltip = document.createElement('span');
-        tooltip.className = 'post-voice-seek-tooltip';
-        tooltip.setAttribute('aria-hidden', 'true');
-        wave.appendChild(tooltip);
-        wave.setAttribute('role', 'slider');
-        wave.setAttribute('tabindex', '0');
-        wave.setAttribute('aria-label', 'Seek voice note');
-        wave.setAttribute('aria-valuemin', '0');
-        wave.setAttribute('aria-valuemax', '100');
-        wave.setAttribute('aria-valuenow', '0');
-
-        var dragging = false;
-        var resumeAfterDrag = false;
-
-        function fmt(s) {
-            s = Math.max(0, Math.floor(s || 0));
-            return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
-        }
-
-        function duration() {
-            var length = audio.duration || parseFloat(wrapper.dataset.duration) || 0;
-            return Number.isFinite(length) ? length : 0;
-        }
-
-        function updateProgress() {
-            var length = duration();
-            var pct = length > 0 ? Math.max(0, Math.min(100, (audio.currentTime / length) * 100)) : 0;
-            wave.style.setProperty('--progress', pct + '%');
-            wave.setAttribute('aria-valuenow', String(Math.round(pct)));
-            if (time) time.textContent = fmt(audio.currentTime);
-        }
-
-        function seekFromClientX(clientX) {
-            var bounds = wave.getBoundingClientRect();
-            var length = duration();
-            if (!length || bounds.width <= 0) return;
-            var fraction = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
-            audio.currentTime = fraction * length;
-            updateProgress();
-        }
-
-        function setTooltip(clientX) {
-            var bounds = wave.getBoundingClientRect();
-            var length = duration();
-            if (bounds.width <= 0 || !length) return;
-            var fraction = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
-            tooltip.textContent = fmt(fraction * length);
-            tooltip.style.left = (fraction * 100) + '%';
-        }
-
-        function play() {
-            document.querySelectorAll('.post-voice audio').forEach(function (otherAudio) {
-                if (otherAudio !== audio) otherAudio.pause();
-            });
-            audio.play();
-        }
-
-        btn.addEventListener('click', function () {
-            if (audio.paused) {
-                play();
-            } else {
-                audio.pause();
-            }
-        });
-
-        audio.addEventListener('play', function () {
-            btn.classList.add('playing');
-            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-        });
-
-        audio.addEventListener('pause', function () {
-            // FIX: don't swap icon mid-scrub (prevents flicker while dragging)
-            if (dragging) return;
-            btn.classList.remove('playing');
-            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
-        });
-
-        audio.addEventListener('ended', function () {
-            btn.classList.remove('playing');
-            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
-            // FIX: keep the wave/time consistent at the end
-            updateProgress();
-        });
-
-        audio.addEventListener('timeupdate', function () {
-            if (!dragging) updateProgress();
-        });
-
-        audio.addEventListener('loadedmetadata', function () {
-            updateProgress();
-        });
-
-        wave.addEventListener('pointerdown', function (event) {
-            if (!duration()) return;
-            event.preventDefault();
-            dragging = true;
-            resumeAfterDrag = !audio.paused;
-            if (resumeAfterDrag) audio.pause();
-            wave.setPointerCapture(event.pointerId);
-            seekFromClientX(event.clientX);
-            setTooltip(event.clientX);
-            tooltip.classList.add('visible');
-        });
-
-        wave.addEventListener('pointermove', function (event) {
-            setTooltip(event.clientX);
-            if (dragging) seekFromClientX(event.clientX);
-        });
-
-        function finishScrub(event) {
-            if (!dragging) return;
-            if (typeof event.clientX === 'number') {
-                seekFromClientX(event.clientX);
-                setTooltip(event.clientX); // FIX: keep tooltip aligned after release
-            }
-            dragging = false;
-
-            // FIX: don't auto-resume if the drag landed at the very end
-            var length = duration();
-            var atEnd = length > 0 && audio.currentTime >= length - 0.05;
-            if (resumeAfterDrag && !atEnd) play();
-            resumeAfterDrag = false;
-        }
-
-        wave.addEventListener('pointerup', finishScrub);
-        wave.addEventListener('pointercancel', finishScrub);
-
-        wave.addEventListener('pointerenter', function (event) {
-            setTooltip(event.clientX);
-            tooltip.classList.add('visible');
-        });
-
-        wave.addEventListener('pointerleave', function () {
-            if (!dragging) tooltip.classList.remove('visible');
-        });
-
-        wave.addEventListener('keydown', function (event) {
-            var length = duration();
-            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                event.preventDefault();
-                if (!length) return;
-                audio.currentTime = Math.max(0, Math.min(length, audio.currentTime + (event.key === 'ArrowRight' ? 5 : -5)));
-                updateProgress();
-            } else if (event.key === 'Home' || event.key === 'End') {
-                event.preventDefault();
-                if (!length) return;
-                audio.currentTime = event.key === 'Home' ? 0 : length;
-                updateProgress();
-            } else if (event.key === ' ' || event.key === 'Enter') {
-                event.preventDefault();
-                if (audio.paused) play();
-                else audio.pause();
-            }
-        });
-
-        updateProgress();
-    }
-
-    document.querySelectorAll('.post-voice').forEach(attachVoicePlayer);
-})();
-
-
-
-
-
-/* ============================================================
-   DELETE POST — AJAX
-   Intercepts .delete-post-form submit and removes the card in place.
-   ============================================================ */
-
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.delete-post-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-
-            if (!confirm('Delete this post permanently? This cannot be undone.')) {
-                return;
-            }
-
-            var button = form.querySelector('button[type="submit"]');
-            var postId = form.querySelector('input[name="post_id"]').value;
-            var csrfToken = form.querySelector('input[name="csrf_token"]').value;
-
-            if (button) button.disabled = true;
-
-            fetch('delete_post.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: new URLSearchParams({
-                    post_id: postId,
-                    csrf_token: csrfToken
-                })
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (!data.success) {
-                    alert(data.error || 'Could not delete the post.');
-                    if (button) button.disabled = false;
-                    return;
-                }
-
-                // Fade out the post card, then remove it
-                var card = form.closest('.card');
-                if (card) {
-                    card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-                    card.style.opacity = '0';
-                    card.style.transform = 'scale(0.98)';
-                    setTimeout(function () {
-                        card.remove();
-
-                        // If no more posts remain, show the empty state
-                        var anyCards = document.querySelectorAll('.card:not(.suggestions-card)');
-                        if (anyCards.length === 0) {
-                            var empty = document.createElement('div');
-                            empty.className = 'empty';
-                            empty.textContent = 'No posts yet.';
-                            var container = document.querySelector('.container') || document.body;
-                            container.appendChild(empty);
-                        }
-                    }, 200);
-                }
-            })
-            .catch(function (err) {
-                console.error('Delete error:', err);
-                alert('Could not delete the post. Please try again.');
-                if (button) button.disabled = false;
-            });
-        });
-    });
-});
-
-
-
-
-/* ============================================================
-   LOW-DATA MODE — tap-to-load images
+   LOW-DATA — delegated, no re-init needed
    ============================================================ */
 (function () {
     document.addEventListener('click', function (e) {
         var placeholder = e.target.closest('.img-placeholder');
         if (!placeholder) return;
-
         var src = placeholder.dataset.src;
         if (!src) return;
-
         placeholder.classList.add('loading');
         placeholder.innerHTML = '<i data-lucide="loader"></i><span>Loading…</span>';
         if (typeof lucide !== 'undefined') lucide.createIcons();
-
         var img = new Image();
         img.onload = function () {
             var replacement = document.createElement('img');
@@ -2084,28 +1896,223 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         img.src = src;
     });
-})();
 
-
-
-/* ============================================================
-   LOW-DATA MODE — tap-to-load videos
-   ============================================================ */
-(function () {
     document.addEventListener('click', function (e) {
         var placeholder = e.target.closest('.video-placeholder');
         if (!placeholder) return;
-
         var src = placeholder.dataset.videoSrc;
         if (!src) return;
-
         var vid = document.createElement('video');
         vid.className = 'post-video';
         vid.controls = true;
         vid.preload = 'metadata';
         vid.playsInline = true;
         vid.src = src;
-
+        vid.addEventListener('error', function () {
+            var retry = document.createElement('div');
+            retry.className = 'video-placeholder';
+            retry.dataset.videoSrc = src;
+            retry.innerHTML = '<i data-lucide="alert-circle"></i><span>Tap to retry</span>';
+            vid.replaceWith(retry);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
         placeholder.replaceWith(vid);
     });
 })();
+
+/* ============================================================
+   STYLED ALERT — replaces window.alert()
+   ============================================================ */
+function qarotaAlert(message, opts) {
+    opts = opts || {};
+    var title = opts.title || 'Qarota';
+
+    return new Promise(function (resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'qr-alert-overlay';
+
+        var card = document.createElement('div');
+        card.className = 'qr-alert-card';
+
+        var titleEl = document.createElement('div');
+        titleEl.className = 'qr-alert-title';
+        titleEl.textContent = title;
+
+        var msgEl = document.createElement('div');
+        msgEl.className = 'qr-alert-message';
+        msgEl.textContent = String(message || '');
+
+        var actions = document.createElement('div');
+        actions.className = 'qr-alert-actions';
+
+        var okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.className = 'qr-alert-btn';
+        okBtn.textContent = opts.okText || 'OK';
+
+        actions.appendChild(okBtn);
+        card.appendChild(titleEl);
+        card.appendChild(msgEl);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        requestAnimationFrame(function () {
+            overlay.classList.add('qr-alert-visible');
+        });
+
+        setTimeout(function () { okBtn.focus(); }, 50);
+
+        var previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        function dismiss() {
+            overlay.classList.remove('qr-alert-visible');
+            document.removeEventListener('keydown', onKey);
+            overlay.removeEventListener('click', onOverlayClick);
+            document.body.style.overflow = previousOverflow;
+            setTimeout(function () {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }, 200);
+            resolve(true);
+        }
+
+        function onKey(e) {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+                e.preventDefault();
+                dismiss();
+            }
+        }
+
+        function onOverlayClick(e) {
+            if (e.target === overlay) dismiss();
+        }
+
+        okBtn.addEventListener('click', dismiss);
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('click', onOverlayClick);
+    });
+}
+
+window.qarotaAlert = qarotaAlert;
+
+/* ============================================================
+   STYLED CONFIRM — replaces window.confirm()
+   ============================================================ */
+function qarotaConfirm(message, opts) {
+    opts = opts || {};
+    var title         = opts.title         || 'Are you sure?';
+    var okText        = opts.okText        || 'Confirm';
+    var cancelText    = opts.cancelText    || 'Cancel';
+    var okVariant     = opts.okVariant     || 'primary';
+    var cancelVariant = opts.cancelVariant || 'secondary';
+
+    if (opts.danger) okVariant = 'danger';
+
+    function classFor(variant) {
+        if (variant === 'primary')   return 'qr-alert-btn-primary';
+        if (variant === 'danger')    return 'qr-alert-btn-danger';
+        if (variant === 'secondary') return 'qr-alert-btn-secondary';
+        return 'qr-alert-btn-secondary';
+    }
+
+    return new Promise(function (resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'qr-alert-overlay';
+
+        var card = document.createElement('div');
+        card.className = 'qr-alert-card';
+
+        var titleEl = document.createElement('div');
+        titleEl.className = 'qr-alert-title';
+        titleEl.textContent = title;
+
+        var msgEl = document.createElement('div');
+        msgEl.className = 'qr-alert-message';
+        msgEl.textContent = String(message || '');
+
+        var actions = document.createElement('div');
+        actions.className = 'qr-alert-actions';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'qr-alert-btn ' + classFor(cancelVariant);
+        cancelBtn.textContent = cancelText;
+
+        var okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.className = 'qr-alert-btn ' + classFor(okVariant);
+        okBtn.textContent = okText;
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(okBtn);
+
+        card.appendChild(titleEl);
+        card.appendChild(msgEl);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        requestAnimationFrame(function () {
+            overlay.classList.add('qr-alert-visible');
+        });
+
+        setTimeout(function () {
+            if (okVariant === 'danger') {
+                cancelBtn.focus();
+            } else {
+                okBtn.focus();
+            }
+        }, 50);
+
+        var previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        var settled = false;
+
+        function cleanup(result) {
+            if (settled) return;
+            settled = true;
+            overlay.classList.remove('qr-alert-visible');
+            document.removeEventListener('keydown', onKey);
+            overlay.removeEventListener('click', onOverlayClick);
+            document.body.style.overflow = previousOverflow;
+            setTimeout(function () {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }, 200);
+            resolve(result);
+        }
+
+        function onKey(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cleanup(false);
+            } else if (e.key === 'Enter') {
+                if (document.activeElement === okBtn) {
+                    e.preventDefault();
+                    cleanup(true);
+                } else if (document.activeElement === cancelBtn) {
+                    e.preventDefault();
+                    cleanup(false);
+                }
+            } else if (e.key === 'Tab') {
+                var target = e.shiftKey
+                    ? (document.activeElement === cancelBtn ? okBtn : cancelBtn)
+                    : (document.activeElement === okBtn ? cancelBtn : okBtn);
+                e.preventDefault();
+                target.focus();
+            }
+        }
+
+        function onOverlayClick(e) {
+            if (e.target === overlay) cleanup(false);
+        }
+
+        okBtn.addEventListener('click', function () { cleanup(true); });
+        cancelBtn.addEventListener('click', function () { cleanup(false); });
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('click', onOverlayClick);
+    });
+}
+
+window.qarotaConfirm = qarotaConfirm;

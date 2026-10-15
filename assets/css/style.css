@@ -6176,3 +6176,286 @@ body.dark-mode .post-video {
         max-height: 60vh;
     }
 }
+
+
+.post-video-portrait {
+    width: auto;
+    max-width: 360px;
+    max-height: 640px;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
+
+
+
+.video-progress {
+    margin: var(--space-3) 0;
+    padding: var(--space-3);
+    background: var(--sand);
+    border-radius: var(--radius-md);
+}
+
+.video-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: var(--space-2);
+}
+
+.video-progress-fill {
+    height: 100%;
+    background: var(--terracotta);
+    width: 0%;
+    transition: width 0.2s linear;
+}
+
+.video-progress-label {
+    font-size: 0.85rem;
+    color: var(--deep-text);
+}
+
+
+
+/* ---- Upload progress overlay ---- */
+.upload-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.upload-overlay[hidden] { display: none; }
+.upload-card {
+    background: var(--ivory, #fff);
+    border-radius: var(--radius-md, 8px);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.upload-card h3 {
+    margin: 0 0 16px;
+    color: var(--deep-brown, #3E2723);
+}
+.upload-progress-track {
+    height: 8px;
+    background: var(--border, #e0e0e0);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.upload-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--terracotta, #C65D3B);
+    transition: width 0.2s linear;
+}
+.upload-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--muted, #666);
+}
+.upload-hint {
+    margin: 16px 0 0;
+    font-size: 0.9rem;
+    color: var(--muted, #666);
+}
+.upload-actions {
+    margin-top: 20px;
+    text-align: right;
+}
+
+
+
+/* ---- Styled alert dialog ---- */
+.qr-alert-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 10000;               /* above upload overlay (9998) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.qr-alert-overlay.qr-alert-visible {
+    opacity: 1;
+}
+.qr-alert-card {
+    background: var(--ivory, #fff);
+    border-radius: var(--radius-md, 8px);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    transform: translateY(8px);
+    transition: transform 0.15s ease;
+}
+.qr-alert-overlay.qr-alert-visible .qr-alert-card {
+    transform: translateY(0);
+}
+.qr-alert-title {
+    margin: 0 0 12px;
+    color: var(--deep-brown, #3E2723);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+.qr-alert-message {
+    color: var(--deep-brown, #3E2723);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    white-space: pre-wrap;       /* preserves \n line breaks */
+    word-wrap: break-word;
+}
+.qr-alert-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2, 8px);
+}
+.qr-alert-btn {
+    background: var(--ivory, #fff);
+    color: var(--terracotta, #C65D3B);
+    border: 1px solid var(--terracotta, #C65D3B);
+    border-radius: var(--radius-sm, 6px);
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.qr-alert-btn:hover {
+    background: var(--terracotta, #C65D3B);
+    color: #fff;
+}
+.qr-alert-btn:focus-visible {
+    outline: 2px solid var(--terracotta, #C65D3B);
+    outline-offset: 2px;
+}
+
+
+
+/* ---- Confirm dialog — extends qr-alert styles ---- */
+.qr-alert-btn-primary {
+    background: var(--terracotta, #C65D3B);
+    color: #fff;
+    border: 1px solid var(--terracotta, #C65D3B);
+}
+.qr-alert-btn-primary:hover {
+    background: var(--deep-brown, #3E2723);
+    border-color: var(--deep-brown, #3E2723);
+    color: #fff;
+}
+.qr-alert-btn-danger {
+    background: var(--danger, #c0392b);
+    color: #fff;
+    border: 1px solid var(--danger, #c0392b);
+}
+.qr-alert-btn-danger:hover {
+    background: #a32e21;
+    border-color: #a32e21;
+    color: #fff;
+}
+.qr-alert-btn-secondary {
+    /* Reuses the .qr-alert-btn base: white bg, terracotta text/border */
+}
+
+
+
+
+/* ---- Styled alert / confirm dialogs ---- */
+.qr-alert-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.qr-alert-overlay.qr-alert-visible { opacity: 1; }
+
+.qr-alert-card {
+    background: var(--ivory, #fff);
+    border-radius: var(--radius-md, 8px);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    transform: translateY(8px);
+    transition: transform 0.15s ease;
+}
+.qr-alert-overlay.qr-alert-visible .qr-alert-card { transform: translateY(0); }
+
+.qr-alert-title {
+    margin: 0 0 12px;
+    color: var(--deep-brown, #3E2723);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+.qr-alert-message {
+    color: var(--deep-brown, #3E2723);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.qr-alert-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2, 8px);
+}
+.qr-alert-btn {
+    background: var(--ivory, #fff);
+    color: var(--terracotta, #C65D3B);
+    border: 1px solid var(--terracotta, #C65D3B);
+    border-radius: var(--radius-sm, 6px);
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.qr-alert-btn:hover {
+    background: var(--terracotta, #C65D3B);
+    color: #fff;
+}
+.qr-alert-btn:focus-visible {
+    outline: 2px solid var(--terracotta, #C65D3B);
+    outline-offset: 2px;
+}
+.qr-alert-btn-primary {
+    background: var(--terracotta, #C65D3B);
+    color: #fff;
+    border-color: var(--terracotta, #C65D3B);
+}
+.qr-alert-btn-primary:hover {
+    background: var(--deep-brown, #3E2723);
+    border-color: var(--deep-brown, #3E2723);
+    color: #fff;
+}
+.qr-alert-btn-danger {
+    background: var(--danger, #c0392b);
+    color: #fff;
+    border-color: var(--danger, #c0392b);
+}
+.qr-alert-btn-danger:hover {
+    background: #a32e21;
+    border-color: #a32e21;
+    color: #fff;
+}

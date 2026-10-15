@@ -193,15 +193,15 @@ $og_description = "Africa's social network. Your data stays home.";
                             <span>Notifications</span>
                         </a>
 
-                                <a href="settings_2fa.php" class="profile-menu-item">
-            <i data-lucide="shield-check"></i>
-            <span>Two-factor auth</span>
-                            </a>
+                        <a href="settings_2fa.php" class="profile-menu-item">
+                            <i data-lucide="shield-check"></i>
+                            <span>Two-factor auth</span>
+                        </a>
 
-                            <a href="settings_sessions.php" class="profile-menu-item">
-                                <i data-lucide="monitor"></i>
-                                <span>Active sessions</span>
-                            </a>
+                        <a href="settings_sessions.php" class="profile-menu-item">
+                            <i data-lucide="monitor"></i>
+                            <span>Active sessions</span>
+                        </a>
 
                         <a href="settings_data.php" class="profile-menu-item">
                             <i data-lucide="wifi-off"></i>
@@ -307,7 +307,7 @@ $og_description = "Africa's social network. Your data stays home.";
 <div id="navOverlay" onclick="toggleNav()"></div>
 
 <script>
-/* ---- Mobile hamburger menu ---- */
+/* ---- Mobile hamburger menu (only) ---- */
 function toggleNav() {
     var nav = document.getElementById('navLinks');
     var overlay = document.getElementById('navOverlay');
@@ -315,70 +315,9 @@ function toggleNav() {
     var isOpen = nav.classList.toggle('open');
     overlay.classList.toggle('open', isOpen);
 }
-
-/* ---- Profile dropdown ---- */
-document.addEventListener('DOMContentLoaded', function () {
-    var btn         = document.getElementById('profileMenuBtn');
-    var dropdown    = document.getElementById('profileMenuDropdown');
-    var settingsBtn = document.getElementById('settingsToggle');
-    var settingsSub = document.getElementById('settingsSubmenu');
-
-    if (!btn || !dropdown) return;
-
-    function closeAll() {
-        dropdown.hidden = true;
-        btn.setAttribute('aria-expanded', 'false');
-        if (settingsSub) settingsSub.hidden = true;
-        if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
-    }
-
-    btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var isOpen = !dropdown.hidden;
-        if (isOpen) {
-            closeAll();
-        } else {
-            dropdown.hidden = false;
-            btn.setAttribute('aria-expanded', 'true');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-    });
-
-    if (settingsBtn && settingsSub) {
-        settingsBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var isOpen = !settingsSub.hidden;
-            settingsSub.hidden = isOpen;
-            settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-        });
-    }
-
-    document.addEventListener('click', function (e) {
-        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-            closeAll();
-        }
-    });
-
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeAll();
-    });
-});
-
-/* ---- Mobile nav: close on link click ---- */
-document.addEventListener('DOMContentLoaded', function() {
-    var navLinks = document.getElementById('navLinks');
-    if (!navLinks) return;
-    navLinks.querySelectorAll('a').forEach(function(link) {
-        link.addEventListener('click', function() {
-            navLinks.classList.remove('open');
-            var ov = document.getElementById('navOverlay');
-            if (ov) ov.classList.remove('open');
-        });
-    });
-});
 </script>
 
-<main class="container">
+<main class="container" id="main">
     <?php if (!empty($_SESSION['flash'])): ?>
         <div class="message"><?= htmlspecialchars($_SESSION['flash'], ENT_QUOTES, 'UTF-8') ?></div>
         <?php unset($_SESSION['flash']); ?>

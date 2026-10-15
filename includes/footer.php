@@ -13,19 +13,11 @@
 <?php endif; ?>
 
 <script src="assets/js/interact.js?v=<?= filemtime(__DIR__ . '/../assets/js/interact.js') ?>"></script>
+<script src="assets/js/nav.js?v=<?= filemtime(__DIR__ . '/../assets/js/nav.js') ?>" defer></script>
 
 <?php if (basename($_SERVER['PHP_SELF']) === 'register.php'): ?>
     <script src="assets/js/register.js"></script>
 <?php endif; ?>
-
-<script>
-    // Initialize Lucide icons on every page load
-    document.addEventListener('DOMContentLoaded', function() {
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    });
-</script>
 
 <!-- PWA: register service worker -->
 <script>
@@ -42,7 +34,7 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<!-- iOS install hint — shows once if not already installed -->
+<!-- iOS install hint -->
 <script>
 (function () {
     var isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -59,58 +51,6 @@ if ('serviceWorker' in navigator) {
             localStorage.setItem(seenKey, '1');
         };
     }
-})();
-</script>
-
-
-
-<script>
-(function () {
-    var btn      = document.getElementById('profileMenuBtn');
-    var dropdown = document.getElementById('profileMenuDropdown');
-    var settingsBtn = document.getElementById('settingsToggle');
-    var settingsSub = document.getElementById('settingsSubmenu');
-
-    if (!btn || !dropdown) return;
-
-    function closeAll() {
-        dropdown.hidden = true;
-        btn.setAttribute('aria-expanded', 'false');
-        if (settingsSub) settingsSub.hidden = true;
-        if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
-    }
-
-    btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var isOpen = !dropdown.hidden;
-        if (isOpen) {
-            closeAll();
-        } else {
-            dropdown.hidden = false;
-            btn.setAttribute('aria-expanded', 'true');
-        }
-    });
-
-    if (settingsBtn && settingsSub) {
-        settingsBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var isOpen = !settingsSub.hidden;
-            settingsSub.hidden = isOpen;
-            settingsBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
-        });
-    }
-
-    // Close on outside click
-    document.addEventListener('click', function (e) {
-        if (!dropdown.contains(e.target) && e.target !== btn) {
-            closeAll();
-        }
-    });
-
-    // Close on Escape
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeAll();
-    });
 })();
 </script>
 
