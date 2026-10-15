@@ -6091,3 +6091,38 @@ body.dark-mode .session-device {
         width: 100%;
     }
 }
+
+
+
+/* ============================================================
+   POST VIDEOS
+   ============================================================ */
+.post-video {
+    display: block;
+    width: 100%;
+    max-height: 480px;
+    border-radius: var(--radius-md);
+    margin: var(--space-3) 0;
+    background: #000;
+}
+
+.video-placeholder {
+    /* inherits .img-placeholder styling */
+    aspect-ratio: 16 / 9;
+    min-height: 140px;
+}
+
+body.dark-mode .post-video {
+    background: #000;
+}
+
+
+.post-video {
+    display: block;
+    width: 100%;
+    max-height: 480px;
+    background: #000;
+    border-radius: var(--radius-md);
+    margin: var(--space-3) 0;
+    object-fit: contain;   /* ← add this */
+}

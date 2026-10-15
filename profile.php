@@ -9,6 +9,7 @@ require 'includes/csrf.php';
 require 'includes/rate_limit.php';
 require_once __DIR__ . '/includes/posts.php';
 require_once __DIR__ . '/includes/voice_upload.php';
+require_once __DIR__ . '/includes/video_upload.php';
 require_once __DIR__ . '/includes/badge.php';
 require_once __DIR__ . '/includes/language.php';
 require 'includes/messages.php';
@@ -37,7 +38,6 @@ if (isset($_GET['id']) && !isset($_GET['u'])) {
 $profile_username = $_GET['u'] ?? $_SESSION['username'];
 $viewer_id = (int)$_SESSION['user_id'];
 
-// ---- Admin gate (needed for ban + verify UI) ----
 $stmt = $pdo->prepare("SELECT is_admin FROM users WHERE id = :id LIMIT 1");
 $stmt->execute([':id' => $viewer_id]);
 $viewer_is_admin = (int)$stmt->fetchColumn() === 1;
@@ -112,17 +112,22 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $has_image = !empty($_FILES['image']['name'] ?? '') && ($_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
     $has_voice = !empty($_FILES['voice']['name'] ?? '') && ($_FILES['voice']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
+    $has_video = !empty($_FILES['video']['name'] ?? '') && ($_FILES['video']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK;
 
-    if ($content === '' && !$has_image && !$has_voice) {
+    $media_count = (int)$has_image + (int)$has_voice + (int)$has_video;
+
+    if ($content === '' && $media_count === 0) {
         $message = 'Please write something or attach media.';
-    } elseif ($has_image && $has_voice) {
-        $message = 'Please attach either a photo or a voice note, not both.';
+    } elseif ($media_count > 1) {
+        $message = 'Please attach only one type of media (photo, video, or voice note).';
     } else {
         $media_path     = null;
         $media_type     = 'text';
         $media_duration = null;
         $media_mime     = null;
+        $video_thumb    = null;
 
+        // ---- Image ----
         if ($has_image) {
             $allowed  = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             $max_size = 5 * 1024 * 1024;
@@ -158,6 +163,7 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // ---- Voice ----
         if (empty($message) && $has_voice) {
             $duration = (int)($_POST['voice_duration'] ?? 0);
             try {
@@ -171,15 +177,36 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // ---- Video ----
+        if (empty($message) && $has_video) {
+            $duration = (int)($_POST['video_duration'] ?? 0);
+            try {
+                $v = handle_video_upload($_FILES['video'], max(1, $duration));
+
+                if ($visibility !== 'public') {
+                    $v = move_post_video_to_private($v);
+                }
+
+                $media_path     = $v['path'];
+                $media_type     = 'video';
+                $media_duration = $v['duration'];
+                $media_mime     = $v['mime'];
+                $video_thumb    = $v['thumb'];
+            } catch (Throwable $e) {
+                $message = $e->getMessage();
+            }
+        }
+
         if (empty($message)) {
-            // Detect the post's language from its content
             $post_lang = detect_post_language($content, $profile_user['languages'] ?? null);
 
             $stmt = $pdo->prepare(
                 "INSERT INTO posts
-                    (user_id, content, lang, media_path, media_type, media_duration, media_mime, visibility)
+                    (user_id, content, lang, media_path, media_type, media_duration, media_mime,
+                     video_duration, video_thumb, visibility)
                  VALUES
-                    (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime, :visibility)"
+                    (:user_id, :content, :lang, :media, :mtype, :mdur, :mmime,
+                     :vdur, :vthumb, :visibility)"
             );
             $stmt->execute([
                 ':user_id'    => $_SESSION['user_id'],
@@ -189,6 +216,8 @@ if ($is_own_profile && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':mtype'      => $media_type,
                 ':mdur'       => $media_duration,
                 ':mmime'      => $media_mime,
+                ':vdur'       => $media_type === 'video' ? $media_duration : null,
+                ':vthumb'     => $video_thumb,
                 ':visibility' => $visibility,
             ]);
             $new_post_id = (int)$pdo->lastInsertId();
@@ -267,6 +296,7 @@ $stmt = $pdo->prepare("
         posts.id, posts.content, posts.media_path, posts.created_at, posts.edited_at,
         posts.visibility,
         posts.media_type, posts.media_duration, posts.media_mime,
+        posts.video_duration, posts.video_thumb,
         users.avatar, users.verification_type,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id) AS like_count,
         (SELECT COUNT(*) FROM likes WHERE post_id = posts.id AND user_id = :me_like) AS liked_by_me,
@@ -596,6 +626,19 @@ require 'includes/header.php';
                        class="file-picker-input"
                        onchange="var n = this.files[0] ? this.files[0].name : ''; document.getElementById('postFileName').textContent = n;">
 
+                <label for="post-video" class="file-picker">
+                    <i data-lucide="video" class="file-picker-icon"></i>
+                    <span class="file-picker-text">Add a video</span>
+                    <span class="file-picker-name" id="postVideoName"></span>
+                </label>
+                <input type="file"
+                       id="post-video"
+                       name="video"
+                       accept="video/mp4,video/webm,video/quicktime"
+                       class="file-picker-input"
+                       onchange="var n = this.files[0] ? this.files[0].name : ''; document.getElementById('postVideoName').textContent = n; var v = document.createElement('video'); v.preload = 'metadata'; v.onloadedmetadata = function(){ document.getElementById('postVideoDuration').value = Math.round(v.duration) || 0; }; v.src = URL.createObjectURL(this.files[0]);">
+                <input type="hidden" name="video_duration" id="postVideoDuration" value="0">
+
                 <button type="button"
                         id="postMicBtn"
                         class="file-picker"
@@ -634,6 +677,7 @@ require 'includes/header.php';
         $media_type = $post['media_type'] ?? 'text';
         $has_voice  = $media_type === 'voice' && !empty($post['media_path']);
         $has_image  = $media_type === 'image' && !empty($post['media_path']);
+        $has_video  = $media_type === 'video' && !empty($post['media_path']);
         ?>
         <div class="card">
             <div class="post-header">
@@ -665,7 +709,27 @@ require 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <?php if ($has_voice): ?>
+            <?php if ($has_video): ?>
+                <?php if (!empty($_SESSION['low_data_mode'])): ?>
+                    <div class="img-placeholder video-placeholder"
+                         data-video-src="post_video.php?id=<?= (int)$post['id'] ?>">
+                        <i data-lucide="video"></i>
+                        <span>Tap to load video</span>
+                    </div>
+                <?php else: ?>
+                    <video class="post-video"
+                           controls
+                           preload="metadata"
+                           playsinline
+                           <?php if (!empty($post['video_thumb'])): ?>
+                               poster="post_video_thumb.php?id=<?= (int)$post['id'] ?>"
+                           <?php endif; ?>
+                           data-video-id="<?= (int)$post['id'] ?>">
+                        <source src="post_video.php?id=<?= (int)$post['id'] ?>"
+                                type="<?= htmlspecialchars($post['media_mime'] ?: 'video/mp4') ?>">
+                    </video>
+                <?php endif; ?>
+            <?php elseif ($has_voice): ?>
                 <div class="post-voice" data-duration="<?= (int)($post['media_duration'] ?? 0) ?>">
                     <button type="button" class="post-voice-play" aria-label="Play voice note">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

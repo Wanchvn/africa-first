@@ -2085,3 +2085,27 @@ document.addEventListener('DOMContentLoaded', function () {
         img.src = src;
     });
 })();
+
+
+
+/* ============================================================
+   LOW-DATA MODE — tap-to-load videos
+   ============================================================ */
+(function () {
+    document.addEventListener('click', function (e) {
+        var placeholder = e.target.closest('.video-placeholder');
+        if (!placeholder) return;
+
+        var src = placeholder.dataset.videoSrc;
+        if (!src) return;
+
+        var vid = document.createElement('video');
+        vid.className = 'post-video';
+        vid.controls = true;
+        vid.preload = 'metadata';
+        vid.playsInline = true;
+        vid.src = src;
+
+        placeholder.replaceWith(vid);
+    });
+})();
