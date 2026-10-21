@@ -627,10 +627,14 @@ function escapeHtmlText(text) {
 
 /* ============================================================
    MESSAGES — conversation page only
+   Wrapped as a named function so it can be re-run after
+   a client-side navigation swap.
    ============================================================ */
-(function () {
+function initConversation() {
     var card = document.getElementById('conversationCard');
     if (!card) return;
+    if (card.dataset.convBound === '1') return;
+    card.dataset.convBound = '1';
 
     var conv   = card.dataset.conv;
     var me     = parseInt(card.dataset.me, 10);
@@ -1326,8 +1330,56 @@ function escapeHtmlText(text) {
     });
 
     scrollToBottom();
-    setInterval(poll, 4000);
-})();
+
+    /* ---- Group member search filter ---- */
+    (function () {
+        var search = document.getElementById('groupMemberSearch');
+        if (!search) return;
+        var forms = Array.prototype.slice.call(document.querySelectorAll('.group-add-member-form'));
+        search.addEventListener('input', function () {
+            var query = search.value.trim().toLowerCase();
+            forms.forEach(function (form) {
+                var text = (form.getAttribute('data-member-search') || '').toLowerCase();
+                form.hidden = query && text.indexOf(query) === -1;
+            });
+        });
+    })();
+
+    /* ---- Anchor scroll — jump to a message from search ---- */
+    (function () {
+        var hash = window.location.hash;
+        if (!hash || hash.indexOf('#message-') !== 0) return;
+
+        var messageId = hash.replace('#message-', '');
+        if (!messageId) return;
+
+        var attempts = 0;
+        var interval = setInterval(function () {
+            attempts++;
+            var bubble = thread.querySelector('.bubble[data-id="' + messageId + '"]');
+            if (bubble) {
+                clearInterval(interval);
+                bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                bubble.classList.add('bubble-highlighted');
+                setTimeout(function () {
+                    bubble.classList.remove('bubble-highlighted');
+                }, 2400);
+            }
+            if (attempts > 20) clearInterval(interval);
+        }, 200);
+    })();
+
+    /* ---- Poll + teardown ---- */
+    var pollTimer = setInterval(poll, 4000);
+
+    document.addEventListener('qarota:beforeNavigate', function () {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            try { mediaRecorder.stop(); } catch (e) {}
+        }
+        if (recordTimerId) { clearInterval(recordTimerId); recordTimerId = null; }
+    }, { once: true });
+}
 
 /* ============================================================
    POST VOICE PLAYER
@@ -1644,6 +1696,7 @@ function runAllPageInits() {
     initPostVoicePlayers();
     initProfileMenu();
     initMobileNavCloseOnClick();
+    initConversation();
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -1921,7 +1974,7 @@ document.addEventListener('DOMContentLoaded', runAllPageInits);
 })();
 
 /* ============================================================
-   STYLED ALERT — replaces window.alert()
+   STYLED ALERT
    ============================================================ */
 function qarotaAlert(message, opts) {
     opts = opts || {};
@@ -1997,7 +2050,7 @@ function qarotaAlert(message, opts) {
 window.qarotaAlert = qarotaAlert;
 
 /* ============================================================
-   STYLED CONFIRM — replaces window.confirm()
+   STYLED CONFIRM
    ============================================================ */
 function qarotaConfirm(message, opts) {
     opts = opts || {};

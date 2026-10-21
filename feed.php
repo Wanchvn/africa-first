@@ -120,7 +120,10 @@ if ($following_count < $min_follows) {
     $stmt->execute([':id' => $user_id]);
     $me_info = $stmt->fetch();
     $my_location  = trim($me_info['location'] ?? '');
-    $my_languages_raw_raw = trim($me_info['languages'] ?? '');
+
+    // FIX: use the same parse_user_languages() helper used above so this is
+    // always an array of tokens, not a raw string.
+    $my_lang_tokens = parse_user_languages($me_info['languages'] ?? '');
 
     $stmt = $pdo->prepare("
         SELECT u.id, u.username, u.display_name, u.avatar,
@@ -147,21 +150,18 @@ if ($following_count < $min_follows) {
         $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
-    if ($my_languages_raw !== '' && count($suggestions) < 4) {
-        $my_lang_tokens = array_filter(array_map('trim', explode(',', $my_languages_raw)));
-        if (!empty($my_lang_tokens)) {
-            $lang_conditions = [];
-            $lang_params = [':me' => $user_id];
-            foreach ($my_lang_tokens as $i => $lang) {
-                $key = ":lang$i";
-                $lang_conditions[] = "languages LIKE $key";
-                $lang_params[$key] = '%' . $lang . '%';
-            }
-            $lang_sql = implode(' OR ', $lang_conditions);
-            $stmt = $pdo->prepare("SELECT id, username, display_name, avatar, 'shared_language' AS source FROM users WHERE id != :me AND id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me) AND ($lang_sql) LIMIT 3");
-            $stmt->execute($lang_params);
-            $suggestions = array_merge($suggestions, $stmt->fetchAll());
+    if (!empty($my_lang_tokens) && count($suggestions) < 4) {
+        $lang_conditions = [];
+        $lang_params = [':me' => $user_id];
+        foreach ($my_lang_tokens as $i => $lang) {
+            $key = ":lang$i";
+            $lang_conditions[] = "languages LIKE $key";
+            $lang_params[$key] = '%' . $lang . '%';
         }
+        $lang_sql = implode(' OR ', $lang_conditions);
+        $stmt = $pdo->prepare("SELECT id, username, display_name, avatar, 'shared_language' AS source FROM users WHERE id != :me AND id NOT IN (SELECT following_id FROM follows WHERE follower_id = :me) AND ($lang_sql) LIMIT 3");
+        $stmt->execute($lang_params);
+        $suggestions = array_merge($suggestions, $stmt->fetchAll());
     }
 
     if (count($suggestions) < 4) {

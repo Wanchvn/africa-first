@@ -21,12 +21,11 @@
     // Paths that should always do a full reload — chat has long-lived
     // JS state (poll timers, audio recorder streams) that's cleaner to
     // tear down by reloading than to re-init in place.
-    var FULL_RELOAD_PATHS = [
-        'conversation.php',
-        'login.php',
-        'logout.php',
-        'register.php'
-    ];
+   var FULL_RELOAD_PATHS = [
+    'login.php',
+    'logout.php',
+    'register.php'
+];
 
     var currentAbort = null;
     var isNavigating = false;
@@ -148,6 +147,9 @@
                 window.location.href = url;
                 return;
             }
+
+            // Let the current page tear down its state (poll timers, MediaRecorder, etc.)
+            document.dispatchEvent(new CustomEvent('qarota:beforeNavigate'));
 
             // Swap
             currentMain.replaceWith(newMain);

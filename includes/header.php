@@ -175,6 +175,11 @@ $og_description = "Africa's social network. Your data stays home.";
                         <span><?= __('nav_profile') ?></span>
                     </a>
 
+                    <a href="dating.php" class="profile-menu-item">
+                        <i data-lucide="heart"></i>
+                        <span>Dating</span>
+                    </a>
+
                     <button type="button" class="profile-menu-item profile-menu-toggle"
                             id="settingsToggle" aria-expanded="false">
                         <i data-lucide="settings"></i>
@@ -262,6 +267,11 @@ $og_description = "Africa's social network. Your data stays home.";
                         <a href="admin_verifications.php" class="profile-menu-item">
                             <i data-lucide="id-card"></i>
                             <span>Verification requests</span>
+                        </a>
+
+                        <a href="admin_dating_verifications.php" class="profile-menu-item">
+                            <i data-lucide="heart-handshake"></i>
+                            <span>Dating verifications</span>
                         </a>
 
                         <a href="moderation.php" class="profile-menu-item">

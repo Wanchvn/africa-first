@@ -82,16 +82,11 @@ $i_blocked_them  = $partner ? is_blocked($pdo, $me, (int)$partner['id']) : false
 $they_blocked_me = $partner ? is_blocked($pdo, (int)$partner['id'], $me) : false;
 $blocked_either  = $i_blocked_them || $they_blocked_me;
 
-// Mark read BEFORE loading messages, so unread counts from other
-// conversations are accurate and this thread's messages flip to read.
 mark_conversation_read($pdo, $conv, $me);
 
 // -----------------------------------------------------------------------------
 // Load messages — cap the tail, not the head
 // -----------------------------------------------------------------------------
-// We grab the LAST 500 messages (DESC + reverse) rather than the first 500.
-// For long threads, the recent messages are what matters; the first 500 would
-// silently hide the newest.
 $mStmt = $pdo->prepare(
     "SELECT id, sender_id, body, message_type, voice_path, voice_duration,
             image_path, video_path, video_duration, video_thumb,
@@ -139,11 +134,6 @@ if ($lm && (int)$lm['sender_id'] === $me) {
     $lastOwnSeen = ((int)$lm['is_read'] === 1);
     $lastOwnAt   = $lm['created_at'];
 }
-
-// For 1:1, "last_own_seen" only makes sense if the partner actually read it.
-// But is_read on a message is set by mark_conversation_read() — which runs
-// when the PARTNER opens this thread. We can't infer partner state from
-// our own view; the server-side flag is what we trust. Leave as-is.
 
 if ($isGroup && $lastOwnAt) {
     $lrStmt = $pdo->prepare(
@@ -336,8 +326,8 @@ require 'includes/header.php';
                 <?= csrf_field() ?>
                 <input type="hidden" name="conversation_id" value="<?= $conv ?>">
                 <button type="submit" class="btn btn-secondary group-leave-btn" data-confirm="<?= htmlspecialchars(__('group_leave_confirm'), ENT_QUOTES, 'UTF-8') ?>">
-    <?= __('group_leave') ?>
-</button>
+                    <?= __('group_leave') ?>
+                </button>
             </form>
         </div>
     <?php elseif ($partner): ?>
@@ -368,9 +358,9 @@ require 'includes/header.php';
                     <input type="hidden" name="redirect"
                            value="conversation.php?id=<?= $conv ?>">
                     <button type="submit"
-        class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?> btn-small">
-    <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
-</button>
+                            class="<?= $i_blocked_them ? 'btn-secondary' : 'btn-danger' ?> btn-small">
+                        <?= $i_blocked_them ? __('block_unblock') : __('block_button') ?>
+                    </button>
                 </form>
 
                 <a href="report_message.php?conversation_id=<?= $conv ?>"
@@ -455,11 +445,7 @@ require 'includes/header.php';
 
                     <?php elseif ($is_video): ?>
                         <div class="video-message">
-                            <?php
-                            // video_thumb may be a stored path (legacy) or a flag.
-                            // Prefer the serving endpoint for consistent auth checks.
-                            $posterUrl = 'video_thumb_serve.php?id=' . (int)$m['id'];
-                            ?>
+                            <?php $posterUrl = 'video_thumb_serve.php?id=' . (int)$m['id']; ?>
                             <video controls preload="metadata" class="dm-video"
                                    <?php if (!empty($m['video_thumb'])): ?>
                                        poster="<?= htmlspecialchars($posterUrl, ENT_QUOTES, 'UTF-8') ?>"
@@ -626,69 +612,5 @@ require 'includes/header.php';
         </form>
     <?php endif; ?>
 </div>
-
-<?php if ($isGroup && $isAdmin): ?>
-<script>
-(function () {
-    var search = document.getElementById('groupMemberSearch');
-    if (!search) return;
-    var forms = Array.prototype.slice.call(document.querySelectorAll('.group-add-member-form'));
-    search.addEventListener('input', function () {
-        var query = search.value.trim().toLowerCase();
-        forms.forEach(function (form) {
-            var text = (form.getAttribute('data-member-search') || '').toLowerCase();
-            form.hidden = query && text.indexOf(query) === -1;
-        });
-    });
-})();
-</script>
-<?php endif; ?>
-
-<script>
-/* ============================================================
-   ANCHOR SCROLL — jump to a message from search
-   ============================================================ */
-(function () {
-    var hash = window.location.hash;
-    if (!hash || hash.indexOf('#message-') !== 0) return;
-
-    var messageId = hash.replace('#message-', '');
-    if (!messageId) return;
-
-    var attempts = 0;
-    var interval = setInterval(function () {
-        attempts++;
-        var bubble = document.querySelector('.bubble[data-id="' + messageId + '"]');
-        if (bubble) {
-            clearInterval(interval);
-            bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            bubble.classList.add('bubble-highlighted');
-            setTimeout(function () {
-                bubble.classList.remove('bubble-highlighted');
-            }, 2400);
-        }
-        if (attempts > 20) clearInterval(interval);
-    }, 200);
-})();
-
-
-
-
-/* Group leave button — uses qarotaConfirm */
-document.addEventListener('click', function (e) {
-    var btn = e.target.closest('.group-leave-btn');
-    if (!btn) return;
-    e.preventDefault();
-    var form = btn.closest('form');
-    qarotaConfirm(btn.dataset.confirm || 'Leave this group?', {
-        title: 'Leave group',
-        okText: 'Leave',
-        cancelText: 'Cancel',
-        danger: true
-    }).then(function (ok) {
-        if (ok && form) form.submit();
-    });
-});
-</script>
 
 <?php require 'includes/footer.php'; ?>
