@@ -1,5 +1,8 @@
 uploads/*
 !uploads/.htaccess
+!uploads/dating_verifications/
+uploads/dating_verifications/*
+!uploads/dating_verifications/.htaccess
 !uploads/private_posts/
 uploads/private_posts/*
 !uploads/private_posts/.htaccess

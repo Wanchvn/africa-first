@@ -3,14 +3,10 @@ require_once __DIR__ . '/../includes/bootstrap.php';
 require_once __DIR__ . '/../includes/session.php';
 start_secure_session();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/dating.php';
 
 $user = api_require_admin($pdo); 
-
-if (!isset($user['is_admin']) || !$user['is_admin']) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
-    exit;
-}
 
 $type = $_GET['type'] ?? 'profile';
 $items = [];
@@ -39,12 +35,11 @@ try {
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
     } elseif ($type === 'dating') {
-        // Assuming your dating_verification table has these standard columns
         $stmt = $pdo->prepare("
             SELECT 
                 v.id, 
-                v.created_at, 
-                v.selfie_url, 
+                v.submitted_at AS created_at,
+                CONCAT('api/dating_verification_image.php?id=', v.id) AS selfie_url,
                 v.code,
                 u.username, 
                 u.display_name AS name
@@ -59,7 +54,7 @@ try {
     echo json_encode(['success' => true, 'items' => $items]);
 
 } catch (Throwable $e) {
-    error_log('Admin get verifications error: ' . $e->getMessage());
+    error_log('Admin get verifications failed: ' . get_class($e));
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database error']);
 }

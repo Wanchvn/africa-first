@@ -7,7 +7,9 @@ require 'config/db.php';
 require 'lang/init.php';
 require 'includes/csrf.php';
 require 'includes/rate_limit.php';
-require_once __DIR__ . '/includes/totp.php';
+
+// Use the same TOTP class as the mobile app
+require_once __DIR__ . '/includes/QarotaTOTP.php'; 
 
 // Must have a pending 2FA login
 $pendingUserId = (int)($_SESSION['pending_2fa_user_id'] ?? 0);
@@ -20,8 +22,8 @@ if ($pendingUserId <= 0 || $pendingStart <= 0 || (time() - $pendingStart) > 300)
     exit;
 }
 
-// Load the pending user
-$stmt = $pdo->prepare("SELECT id, username, display_name, totp_secret FROM users WHERE id = :id AND totp_enabled = 1 LIMIT 1");
+// Load the pending user (FIXED COLUMN NAMES)
+$stmt = $pdo->prepare("SELECT id, username, display_name, two_factor_secret FROM users WHERE id = :id AND two_factor_enabled = 1 LIMIT 1");
 $stmt->execute([':id' => $pendingUserId]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -44,14 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $authenticated = false;
 
     if ($mode === 'totp') {
-        if (totp_verify((string)$user['totp_secret'], $code)) {
+        $totp = new QarotaTOTP();
+        // Verify the code using the exact same class as the mobile app
+        if ($totp->verifyCode((string)$user['two_factor_secret'], $code, 2)) {
             $authenticated = true;
         } else {
             $error = 'That code is not correct. Try the next one your app shows.';
         }
     } elseif ($mode === 'backup') {
         // Try to match a backup code
-        $normalized = totp_normalize_backup_code($code);
+        // Note: You need to make sure the totp_backup_codes table exists in your database.
+        $normalized = str_replace('-', '', $code); // Simple normalization
 
         $stmt = $pdo->prepare("
             SELECT id, code_hash FROM totp_backup_codes
@@ -89,10 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['pending_2fa_remember']
         );
 
-        require_once __DIR__ . '/includes/session.php';
         regenerate_session_on_login();
 
-        header('Location: feed.php');
+        // Redirect to the feed (or profile, depending on your app)
+        header('Location: feed.php'); 
         exit;
     }
 }

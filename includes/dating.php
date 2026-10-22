@@ -244,43 +244,65 @@ function record_swipe(PDO $pdo, int $from, int $to, string $action): array
         throw new InvalidArgumentException('Cannot swipe yourself.');
     }
 
-    $check = $pdo->prepare("
-        SELECT action FROM dating_likes
-        WHERE from_user_id = :f AND to_user_id = :t
-        LIMIT 1
-    ");
-    $check->execute([':f' => $from, ':t' => $to]);
-    $existing = $check->fetchColumn();
-    if ($existing !== false) {
-        return ['matched' => false, 'match' => null];
-    }
-
-    if ($action === 'like') {
-        if (dating_likes_today($pdo, $from) >= DATING_DAILY_LIKE_LIMIT) {
-            throw new RuntimeException("You have reached today's like limit. Try again tomorrow.");
-        }
-    }
-
     $pdo->beginTransaction();
     try {
-        $ins = $pdo->prepare("
-            INSERT INTO dating_likes (from_user_id, to_user_id, action)
-            VALUES (:f, :t, :a)
+        $lockUser = $pdo->prepare('SELECT id FROM users WHERE id = :id FOR UPDATE');
+        foreach ([min($from, $to), max($from, $to)] as $userId) {
+            $lockUser->execute([':id' => $userId]);
+            if (!$lockUser->fetchColumn()) {
+                throw new InvalidArgumentException('User not found.');
+            }
+        }
+
+        $blocked = $pdo->prepare("
+            SELECT 1 FROM user_blocks
+            WHERE (blocker_id = :from_id AND blocked_id = :to_id)
+               OR (blocker_id = :to_id AND blocked_id = :from_id)
+            LIMIT 1
         ");
-        $ins->execute([':f' => $from, ':t' => $to, ':a' => $action]);
+        $blocked->execute([':from_id' => $from, ':to_id' => $to]);
+        if ($blocked->fetchColumn()) {
+            throw new DomainException('Profile not available.');
+        }
+
+        $check = $pdo->prepare("
+            SELECT action FROM dating_likes
+            WHERE from_user_id = :f AND to_user_id = :t
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $check->execute([':f' => $from, ':t' => $to]);
+        $existing = $check->fetchColumn();
+        if ($existing === 'pass' || ($existing !== false && $action === 'pass')) {
+            $pdo->commit();
+            return ['matched' => false, 'match' => null];
+        }
+
+        if ($existing === false) {
+            if ($action === 'like' && dating_likes_today($pdo, $from) >= DATING_DAILY_LIKE_LIMIT) {
+                throw new RuntimeException("You have reached today's like limit. Try again tomorrow.");
+            }
+
+            $ins = $pdo->prepare("
+                INSERT INTO dating_likes (from_user_id, to_user_id, action)
+                VALUES (:f, :t, :a)
+            ");
+            $ins->execute([':f' => $from, ':t' => $to, ':a' => $action]);
+        }
 
         $matched = false;
         $matchRow = null;
 
         if ($action === 'like') {
             $recip = $pdo->prepare("
-                SELECT 1 FROM dating_likes
+                SELECT action FROM dating_likes
                 WHERE from_user_id = :t AND to_user_id = :f AND action = 'like'
                 LIMIT 1
+                FOR UPDATE
             ");
             $recip->execute([':t' => $to, ':f' => $from]);
 
-            if ($recip->fetchColumn()) {
+            if ($recip->fetchColumn() === 'like') {
                 $matched = true;
                 $a = min($from, $to);
                 $b = max($from, $to);
@@ -288,6 +310,7 @@ function record_swipe(PDO $pdo, int $from, int $to, string $action): array
                 $existingMatch = $pdo->prepare("
                     SELECT id, conversation_id FROM dating_matches
                     WHERE user_a_id = :a AND user_b_id = :b LIMIT 1
+                    FOR UPDATE
                 ");
                 $existingMatch->execute([':a' => $a, ':b' => $b]);
                 $m = $existingMatch->fetch(PDO::FETCH_ASSOC);
@@ -306,6 +329,7 @@ function record_swipe(PDO $pdo, int $from, int $to, string $action): array
                     ];
                 }
 
+                $createdConversationMessage = false;
                 require_once __DIR__ . '/messages.php';
                 require_once __DIR__ . '/crypto.php';
                 if (empty($matchRow['conversation_id'])) {
@@ -328,15 +352,18 @@ function record_swipe(PDO $pdo, int $from, int $to, string $action): array
                             ':s' => $from,
                             ':b' => $enc,
                         ]);
+                        $createdConversationMessage = true;
                     } catch (Throwable $e) {
                         error_log('dating match conversation error: ' . $e->getMessage());
                     }
                 }
 
-                try {
-                    notify_new_message($pdo, $to, $from, (int)($matchRow['conversation_id'] ?? 0));
-                } catch (Throwable $e) {
-                    error_log('dating notify error: ' . $e->getMessage());
+                if ($createdConversationMessage) {
+                    try {
+                        notify_new_message($pdo, $to, $from, (int)($matchRow['conversation_id'] ?? 0));
+                    } catch (Throwable $e) {
+                        error_log('dating notify error: ' . $e->getMessage());
+                    }
                 }
             }
         }

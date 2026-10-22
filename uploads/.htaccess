@@ -3,6 +3,10 @@ php_flag engine off
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteRule ^dating_verifications/ - [F,L,NC]
+    RewriteRule ^dating_photos/ - [F,L,NC]
+    RewriteRule ^messages/ - [F,L,NC]
+    RewriteRule ^posts_video/ - [F,L,NC]
     RewriteRule ^private_posts/ - [F,L,NC]
 </IfModule>
 

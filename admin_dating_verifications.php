@@ -36,13 +36,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_error'] = 'Note must be 500 characters or fewer.';
         } else {
             $newStatus = $action === 'approve' ? 'approved' : 'rejected';
-            $pdo->beginTransaction();
             try {
-                $pdo->prepare("
+                $pdo->beginTransaction();
+                $requestStmt = $pdo->prepare("
+                    SELECT user_id, status
+                    FROM dating_verification
+                    WHERE id = :id
+                    FOR UPDATE
+                ");
+                $requestStmt->execute([':id' => $verId]);
+                $request = $requestStmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$request) {
+                    throw new DomainException('Verification request not found.');
+                }
+                if ($request['status'] !== 'pending') {
+                    throw new DomainException('This verification request has already been handled.');
+                }
+
+                $targetUserId = (int)$request['user_id'];
+                $updateStmt = $pdo->prepare("
                     UPDATE dating_verification
                     SET status = :s, admin_id = :a, admin_note = :n, resolved_at = NOW()
-                    WHERE id = :id AND status = 'pending'
-                ")->execute([':s' => $newStatus, ':a' => $me, ':n' => $note, ':id' => $verId]);
+                    WHERE id = :id AND status = 'pending' AND user_id = :user_id
+                ");
+                $updateStmt->execute([
+                    ':s' => $newStatus,
+                    ':a' => $me,
+                    ':n' => $note,
+                    ':id' => $verId,
+                    ':user_id' => $targetUserId,
+                ]);
+                if ($updateStmt->rowCount() !== 1) {
+                    throw new RuntimeException('Verification request changed while being processed.');
+                }
+
+                if ($action === 'approve') {
+                    $userStmt = $pdo->prepare('SELECT id FROM users WHERE id = :id FOR UPDATE');
+                    $userStmt->execute([':id' => $targetUserId]);
+                    if (!$userStmt->fetchColumn()) {
+                        throw new RuntimeException('Verification request has no associated user.');
+                    }
+
+                    $pdo->prepare("
+                        INSERT INTO dating_profiles (user_id, is_active)
+                        VALUES (:user_id, 1)
+                        ON DUPLICATE KEY UPDATE is_active = 1
+                    ")->execute([':user_id' => $targetUserId]);
+                }
 
                 // Public moderation log
                 $logAction = $action === 'approve' ? 'dating_verified' : 'dating_verification_rejected';
@@ -60,6 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
                 $_SESSION['flash_success'] = 'Decision saved.';
+            } catch (DomainException $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $_SESSION['flash_error'] = $e->getMessage();
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 error_log('admin_dating_verifications error: ' . $e->getMessage());

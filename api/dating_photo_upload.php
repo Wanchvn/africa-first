@@ -9,7 +9,7 @@ require_once __DIR__ . '/../includes/dating.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') api_error(405, 'Method not allowed.');
 
-$user = api_require_admin($pdo);
+$user = api_require_auth($pdo);
 $me = (int)$user['id'];
 
 if (empty($_FILES['photo']['name']) || ($_FILES['photo']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -41,5 +41,6 @@ try {
     api_ok(['message' => 'Photo added.']);
 } catch (Throwable $e) {
     @unlink($abs);
-    api_error(400, $e->getMessage());
+    error_log('Dating photo upload failed: ' . get_class($e));
+    api_error(500, 'Could not save photo.');
 }

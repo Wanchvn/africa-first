@@ -29,16 +29,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = __('login_error_empty');
     } else {
         $stmt = $pdo->prepare("
-            SELECT id, username, password, is_admin, totp_enabled
-            FROM users
-            WHERE username = :username
-        ");
+    SELECT id, username, password, is_admin, two_factor_enabled
+    FROM users
+    WHERE username = :username
+");
         $stmt->execute([':username' => $username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password'])) {
             // ---- 2FA branch ----
-            if ((int)($user['totp_enabled'] ?? 0) === 1) {
+            if ((int)($user['two_factor_enabled'] ?? 0) === 1) {
                 $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
                 $_SESSION['pending_2fa_started'] = time();
 

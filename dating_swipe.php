@@ -29,6 +29,12 @@ $me       = (int)$_SESSION['user_id'];
 $targetId = (int)($_POST['target_id'] ?? 0);
 $action   = (string)($_POST['action'] ?? '');
 
+if (!is_dating_verified($pdo, $me)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Dating verification must be approved before using Dating.']);
+    exit;
+}
+
 if ($targetId <= 0 || $targetId === $me) {
     http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Invalid target.']);
@@ -61,6 +67,9 @@ try {
             'conversation_id' => isset($result['match']['conversation_id']) ? (int)$result['match']['conversation_id'] : null,
         ] : null,
     ]);
+} catch (DomainException $e) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 } catch (RuntimeException $e) {
     http_response_code(429);
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);

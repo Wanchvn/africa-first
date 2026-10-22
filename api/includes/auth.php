@@ -124,3 +124,15 @@ function api_require_auth(PDO $pdo): array
     }
     return $user;
 }
+
+/**
+ * Require an authenticated administrator.
+ */
+function api_require_admin(PDO $pdo): array
+{
+    $user = api_require_auth($pdo);
+    if (!isset($user['is_admin']) || (int)$user['is_admin'] !== 1) {
+        api_error(403, 'Forbidden. Admin access required.');
+    }
+    return $user;
+}

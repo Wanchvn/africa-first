@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/dating.php';
 
-$user = api_require_admin($pdo);
+$user = api_require_auth($pdo);
 $me = (int)$user['id'];
 
 $profile = get_dating_profile($pdo, $me);

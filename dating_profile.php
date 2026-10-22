@@ -21,6 +21,11 @@ if (!is_dating_active($pdo, $me)) {
     header('Location: dating.php');
     exit;
 }
+if (!is_dating_verified($pdo, $me)) {
+    $_SESSION['flash_error'] = 'Dating verification must be approved before using Dating.';
+    header('Location: dating_setup.php');
+    exit;
+}
 
 $username = trim((string)($_GET['u'] ?? ''));
 if ($username === '') {

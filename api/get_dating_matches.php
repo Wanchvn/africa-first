@@ -3,38 +3,47 @@ require_once __DIR__ . '/../includes/bootstrap.php';
 require_once __DIR__ . '/../includes/session.php';
 start_secure_session();
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/../includes/dating.php';
 
-$user = api_require_admin($pdo); 
+$user = api_require_auth($pdo);
 $me = (int)$user['id'];
 
 try {
-    // Fetch matches where the current user is either user_1 or user_2
-    // We join the users table to get the OTHER person's details
+    if (!is_dating_active($pdo, $me) || !is_dating_verified($pdo, $me)) {
+        api_error(403, 'Dating verification must be approved before using Dating.');
+    }
+
     $stmt = $pdo->prepare("
-        SELECT 
+        SELECT
             m.id AS match_id,
             m.conversation_id,
             u.id AS user_id,
-            u.display_name AS name,
+            COALESCE(NULLIF(u.display_name, ''), u.username) AS name,
             u.avatar,
-            u.age,
-            (SELECT media_path FROM dating_photos WHERE user_id = u.id ORDER BY is_primary DESC LIMIT 1) AS primary_photo
+            dp.age,
+            (SELECT path FROM dating_photos
+             WHERE user_id = u.id
+             ORDER BY position ASC, id ASC
+             LIMIT 1) AS primary_photo,
+            (SELECT id FROM dating_photos
+             WHERE user_id = u.id
+             ORDER BY position ASC, id ASC
+             LIMIT 1) AS primary_photo_id
         FROM dating_matches m
-        INNER JOIN users u ON (u.id = IF(m.user_1_id = :me, m.user_2_id, m.user_1_id))
-        WHERE m.user_1_id = :me OR m.user_2_id = :me
-        ORDER BY m.created_at DESC
+        INNER JOIN users u
+          ON u.id = CASE WHEN m.user_a_id = :me THEN m.user_b_id ELSE m.user_a_id END
+        LEFT JOIN dating_profiles dp ON dp.user_id = u.id
+        WHERE m.is_active = 1
+          AND (m.user_a_id = :me OR m.user_b_id = :me)
+        ORDER BY m.matched_at DESC
     ");
-    
     $stmt->execute([':me' => $me]);
     $matches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    echo json_encode([
-        'success' => true,
-        'matches' => $matches
-    ]);
+    api_ok(['matches' => $matches]);
 
 } catch (Throwable $e) {
-    error_log('Get dating matches error: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Database error']);
+    error_log('Get dating matches failed: ' . get_class($e));
+    api_error(500, 'Database error.');
 }

@@ -7,11 +7,14 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/../includes/dating.php';
 
-$user = api_require_admin($pdo);
+$user = api_require_auth($pdo);
 $me = (int)$user['id'];
 
 if (!is_dating_active($pdo, $me)) {
     api_error(403, 'You are not an active dating member.');
+}
+if (!is_dating_verified($pdo, $me)) {
+    api_error(403, 'Dating verification must be approved before using Dating.');
 }
 
 // fetch_swipe_candidate() returns a row or null.
@@ -24,8 +27,8 @@ if (!$candidate) {
 // Fetch their primary photo (from Phase 3)
 $primaryPhoto = get_primary_dating_photo($pdo, (int)$candidate['user_id']);
 $photoUrl = null;
+$photoId = 0;
 if ($primaryPhoto) {
-    // We need the photo ID to serve it through dating_photo_serve.php
     $stmt = $pdo->prepare("SELECT id FROM dating_photos WHERE user_id = :u ORDER BY position ASC, id ASC LIMIT 1");
     $stmt->execute([':u' => (int)$candidate['user_id']]);
     $photoId = (int)$stmt->fetchColumn();
@@ -45,6 +48,7 @@ api_ok([
         'bio' => $candidate['bio'],
         'avatar' => $candidate['avatar'],
         'primary_photo' => $photoUrl,
+        'primary_photo_id' => $photoId ?: null,
         'is_verified' => $isVerified
     ]
 ]);

@@ -9,7 +9,7 @@ require_once __DIR__ . '/../includes/dating.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') api_error(405, 'Method not allowed.');
 
-$user = api_require_admin($pdo);
+$user = api_require_auth($pdo);
 $me = (int)$user['id'];
 
 $raw = file_get_contents('php://input');

@@ -14,6 +14,12 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $me = (int)$_SESSION['user_id'];
+if (!is_dating_verified($pdo, $me)) {
+    $_SESSION['flash_error'] = 'Dating verification must be approved before using Dating.';
+    header('Location: dating_setup.php');
+    exit;
+}
+
 $iAmActive = is_dating_active($pdo, $me);
 
 $filters = [
